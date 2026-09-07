@@ -19,6 +19,25 @@
 "reset.expiry_unknown" = "无固定过期时间";
 "reset.expiry_format" = "%@ 到期";
 
+"usage.title" = "Token 活跃度";
+"usage.today" = "今日消耗";
+"usage.lifetime" = "累计消耗";
+"usage.streak_format" = "连续 %d 天";
+"usage.streak_single_format" = "连续 %d 天";
+"usage.lifetime_format" = "累计 %@";
+"usage.today_short" = "今天";
+"usage.chart_accessibility" = "近 7 天 Token 消耗趋势";
+"usage.accessibility_day_format" = "%@：%@ Token";
+"usage.grid_range_format" = "近 %d 周活跃度";
+"usage.hover_hint" = "悬停方格查看每日用量";
+"usage.today_tag" = "今天";
+"usage.legend_less" = "少";
+"usage.legend_more" = "多";
+"usage.weekday_mon" = "一";
+"usage.weekday_wed" = "三";
+"usage.weekday_fri" = "五";
+"usage.accessibility_grid" = "Token 历史活跃度方框图";
+
 "awake.title" = "保持唤醒";
 "awake.status_off" = "已关闭 · Mac 正常休眠";
 "awake.status_indefinite" = "保持至手动关闭";

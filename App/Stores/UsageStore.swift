@@ -110,7 +110,7 @@ final class UsageStore {
                 try LocalSnapshotStore.save(latest)
             }.value
             logger.info(
-                "Quota refresh succeeded; fiveHourPresent=\(latest.fiveHour != nil, privacy: .public), resetCount=\(latest.availableResetCount, privacy: .public), resetDataCurrent=\(latest.hasCurrentResetCreditData, privacy: .public)"
+                "Quota refresh succeeded; fiveHourPresent=\(latest.fiveHour != nil, privacy: .public), resetCount=\(latest.availableResetCount, privacy: .public), resetDataCurrent=\(latest.hasCurrentResetCreditData, privacy: .public), tokenBuckets=\(latest.dailyUsageBuckets.count, privacy: .public)"
             )
         } catch {
             phase = .failed(error.localizedDescription)

@@ -88,9 +88,9 @@ public struct AntigravityQuotaGroup: Codable, Equatable, Identifiable, Sendable 
 
     private var menuBarPrefix: String {
         switch id.lowercased() {
-        case "gemini": "AG-G"
-        case "3p": "AG-C/G"
-        default: "AG"
+        case "gemini": "✦"
+        case "3p": "✳"
+        default: "⟁"
         }
     }
 }

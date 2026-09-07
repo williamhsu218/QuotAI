@@ -457,7 +457,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
                 forKey: AntigravityQuotaGroup.menuBarGroupDefaultsKey
             )
             guard let group = antigravityStore.snapshot?.group(id: groupID) else {
-                return ("AG --", "Antigravity · --")
+                return ("✦ --", "Antigravity · --")
             }
             let title = group.menuBarTitle(for: menuBarQuotaDisplayMode)
             return (title, "Antigravity · \(group.localizedDisplayName) · \(title)")

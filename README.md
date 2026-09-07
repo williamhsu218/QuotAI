@@ -5,6 +5,7 @@ macOS 原生菜单栏工具。把本机 Codex 与 Antigravity 额度放在同一
 
 - 5 小时剩余额度；Codex 暂不返回该窗口时整行隐藏
 - 7 天剩余额度
+- Codex Token 累计用量、连续活跃天数及最近 18 周活跃度；需要本机 Codex 支持可选的 `account/usage/read` 接口
 - Antigravity 的 Gemini 与 Claude/GPT 模型组；每组分别展示 5 小时与每周额度，
   不与 Codex 或另一个 Antigravity 模型组相加
 - 弹窗使用 Codex / Antigravity 两个明确页面；菜单栏可在设置中选择 Codex 或
@@ -46,6 +47,16 @@ swift test
 ./script/build_and_run.sh --package-release
 ```
 
+可选 Token 接口的隔离回归测试（不连接真实账户）：
+
+```bash
+mkdir -p build
+swiftc -parse-as-library Core/*.swift App/Services/CodexBinaryLocator.swift App/Services/CodexAppServerClient.swift Tools/ClientFallbackProbe.swift -o build/client-fallback-probe
+for mode in silent eof unsupported usage; do
+  QUOTAI_PROBE_MODE=$mode build/client-fallback-probe || exit 1
+done
+```
+
 `--package-release` 会生成不含调试文件的 Universal Release ZIP，同时支持
 Apple Silicon 与 Intel。由于 App 使用 ad-hoc 签名而非 Apple Developer ID，
 通过微信、浏览器等方式传输后 macOS 会添加隔离标记。如果双击无法打开，先将
@@ -66,7 +77,9 @@ open "/Applications/QuotAI.app"
 
 App 通过本机 `codex app-server --stdio` 的 `account/rateLimits/read` 读取 Codex
 额度与套餐名称，不上传数据，也不保存登录令牌、账号 ID 或邮箱。最近一次成功的
-Codex 额度与套餐名称仅缓存在本机 Application Support 目录。
+Codex 额度、套餐名称与 Token 用量仅缓存在本机 Application Support 目录。
+可选的 `account/usage/read` 失败或超时不影响额度读取；暂时缺失时保留最近缓存，
+接口明确返回空用量时清除旧图表。Token 数据为账户接口统计，不代表本 App 产生的用量。
 
 Antigravity 使用另一条完全独立的本机链路：运行时发现其动态 language-server
 监听端口，并调用

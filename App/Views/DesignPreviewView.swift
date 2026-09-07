@@ -54,7 +54,7 @@ struct DesignPreviewView: View {
         case .antigravity:
             return antigravityStore.snapshot?
                 .group(id: menuBarAntigravityGroupID)?
-                .menuBarTitle(for: menuBarQuotaDisplayMode) ?? "AG --"
+                .menuBarTitle(for: menuBarQuotaDisplayMode) ?? "✦ --"
         }
     }
 

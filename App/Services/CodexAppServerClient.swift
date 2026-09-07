@@ -84,7 +84,7 @@ actor CodexAppServerClient {
                     logger.info(
                         "Reset credit confirmation completed; resetCount=\(confirmed.availableResetCount, privacy: .public), current=\(confirmed.hasCurrentResetCreditData, privacy: .public)"
                     )
-                    return confirmed.hasCurrentResetCreditData ? confirmed : snapshot
+                    return confirmed.hasCurrentResetCreditData ? confirmed.preservingResetCredits(from: snapshot) : snapshot
                 } catch {
                     logger.info(
                         "Reset credit confirmation failed; retaining the initial quota snapshot"
@@ -145,7 +145,8 @@ actor CodexAppServerClient {
                 "id": 2,
                 "params": ["refreshToken": false]
             ],
-            ["method": "account/rateLimits/read", "id": 3, "params": NSNull()]
+            ["method": "account/rateLimits/read", "id": 3, "params": NSNull()],
+            ["method": "account/usage/read", "id": 4, "params": NSNull()]
         ]
 
         let requestData = try messages.reduce(into: Data()) { buffer, message in
@@ -164,34 +165,59 @@ actor CodexAppServerClient {
         let reader = outputPipe.fileHandleForReading
         let deadline = Date().addingTimeInterval(15)
         var buffer = Data()
+        var firstRateLimitFoundTime: Date? = nil
+        let usageGracePeriod: TimeInterval = 4.5
 
         while Date() < deadline {
-            let remainingMilliseconds = max(1, Int32(deadline.timeIntervalSinceNow * 1_000))
+            let wakeDeadline = min(deadline, firstRateLimitFoundTime?.addingTimeInterval(usageGracePeriod) ?? deadline)
+            let remainingMilliseconds = max(1, Int32(wakeDeadline.timeIntervalSinceNow * 1_000))
             var descriptor = pollfd(fd: reader.fileDescriptor, events: Int16(POLLIN), revents: 0)
             let pollResult = Darwin.poll(&descriptor, 1, remainingMilliseconds)
-            if pollResult == 0 { break }
             if pollResult < 0 {
                 if errno == EINTR { continue }
                 break
             }
 
-            guard descriptor.revents & Int16(POLLIN) != 0 else {
-                break
+            var streamEnded = pollResult > 0 && descriptor.revents & Int16(POLLIN) == 0
+            if descriptor.revents & Int16(POLLIN) != 0 {
+                var bytes = [UInt8](repeating: 0, count: 65_536)
+                let byteCount = Darwin.read(reader.fileDescriptor, &bytes, bytes.count)
+                if byteCount > 0 {
+                    buffer.append(contentsOf: bytes.prefix(Int(byteCount)))
+                } else {
+                    streamEnded = true
+                }
+            }
+            guard let text = String(data: buffer, encoding: .utf8) else { continue }
+
+            let hasRateLimits = jsonLinesContainResponse(for: 3, in: text)
+            let hasUsage = jsonLinesContainResponse(for: 4, in: text)
+
+            if hasRateLimits && firstRateLimitFoundTime == nil {
+                firstRateLimitFoundTime = Date()
             }
 
-            var bytes = [UInt8](repeating: 0, count: 65_536)
-            let byteCount = Darwin.read(reader.fileDescriptor, &bytes, bytes.count)
-            guard byteCount > 0 else { break }
-            buffer.append(contentsOf: bytes.prefix(Int(byteCount)))
-            guard let text = String(data: buffer, encoding: .utf8) else { continue }
+            let usageTimedOut = hasRateLimits && (firstRateLimitFoundTime.map { Date().timeIntervalSince($0) >= usageGracePeriod } ?? false)
+            let shouldAttemptParse = hasRateLimits && (hasUsage || usageTimedOut || streamEnded || Date() >= deadline)
+
+            guard shouldAttemptParse else {
+                if streamEnded || Date() >= deadline { break }
+                continue
+            }
 
             do {
                 let snapshot = try CodexRateLimitParser.parse(
                     jsonLines: text,
-                    requestID: 3
+                    requestID: 3,
+                    usageRequestID: 4
                 )
                 try? inputPipe.fileHandleForWriting.close()
                 stop(process)
+                if hasUsage {
+                    logger.info("Parsed Codex snapshot; optional usage response received (\(snapshot.dailyUsageBuckets.count, privacy: .public) buckets)")
+                } else if usageTimedOut {
+                    logger.info("Codex token usage response timed out after grace period; parsed rate limits only")
+                }
                 return snapshot
             } catch CodexRateLimitParserError.missingResponse {
                 continue
@@ -293,5 +319,19 @@ actor CodexAppServerClient {
             return "id=\(id) keys=\(keys)"
         }
         .joined(separator: "; ")
+    }
+
+    private nonisolated static func jsonLinesContainResponse(for requestID: Int, in text: String) -> Bool {
+        for line in text.split(whereSeparator: \.isNewline) {
+            guard let data = String(line).data(using: .utf8),
+                  let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let id = object["id"] as? Int else {
+                continue
+            }
+            if id == requestID {
+                return true
+            }
+        }
+        return false
     }
 }

@@ -516,7 +516,7 @@ struct SettingsView: View {
             return store.snapshot?.menuBarTitle(for: menuBarQuotaDisplayMode) ?? "5h 82% · 7d 93%"
         }
         let group = antigravityStore.snapshot?.group(id: menuBarAntigravityGroupID)
-        return group?.menuBarTitle(for: menuBarQuotaDisplayMode) ?? "AG-G 5h 76% · 7d 61%"
+        return group?.menuBarTitle(for: menuBarQuotaDisplayMode) ?? "✦ 5h 76% · 7d 61%"
     }
 
     private var codexPathIsValid: Bool {

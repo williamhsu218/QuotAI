@@ -101,10 +101,60 @@ func acceptsConfirmedZeroResetCount() {
         sevenDay: UsageSnapshot.preview.sevenDay,
         availableResetCount: 0,
         resetCredits: [],
-        hasCurrentResetCreditData: true
+        hasCurrentResetCreditData: true,
+        dailyUsageBuckets: UsageSnapshot.preview.dailyUsageBuckets,
+        tokenUsageSummary: UsageSnapshot.preview.tokenUsageSummary
     )
 
-    #expect(current.preservingResetCredits(from: .preview) == current)
+    let merged = current.preservingResetCredits(from: .preview)
+    #expect(merged.availableResetCount == 0)
+    #expect(merged.resetCredits.isEmpty)
+    #expect(merged.hasCurrentResetCreditData)
+    #expect(merged == current)
+}
+
+@Test("Preserves cached token usage when a new snapshot omits usage data")
+func preservesCachedTokenUsageWhenNewSnapshotOmitsUsage() {
+    let previous = UsageSnapshot.preview
+    let newWithoutUsage = UsageSnapshot(
+        fetchedAt: previous.fetchedAt.addingTimeInterval(300),
+        fiveHour: previous.fiveHour,
+        sevenDay: previous.sevenDay,
+        subscriptionPlan: previous.subscriptionPlan,
+        availableResetCount: 3,
+        resetCredits: previous.resetCredits,
+        hasCurrentResetCreditData: true,
+        dailyUsageBuckets: [],
+        tokenUsageSummary: nil
+    )
+
+    let merged = newWithoutUsage.preservingResetCredits(from: previous)
+
+    #expect(merged.dailyUsageBuckets == previous.dailyUsageBuckets)
+    #expect(merged.tokenUsageSummary == previous.tokenUsageSummary)
+}
+
+@Test("Updates token usage data when a new snapshot provides usage data")
+func updatesTokenUsageWhenNewSnapshotProvidesUsage() {
+    let previous = UsageSnapshot.preview
+    let newBuckets = [DailyUsageBucket(startDate: "2026-09-07", tokens: 50_000)]
+    let newSummary = AccountTokenUsageSummary(lifetimeTokens: 12_000_000_000, currentStreakDays: 78)
+    let newWithUsage = UsageSnapshot(
+        fetchedAt: previous.fetchedAt.addingTimeInterval(300),
+        fiveHour: previous.fiveHour,
+        sevenDay: previous.sevenDay,
+        subscriptionPlan: previous.subscriptionPlan,
+        availableResetCount: 3,
+        resetCredits: previous.resetCredits,
+        hasCurrentResetCreditData: true,
+        dailyUsageBuckets: newBuckets,
+        tokenUsageSummary: newSummary
+    )
+
+    let merged = newWithUsage.preservingResetCredits(from: previous)
+
+    #expect(merged.dailyUsageBuckets == newBuckets)
+    #expect(merged.tokenUsageSummary == newSummary)
 }
 
 @Test("Decodes caches written before reset freshness was added")
@@ -177,4 +227,170 @@ func formatsSubscriptionPlans() {
     #expect(SubscriptionPlan(identifier: "self_serve_business_usage_based")?.displayName == "Business")
     #expect(SubscriptionPlan(identifier: "enterprise_cbp_usage_based")?.displayName == "Enterprise")
     #expect(SubscriptionPlan(identifier: "unknown") == nil)
+}
+
+@Test("Parses account token usage and daily buckets when present")
+func parsesAccountTokenUsage() throws {
+    let payload = """
+    {"id":3,"result":{"rateLimits":{"planType":"plus","primary":{"usedPercent":18,"windowDurationMins":300,"resetsAt":1784122800},"secondary":{"usedPercent":7,"windowDurationMins":10080,"resetsAt":1784682166}},"rateLimitResetCredits":{"availableCount":1,"credits":[]}}}
+    {"id":4,"result":{"summary":{"currentStreakDays":76,"lifetimeTokens":11601258469,"longestRunningTurnSec":20701,"longestStreakDays":76,"peakDailyTokens":361809076},"dailyUsageBuckets":[{"startDate":"2026-09-04","tokens":154358560},{"startDate":"2026-09-05","tokens":60975604}]}}
+    """
+
+    let snapshot = try CodexRateLimitParser.parse(
+        jsonLines: payload,
+        requestID: 3,
+        usageRequestID: 4
+    )
+
+    #expect(snapshot.dailyUsageBuckets.count == 2)
+    #expect(snapshot.dailyUsageBuckets[0].startDate == "2026-09-04")
+    #expect(snapshot.dailyUsageBuckets[0].tokens == 154_358_560)
+    #expect(snapshot.dailyUsageBuckets[0].formattedTokens == "154.4 M")
+    #expect(snapshot.dailyUsageBuckets[1].startDate == "2026-09-05")
+    #expect(snapshot.dailyUsageBuckets[1].tokens == 60_975_604)
+    #expect(snapshot.dailyUsageBuckets[1].formattedTokens == "61.0 M")
+
+    #expect(snapshot.tokenUsageSummary?.lifetimeTokens == 11_601_258_469)
+    #expect(snapshot.tokenUsageSummary?.formattedLifetimeTokens == "11.6 B")
+    #expect(snapshot.tokenUsageSummary?.currentStreakDays == 76)
+    #expect(snapshot.tokenUsageSummary?.peakDailyTokens == 361_809_076)
+}
+
+@Test("Explicit empty usage clears cached data; unsupported usage preserves it")
+func emptyAndUnavailableUsageAreDistinct() throws {
+    let quota = #"{"id":3,"result":{"rateLimits":{"primary":{"usedPercent":18,"windowDurationMins":300,"resetsAt":1784122800}}}}"#
+    for (response, isCurrent) in [
+        (#"{"id":4,"result":{"dailyUsageBuckets":[]}}"#, true),
+        (#"{"id":4,"error":{"code":-32601,"message":"Method not found"}}"#, false),
+        ("", false)
+    ] {
+        let parsed = try CodexRateLimitParser.parse(jsonLines: quota + "\n" + response, requestID: 3, usageRequestID: 4)
+        #expect(parsed.hasCurrentTokenUsageData == isCurrent)
+        let merged = parsed.preservingResetCredits(from: .preview)
+        #expect(merged.dailyUsageBuckets == (isCurrent ? [] : UsageSnapshot.preview.dailyUsageBuckets))
+        #expect(merged.tokenUsageSummary == (isCurrent ? nil : UsageSnapshot.preview.tokenUsageSummary))
+        let decoded = try JSONDecoder().decode(UsageSnapshot.self, from: JSONEncoder().encode(merged))
+        #expect(decoded == merged)
+    }
+}
+
+@Test("Daily usage does not substitute the previous UTC date for a missing local day")
+func dailyUsageDateBoundaries() throws {
+    var calendar = Calendar(identifier: .buddhist)
+    calendar.timeZone = TimeZone(secondsFromGMT: 8 * 3600)!
+    let date = ISO8601DateFormatter().date(from: "2026-09-07T01:00:00+08:00")!
+    let snapshot = UsageSnapshot(fetchedAt: date, fiveHour: nil, sevenDay: nil,
+        availableResetCount: 0, resetCredits: [], dailyUsageBuckets: [
+            DailyUsageBucket(startDate: "2026-09-06", tokens: 100)
+        ])
+    #expect(snapshot.bucket(for: date, calendar: calendar) == nil)
+    let days = snapshot.activityWeeks(count: 1, endingOn: date, calendar: calendar).flatMap(\.days)
+    #expect(days.first?.dateString == "2026-09-07")
+}
+
+@Test("Formats token counts with appropriate scale suffix")
+func formatsTokenCounts() {
+    #expect(DailyUsageBucket.formatTokens(0) == "0")
+    #expect(DailyUsageBucket.formatTokens(850) == "850")
+    #expect(DailyUsageBucket.formatTokens(1_500) == "1.5 K")
+    #expect(DailyUsageBucket.formatTokens(60_975_604) == "61.0 M")
+    #expect(DailyUsageBucket.formatTokens(11_601_258_469) == "11.6 B")
+}
+
+@Test("Generates 7-day buckets ending on the specified date with zero padding")
+func generatesSevenDayBuckets() {
+    let calendar = Calendar(identifier: .gregorian)
+    var components = DateComponents()
+    components.calendar = calendar
+    components.year = 2026
+    components.month = 9
+    components.day = 6
+    let date = components.date!
+
+    let snapshot = UsageSnapshot(
+        fetchedAt: date,
+        fiveHour: nil,
+        sevenDay: nil,
+        availableResetCount: 0,
+        resetCredits: [],
+        dailyUsageBuckets: [
+            DailyUsageBucket(startDate: "2026-09-04", tokens: 100),
+            DailyUsageBucket(startDate: "2026-09-05", tokens: 200)
+        ]
+    )
+
+    let sevenDays = snapshot.sevenDayBuckets(endingOn: date, calendar: calendar)
+    #expect(sevenDays.count == 7)
+    #expect(sevenDays.last?.startDate == "2026-09-06")
+    #expect(sevenDays.last?.tokens == 0)
+    #expect(sevenDays[5].startDate == "2026-09-05")
+    #expect(sevenDays[5].tokens == 200)
+    #expect(sevenDays[4].startDate == "2026-09-04")
+    #expect(sevenDays[4].tokens == 100)
+    #expect(sevenDays[0].startDate == "2026-08-31")
+    #expect(sevenDays[0].tokens == 0)
+}
+
+@Test("Generates multi-week activity grid with correct weekday slicing and today/future flags")
+func generatesActivityWeeks() {
+    let calendar = Calendar(identifier: .gregorian)
+    var components = DateComponents()
+    components.calendar = calendar
+    components.year = 2026
+    components.month = 9
+    components.day = 2 // Wednesday
+    let date = components.date!
+
+    let snapshot = UsageSnapshot(
+        fetchedAt: date,
+        fiveHour: nil,
+        sevenDay: nil,
+        availableResetCount: 0,
+        resetCredits: [],
+        dailyUsageBuckets: [
+            DailyUsageBucket(startDate: "2026-08-31", tokens: 50),
+            DailyUsageBucket(startDate: "2026-09-01", tokens: 100),
+            DailyUsageBucket(startDate: "2026-09-02", tokens: 150)
+        ]
+    )
+
+    let weeks = snapshot.activityWeeks(count: 18, endingOn: date, calendar: calendar)
+    #expect(weeks.count == 18)
+
+    // Verify first week
+    let firstWeek = weeks[0]
+    #expect(firstWeek.days.count == 7)
+
+    // Verify last week (ending around 2026-09-02)
+    let lastWeek = weeks[17]
+    #expect(lastWeek.days.count == 7)
+
+    // Mon 2026-08-31
+    #expect(lastWeek.days[0].dateString == "2026-08-31")
+    #expect(lastWeek.days[0].tokens == 50)
+    #expect(!lastWeek.days[0].isToday)
+    #expect(!lastWeek.days[0].isFuture)
+
+    // Tue 2026-09-01
+    #expect(lastWeek.days[1].dateString == "2026-09-01")
+    #expect(lastWeek.days[1].tokens == 100)
+    #expect(!lastWeek.days[1].isToday)
+    #expect(!lastWeek.days[1].isFuture)
+
+    // Wed 2026-09-02 (Today)
+    #expect(lastWeek.days[2].dateString == "2026-09-02")
+    #expect(lastWeek.days[2].tokens == 150)
+    #expect(lastWeek.days[2].isToday)
+    #expect(!lastWeek.days[2].isFuture)
+
+    // Thu 2026-09-03 (Future)
+    #expect(lastWeek.days[3].dateString == "2026-09-03")
+    #expect(lastWeek.days[3].tokens == 0)
+    #expect(!lastWeek.days[3].isToday)
+    #expect(lastWeek.days[3].isFuture)
+
+    // Sun 2026-09-06 (Future)
+    #expect(lastWeek.days[6].dateString == "2026-09-06")
+    #expect(!lastWeek.days[6].isToday)
+    #expect(lastWeek.days[6].isFuture)
 }

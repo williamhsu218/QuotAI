@@ -32,6 +32,7 @@ public enum CodexRateLimitParser {
     public static func parse(
         jsonLines: String,
         requestID: Int = 2,
+        usageRequestID: Int? = nil,
         fetchedAt: Date = Date()
     ) throws -> UsageSnapshot {
         let decoder = JSONDecoder()
@@ -87,6 +88,45 @@ public enum CodexRateLimitParser {
                 ($0.expiresAt ?? .distantFuture) < ($1.expiresAt ?? .distantFuture)
             }
 
+        var dailyBuckets: [DailyUsageBucket] = []
+        var usageSummary: AccountTokenUsageSummary?
+        var hasCurrentUsageData = false
+
+        for line in jsonLines.split(whereSeparator: \.isNewline) {
+            guard let data = String(line).data(using: .utf8),
+                  let envelope = try? decoder.decode(AccountUsageEnvelope.self, from: data) else {
+                continue
+            }
+            if let targetID = usageRequestID {
+                guard envelope.id == targetID else { continue }
+            } else {
+                guard envelope.id != requestID,
+                      (envelope.result?.dailyUsageBuckets != nil || envelope.result?.summary != nil) else {
+                    continue
+                }
+            }
+
+            if let usageResult = envelope.result {
+                hasCurrentUsageData = usageResult.dailyUsageBuckets != nil || usageResult.summary != nil
+                if let rawBuckets = usageResult.dailyUsageBuckets {
+                    dailyBuckets = rawBuckets.compactMap { bucket in
+                        guard let startDate = bucket.startDate, let tokens = bucket.tokens else { return nil }
+                        return DailyUsageBucket(startDate: startDate, tokens: tokens)
+                    }
+                }
+                if let rawSummary = usageResult.summary {
+                    usageSummary = AccountTokenUsageSummary(
+                        lifetimeTokens: rawSummary.lifetimeTokens,
+                        currentStreakDays: rawSummary.currentStreakDays,
+                        longestStreakDays: rawSummary.longestStreakDays,
+                        peakDailyTokens: rawSummary.peakDailyTokens,
+                        longestRunningTurnSec: rawSummary.longestRunningTurnSec
+                    )
+                }
+            }
+            break
+        }
+
         return UsageSnapshot(
             fetchedAt: fetchedAt,
             fiveHour: fiveHour,
@@ -99,7 +139,10 @@ public enum CodexRateLimitParser {
             ),
             availableResetCount: max(summary?.availableCount ?? 0, credits.count),
             resetCredits: credits,
-            hasCurrentResetCreditData: summary != nil
+            hasCurrentResetCreditData: summary != nil,
+            dailyUsageBuckets: dailyBuckets,
+            tokenUsageSummary: usageSummary,
+            hasCurrentTokenUsageData: hasCurrentUsageData
         )
     }
 
@@ -110,6 +153,30 @@ public enum CodexRateLimitParser {
             resetsAt: window.resetsAt.map { Date(timeIntervalSince1970: TimeInterval($0)) }
         )
     }
+}
+
+private struct AccountUsageEnvelope: Decodable {
+    let id: Int?
+    let result: AccountUsageResultDTO?
+    let error: RPCErrorDTO?
+}
+
+private struct AccountUsageResultDTO: Decodable {
+    let summary: AccountUsageSummaryDTO?
+    let dailyUsageBuckets: [AccountDailyUsageBucketDTO]?
+}
+
+private struct AccountUsageSummaryDTO: Decodable {
+    let currentStreakDays: Int?
+    let lifetimeTokens: Int64?
+    let longestRunningTurnSec: Int64?
+    let longestStreakDays: Int?
+    let peakDailyTokens: Int64?
+}
+
+private struct AccountDailyUsageBucketDTO: Decodable {
+    let startDate: String?
+    let tokens: Int64?
 }
 
 private struct RateLimitsEnvelope: Decodable {

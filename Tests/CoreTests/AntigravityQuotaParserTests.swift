@@ -46,11 +46,15 @@ func parsesAntigravityQuotaGroups() throws {
 
 @Test("Uses the existing 5h and 7d menu bar display mode for Antigravity")
 func formatsAntigravityMenuBarTitle() {
-    let group = AntigravityQuotaSnapshot.preview.groups[0]
+    let geminiGroup = AntigravityQuotaSnapshot.preview.groups[0]
+    #expect(geminiGroup.menuBarTitle(for: .fiveHour) == "✦ 5h 76%")
+    #expect(geminiGroup.menuBarTitle(for: .sevenDay) == "✦ 7d 61%")
+    #expect(geminiGroup.menuBarTitle(for: .both) == "✦ 5h 76% · 7d 61%")
 
-    #expect(group.menuBarTitle(for: .fiveHour) == "AG-G 5h 76%")
-    #expect(group.menuBarTitle(for: .sevenDay) == "AG-G 7d 61%")
-    #expect(group.menuBarTitle(for: .both) == "AG-G 5h 76% · 7d 61%")
+    let thirdPartyGroup = AntigravityQuotaSnapshot.preview.groups[1]
+    #expect(thirdPartyGroup.menuBarTitle(for: .fiveHour) == "✳ 5h 44%")
+    #expect(thirdPartyGroup.menuBarTitle(for: .sevenDay) == "✳ 7d 28%")
+    #expect(thirdPartyGroup.menuBarTitle(for: .both) == "✳ 5h 44% · 7d 28%")
 }
 
 @Test("Accepts a direct quota response and clamps out-of-range fractions")

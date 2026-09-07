@@ -150,6 +150,8 @@ struct MenuBarPanelView: View {
                 quotaSection(snapshot)
 
                 ResetCreditsView(snapshot: snapshot)
+
+                CodexTokenUsageView(snapshot: snapshot)
             }
         } else {
             emptyState

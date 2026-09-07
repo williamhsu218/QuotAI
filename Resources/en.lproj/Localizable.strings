@@ -19,6 +19,25 @@
 "reset.expiry_unknown" = "No fixed expiry time";
 "reset.expiry_format" = "Expires %@";
 
+"usage.title" = "Token Activity";
+"usage.today" = "Today";
+"usage.lifetime" = "Lifetime";
+"usage.streak_format" = "%d days";
+"usage.streak_single_format" = "%d day";
+"usage.lifetime_format" = "Total %@";
+"usage.today_short" = "Today";
+"usage.chart_accessibility" = "7-day token usage trend";
+"usage.accessibility_day_format" = "%@: %@ tokens";
+"usage.grid_range_format" = "Past %d weeks";
+"usage.hover_hint" = "Hover over squares for details";
+"usage.today_tag" = "Today";
+"usage.legend_less" = "Less";
+"usage.legend_more" = "More";
+"usage.weekday_mon" = "M";
+"usage.weekday_wed" = "W";
+"usage.weekday_fri" = "F";
+"usage.accessibility_grid" = "Token activity contribution grid";
+
 "awake.title" = "Stay Awake";
 "awake.status_off" = "Off · Mac sleeps normally";
 "awake.status_indefinite" = "On until turned off";
