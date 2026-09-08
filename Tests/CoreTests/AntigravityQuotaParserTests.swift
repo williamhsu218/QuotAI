@@ -57,6 +57,48 @@ func formatsAntigravityMenuBarTitle() {
     #expect(thirdPartyGroup.menuBarTitle(for: .both) == "✳ 5h 44% · 7d 28%")
 }
 
+@Test("Antigravity quota tabs preserve separate pools and fall back for a missing selection")
+func antigravityQuotaTabSelection() {
+    let snapshot = AntigravityQuotaSnapshot.preview
+    #expect(snapshot.panelGroup(id: "gemini")?.fiveHour?.remainingPercent == 76)
+    #expect(snapshot.panelGroup(id: "3p")?.fiveHour?.remainingPercent == 44)
+    #expect(snapshot.panelGroup(id: "3p")?.sevenDay?.remainingPercent == 28)
+    #expect(snapshot.panelGroup(id: "removed")?.id == "gemini")
+    #expect(snapshot.panelGroup(id: nil)?.id == "gemini")
+    #expect(snapshot.panelGroup(id: "")?.id == "gemini")
+    let single = AntigravityQuotaSnapshot(fetchedAt: snapshot.fetchedAt, groups: [snapshot.groups[1]])
+    #expect(single.panelGroup(id: "gemini")?.id == "3p")
+    let empty = AntigravityQuotaSnapshot(fetchedAt: snapshot.fetchedAt, groups: [])
+    #expect(empty.panelGroup(id: "gemini") == nil)
+}
+
+@Test("Antigravity tabs use compact labels and a preference separate from the menu bar")
+func antigravityQuotaTabPreferences() throws {
+    let suite = "QuotAI.tab-tests." + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    defaults.set("gemini", forKey: AntigravityQuotaGroup.menuBarGroupDefaultsKey)
+    defaults.set("3p", forKey: AntigravityQuotaGroup.panelGroupDefaultsKey)
+    #expect(defaults.string(forKey: AntigravityQuotaGroup.menuBarGroupDefaultsKey) == "gemini")
+    #expect(defaults.string(forKey: AntigravityQuotaGroup.panelGroupDefaultsKey) == "3p")
+    #expect(AntigravityQuotaTab.allCases.map(\.title) == ["Gemini", "Claude / GPT"])
+    #expect(AntigravityQuotaTab.allCases.map(\.rawValue) == ["gemini", "3p"])
+}
+
+@Test("The two quota tabs never substitute an unknown pool for a known model family")
+func antigravityQuotaTabRejectsUnknownPool() {
+    let future = AntigravityQuotaGroup(id: "future", displayName: "Future models",
+                                       fiveHour: .init(kind: .fiveHour, remainingPercent: 99, resetsAt: nil), sevenDay: nil)
+    let known = AntigravityQuotaSnapshot.preview
+    let reordered = AntigravityQuotaSnapshot(fetchedAt: known.fetchedAt,
+                                            groups: [future, known.groups[1], known.groups[0]])
+    #expect(reordered.panelGroup(id: "future")?.id == "gemini")
+    #expect(reordered.panelGroup(id: "3p")?.fiveHour?.remainingPercent == 44)
+    let unknownOnly = AntigravityQuotaSnapshot(fetchedAt: known.fetchedAt, groups: [future])
+    #expect(unknownOnly.panelGroup(id: "gemini") == nil)
+    #expect(unknownOnly.group(id: "future")?.id == "future") // Menu bar behavior stays intact.
+}
+
 @Test("Accepts a direct quota response and clamps out-of-range fractions")
 func parsesDirectAntigravityQuotaResponse() throws {
     let json = #"""

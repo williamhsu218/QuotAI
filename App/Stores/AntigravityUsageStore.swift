@@ -29,6 +29,7 @@ final class AntigravityUsageStore {
     private(set) var snapshot: AntigravityQuotaSnapshot?
     private(set) var phase: Phase = .idle
     private(set) var isEnabled = false
+    let tokenUsage: AntigravityTokenStore
 
     @ObservationIgnored private let client = AntigravityQuotaClient()
     @ObservationIgnored private var refreshLoop: Task<Void, Never>?
@@ -38,8 +39,9 @@ final class AntigravityUsageStore {
         category: "AntigravitySync"
     )
 
-    init(previewMode: Bool = false) {
+    init(previewMode: Bool = false, tokenUsage: AntigravityTokenStore? = nil) {
         self.previewMode = previewMode
+        self.tokenUsage = tokenUsage ?? AntigravityTokenStore(previewMode: previewMode)
         if previewMode {
             snapshot = .preview
             phase = .ready

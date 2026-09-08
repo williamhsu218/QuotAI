@@ -30,8 +30,22 @@ public enum QuotaProvider: String, Codable, CaseIterable, Sendable {
     }
 }
 
+public enum AntigravityQuotaTab: String, CaseIterable, Identifiable, Sendable {
+    case gemini
+    case thirdParty = "3p"
+
+    public var id: String { rawValue }
+    public var title: String {
+        switch self {
+        case .gemini: "Gemini"
+        case .thirdParty: "Claude / GPT"
+        }
+    }
+}
+
 public struct AntigravityQuotaGroup: Codable, Equatable, Identifiable, Sendable {
     public static let menuBarGroupDefaultsKey = "menuBarAntigravityQuotaGroup"
+    public static let panelGroupDefaultsKey = "quotaPanelAntigravityGroup"
 
     public let id: String
     public let displayName: String
@@ -113,6 +127,18 @@ public struct AntigravityQuotaSnapshot: Codable, Equatable, Sendable {
     public func group(id: String?) -> AntigravityQuotaGroup? {
         guard let id, !id.isEmpty else { return groups.first }
         return groups.first { $0.id == id } ?? groups.first
+    }
+
+    /// The compact panel has exactly two tabs. Never label an unknown pool as
+    /// Gemini or Claude, even when a saved selection is no longer available.
+    public func panelGroup(id: String?) -> AntigravityQuotaGroup? {
+        if let id, AntigravityQuotaTab(rawValue: id) != nil,
+           let selected = groups.first(where: { $0.id == id }) {
+            return selected
+        }
+        return AntigravityQuotaTab.allCases.lazy.compactMap { tab in
+            groups.first { $0.id == tab.rawValue }
+        }.first
     }
 }
 

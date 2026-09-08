@@ -78,9 +78,9 @@ build_preview() {
   local preview_binary="$preview_macos/QuotAIPreview"
 
   case "$preview_mode" in
-    panel|settings) ;;
+    panel|settings|tokens) ;;
     *)
-      echo "preview mode must be panel or settings" >&2
+      echo "preview mode must be panel, settings or tokens" >&2
       exit 2
       ;;
   esac
@@ -154,6 +154,8 @@ PLIST
   local preview_arguments=()
   if [[ "$preview_mode" == "settings" ]]; then
     preview_arguments+=(--settings --settings-tab "$settings_tab")
+  elif [[ "$preview_mode" == "tokens" ]]; then
+    preview_arguments+=(--tokens-qa)
   fi
   if [[ "$appearance" == "light" ]]; then
     preview_arguments+=(--appearance light)
@@ -348,7 +350,7 @@ case "$MODE" in
     package_release
     ;;
   *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--preview [panel|settings] [general|menuBar|providers|about] [system|light|dark]|--render-preview [en|zh-Hans] [light|dark] [codex|antigravity] [standard|sparse]|--render-settings [en|zh-Hans] [light|dark] [codex|antigravity]|--package-release]" >&2
+    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--preview [panel|settings|tokens] [general|menuBar|providers|about] [system|light|dark]|--render-preview [en|zh-Hans] [light|dark] [codex|antigravity] [standard|sparse]|--render-settings [en|zh-Hans] [light|dark] [codex|antigravity]|--package-release]" >&2
     exit 2
     ;;
 esac

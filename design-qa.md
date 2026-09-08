@@ -1,5 +1,18 @@
 # Design QA
 
+## Latest UI verification — 2026-09-08 centered quota tabs, no scrolling
+
+2.0.8 (25) uses exactly two centered native quota tabs: Gemini and Claude / GPT.
+Only one pool is visible, while the local Token grid always covers all models.
+The previous height-capped scroll container is removed. Persistent Token footer
+explanations are now hover help; compact partial/stale indicators remain visible.
+56 Swift tests, Universal Release and isolated native light/dark UI checks passed.
+See [the current scoped verification record](Design/antigravity-quota-tabs-qa-2.0.8.md).
+The [build 24 date-grid record](Design/antigravity-date-grid-qa-2.0.8.md) retains the
+metadata/date evidence, but its scrolling layout has been superseded.
+This records the isolated-preview checkpoint before packaging and installation;
+it does not itself establish an installed or published release.
+
 ## Current scope
 
 - Native SwiftUI menu-bar app for personal use on macOS.

@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		410000000000000000000001 /* AntigravityTokenUsage.swift */ = {isa = PBXBuildFile; fileRef = 910000000000000000000001; };
+		410000000000000000000002 /* TokenUsageDatabase.swift */ = {isa = PBXBuildFile; fileRef = 910000000000000000000002; };
+		410000000000000000000003 /* AntigravityTokenReader.swift */ = {isa = PBXBuildFile; fileRef = 910000000000000000000003; };
+		410000000000000000000004 /* AntigravityTokenStore.swift */ = {isa = PBXBuildFile; fileRef = 910000000000000000000004; };
+		410000000000000000000005 /* AntigravityTokenUsageView.swift */ = {isa = PBXBuildFile; fileRef = 910000000000000000000005; };
 		400000000000000000000001 /* UsageSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 900000000000000000000001 /* UsageSnapshot.swift */; };
 		400000000000000000000002 /* AppServerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 900000000000000000000002 /* AppServerProtocol.swift */; };
 		400000000000000000000003 /* LocalSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 900000000000000000000003 /* LocalSnapshotStore.swift */; };
@@ -38,6 +43,11 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		910000000000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityTokenUsage.swift; sourceTree = "<group>"; };
+		910000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenUsageDatabase.swift; sourceTree = "<group>"; };
+		910000000000000000000003 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityTokenReader.swift; sourceTree = "<group>"; };
+		910000000000000000000004 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityTokenStore.swift; sourceTree = "<group>"; };
+		910000000000000000000005 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityTokenUsageView.swift; sourceTree = "<group>"; };
 		900000000000000000000001 /* UsageSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageSnapshot.swift; sourceTree = "<group>"; };
 		900000000000000000000002 /* AppServerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppServerProtocol.swift; sourceTree = "<group>"; };
 		900000000000000000000003 /* LocalSnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalSnapshotStore.swift; sourceTree = "<group>"; };
@@ -102,10 +112,10 @@
 			sourceTree = "<group>";
 		};
 		800000000000000000000003 /* Services */ = {isa = PBXGroup; children = (900000000000000000000006, 900000000000000000000007, 900000000000000000000020, ); path = Services; sourceTree = "<group>"; };
-		800000000000000000000004 /* Stores */ = {isa = PBXGroup; children = (900000000000000000000008, 900000000000000000000021, 90000000000000000000001D, ); path = Stores; sourceTree = "<group>"; };
+		800000000000000000000004 /* Stores */ = {isa = PBXGroup; children = (910000000000000000000004, 900000000000000000000008, 900000000000000000000021, 90000000000000000000001D, ); path = Stores; sourceTree = "<group>"; };
 		800000000000000000000005 /* Support */ = {isa = PBXGroup; children = (900000000000000000000009, 90000000000000000000000A, ); path = Support; sourceTree = "<group>"; };
-		800000000000000000000006 /* Views */ = {isa = PBXGroup; children = (90000000000000000000000D, 900000000000000000000022, 90000000000000000000000B, 90000000000000000000000C, 900000000000000000000024, 90000000000000000000001E, 90000000000000000000000E, 90000000000000000000000F, ); path = Views; sourceTree = "<group>"; };
-		800000000000000000000007 /* Core */ = {isa = PBXGroup; children = (900000000000000000000001, 90000000000000000000001F, 900000000000000000000023, 900000000000000000000002, 900000000000000000000003, 900000000000000000000017, 90000000000000000000001B, 90000000000000000000001C, ); path = Core; sourceTree = "<group>"; };
+		800000000000000000000006 /* Views */ = {isa = PBXGroup; children = (910000000000000000000005, 90000000000000000000000D, 900000000000000000000022, 90000000000000000000000B, 90000000000000000000000C, 900000000000000000000024, 90000000000000000000001E, 90000000000000000000000E, 90000000000000000000000F, ); path = Views; sourceTree = "<group>"; };
+		800000000000000000000007 /* Core */ = {isa = PBXGroup; children = (910000000000000000000001, 910000000000000000000002, 910000000000000000000003, 900000000000000000000001, 90000000000000000000001F, 900000000000000000000023, 900000000000000000000002, 900000000000000000000003, 900000000000000000000017, 90000000000000000000001B, 90000000000000000000001C, ); path = Core; sourceTree = "<group>"; };
 		800000000000000000000009 /* Products */ = {isa = PBXGroup; children = (900000000000000000000016, ); name = Products; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
@@ -198,6 +208,11 @@
 				40000000000000000000000E,
 				40000000000000000000000F,
 				400000000000000000000022,
+				410000000000000000000001,
+				410000000000000000000002,
+				410000000000000000000003,
+				410000000000000000000004,
+				410000000000000000000005,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -212,13 +227,13 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 22;
+				CURRENT_PROJECT_VERSION = 25;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				MARKETING_VERSION = 2.0.7;
+				MARKETING_VERSION = 2.0.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.willhsu.QuotAI;
 				PRODUCT_NAME = QuotAI;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -233,13 +248,13 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 22;
+				CURRENT_PROJECT_VERSION = 25;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				MARKETING_VERSION = 2.0.7;
+				MARKETING_VERSION = 2.0.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.willhsu.QuotAI;
 				PRODUCT_NAME = QuotAI;
 				SWIFT_COMPILATION_MODE = wholemodule;

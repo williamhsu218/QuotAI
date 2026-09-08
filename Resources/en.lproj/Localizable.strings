@@ -10,6 +10,7 @@
 "quota.waiting_codex" = "Waiting for Codex";
 "antigravity.group.gemini" = "Gemini Models";
 "antigravity.group.third_party" = "Claude and GPT Models";
+"antigravity.quota_group" = "Quota group";
 
 "reset.title" = "Usage Resets";
 "reset.accessibility_format" = "Usage Resets: %d";
@@ -156,3 +157,27 @@
 "error.antigravity.runtime_unavailable" = "Antigravity's local quota service is unavailable.";
 "error.antigravity.quota_unavailable" = "Antigravity quota is temporarily unavailable.";
 "error.antigravity.protocol_changed" = "This Antigravity version uses an unsupported quota format.";
+"ag_tokens.title" = "Local tokens";
+"ag_tokens.all_models" = "All models";
+"ag_tokens.partial_badge" = "Partial";
+"ag_tokens.stale_badge" = "Not updated";
+"ag_tokens.calendar_title" = "Daily tokens · 18 weeks";
+"ag_tokens.calendar_hint" = "Hover or click";
+"ag_tokens.calendar_unknown" = "Unknown";
+"ag_tokens.calendar_legend" = "Darker means more tokens. Dashed cells are incomplete, not zero.";
+"ag_tokens.calendar_scope" = "First generated step date · local time";
+"ag_tokens.undated_format" = "%d undated calls";
+"ag_tokens.calendar_partial_format" = "%@ tokens · partial";
+"ag_tokens.calendar_stale_format" = "%@ tokens · previous";
+"ag_tokens.limited" = "Only part of the local history fits within the safety limit.";
+"ag_tokens.continue" = "Read more";
+"ag_tokens.input_output" = "input + output";
+"ag_tokens.other" = "Other";
+"ag_tokens.cache_format" = "Cache read: %@ (separate)";
+"ag_tokens.on_demand" = "Reads a bounded batch only on demand. No background polling.";
+"ag_tokens.scope" = "Local retained sessions only. Output includes thinking; cache read is separate. Not account-wide usage.";
+"ag_tokens.unavailable" = "Local data unavailable. Previous counts have not been refreshed.";
+"ag_tokens.empty" = "No supported local conversation databases.";
+"ag_tokens.loading" = "Reading local token metadata…";
+"ag_tokens.partial_format" = "%d calls recorded · %d sessions pending · %d records excluded";
+"ag_tokens.complete_format" = "%d calls recorded · updated on demand";

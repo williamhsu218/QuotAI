@@ -171,10 +171,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
 
     func popoverDidShow(_ notification: Notification) {
         startOutsideClickMonitor()
+        antigravityStore.tokenUsage.panelIsVisible = true
     }
 
     func popoverDidClose(_ notification: Notification) {
         stopOutsideClickMonitor()
+        antigravityStore.tokenUsage.panelIsVisible = false
     }
 
     func menuWillOpen(_ menu: NSMenu) {
@@ -235,6 +237,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
             Task { await store.refresh() }
         case .antigravity:
             Task { await antigravityStore.refresh() }
+            Task(priority: .utility) { await antigravityStore.tokenUsage.refresh() }
         }
         logger.info(
             "Requested quota refresh from quick menu; provider=\(self.effectiveMenuBarQuotaProvider.rawValue, privacy: .public)"

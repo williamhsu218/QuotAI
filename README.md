@@ -6,8 +6,9 @@ macOS 原生菜单栏工具。把本机 Codex 与 Antigravity 额度放在同一
 - 5 小时剩余额度；Codex 暂不返回该窗口时整行隐藏
 - 7 天剩余额度
 - Codex Token 累计用量、连续活跃天数及最近 18 周活跃度；需要本机 Codex 支持可选的 `account/usage/read` 接口
-- Antigravity 的 Gemini 与 Claude/GPT 模型组；每组分别展示 5 小时与每周额度，
+- Antigravity 的 Gemini 与 Claude/GPT 模型组使用居中的两个标签切换；每组分别展示 5 小时与每周额度，
   不与 Codex 或另一个 Antigravity 模型组相加
+- Antigravity 本机 Token 实验统计：输入＋输出（含思考）、单列缓存读取、模型家族分组及最近 18 周日期方格；只在打开 Antigravity 面板或手动点击时限量读取
 - 弹窗使用 Codex / Antigravity 两个明确页面；菜单栏可在设置中选择 Codex 或
   某个 Antigravity 模型组
 - 菜单栏继续复用原有“仅 5h / 仅 7d / 同时显示”偏好，升级后不会重置当前选择
@@ -100,6 +101,33 @@ App 会依次尝试本机 Codex CLI、PATH 中的 Codex 和 ChatGPT 内置 Codex
 ChatGPT 或 Codex CLI。
 
 本项目面向个人本机使用，构建脚本采用无开发者账号签名的本地构建方式，不需要 Apple Developer Program。
+
+### Antigravity 本机 Token 统计
+
+统计源为 `~/.gemini/antigravity/conversations/*.db` 内的 `gen_metadata`，
+日期来自按主键关联的 `steps.metadata`。独立于额度 RPC 和 Codex，不读取 `steps.step_payload`、
+会话标题、工作区路径或聊天正文。不调用模型、网络、CLI 子进程，也不新增定时器或文件监听。
+
+- 每次按需请求最多处理 4 个会话、512 条元数据（生成与关联步骤共用）、768 KiB；读取循环与 SQLite 查询设 80 ms 工作预算。每次生成最多查一个步骤，不全表扫描。准备与缓存汇总时间另计，不承诺整机绝对零开销。
+- 初次历史较多时显示部分统计，可点“继续读取”；不会自动在后台补齐。
+- 安全上限为 512 个会话库、10 万条缓存元数据记录，超限保留部分状态，不启动无界历史扫描。
+- 未变化的源数据库跳过。变化文件按主键分批重校，覆盖追加、旧记录修改、撤回和删除；使用响应标识的 SHA-256 去重，冲突或无法识别的记录不计入并标注。
+- 缓存位于 Application Support/QuotAI/AntigravityTokens/metadata-v2.sqlite，只有数值、验证后的时间戳、模型家族、哈希和读取进度；不保存原始响应或执行标识、元数据。连接用完即关。旧 v1 候选曾把模型编号误算为输入 Token，v2 不复用旧值，按需重新读取，不删除旧缓存。
+- 仅只读访问源库，遇锁立即跳过；运行中的 WAL 数据库绝不使用 immutable。离线 WAL 库无 sidecar 时，须确认没有 Antigravity/language_server 进程，且读取前后文件指纹不变，才接受只读结果。
+- 显示的是**本机保留会话的已记录用量**，不是账户全设备总量或账单。输入使用 ModelUsageStats #2，#1 为模型编号不计入；输出包含思考，缓存读取单列、不重复加总。
+- 日期方格为本地时区的公历 18 周（周一至周日），按首个关联生成步骤的 `created_at` 归档；响应和执行标识须同时匹配。刷新时间、文件修改时间及会话创建时间不用于历史归档。
+- 日期缺失或冲突时保留用量总数，但不塞进某一天；空心虚线为未知，有色虚线为已读部分。只有本机保留数据完整、且无日期缺失时，无记录日才显示 0；不代表该日账户全设备用量为零。悬停或点击查看精确数值，不触发数据读取。
+- Antigravity 使用居中的 Gemini / Claude-GPT 原生分段标签，一次仅展示一组额度；记住面板选择，与菜单栏显示组独立。切换标签不读取数据，Token 日期格仍统计全部模型。
+- 面板采用紧凑单屏布局，不增加纵向滚动容器或滚动条。Token 底部常驻说明已移至“全部模型”、状态、刷新入口与图例的悬停提示；部分 / 未更新状态保留简短标识。Codex 页面布局及统计口径不变。
+- 内部元数据非公开协议；当前针对 Antigravity 2.12.2 的 schema v1 验证。未知格式显示部分/不可用，不猜测为零。
+
+隔离交互状态检查及可选的本机只读探针（后者最多两批，临时缓存自动清理，不输出用量值或标识）：
+
+```bash
+swiftc -O -parse-as-library Core/*.swift App/Stores/AntigravityTokenStore.swift Tools/AntigravityTokenProbe.swift -o build/ag-token-probe
+build/ag-token-probe
+build/ag-token-probe --local
+```
 
 ## Stay Awake
 

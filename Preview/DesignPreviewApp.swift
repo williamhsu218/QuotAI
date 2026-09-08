@@ -1,6 +1,25 @@
 import AppKit
 import SwiftUI
 
+/// Interaction-only fixture. Never reads user metadata or calls a provider.
+private actor TokenInteractionPreviewSource {
+    private var reads = 0
+
+    func read() async throws -> AntigravityTokenSnapshot {
+        try await Task.sleep(for: .milliseconds(200))
+        reads += 1
+        return AntigravityTokenSnapshot(models: [
+            .init(id: "Gemini", input: Int64(reads) * 1_000_000, output: 200_000,
+                  cacheRead: 3_000_000, generations: reads * 100),
+            .init(id: "Claude", input: 300_000, output: 50_000, cacheRead: 800_000, generations: 20)
+        ], files: 2, pendingFiles: reads == 1 ? 1 : 0, unavailableFiles: 0,
+           skippedRecords: 0, limited: false, checkedAt: Date(), rowsRead: 100, bytesRead: 4096,
+           stepRowsRead: 50,
+           dailyBuckets: AntigravityTokenSnapshot.previewBuckets(total: Int64(reads) * 1_000_000 + 550_000 - (reads == 1 ? 20_000 : 0)),
+           undatedGenerations: reads == 1 ? 3 : 0)
+    }
+}
+
 @MainActor
 private final class NativeSettingsPreviewWindow {
     static let shared = NativeSettingsPreviewWindow()
@@ -54,6 +73,14 @@ struct DesignPreviewApp: App {
 
     init() {
         let arguments = CommandLine.arguments
+        if arguments.contains("--tokens-qa") {
+            let source = TokenInteractionPreviewSource()
+            let tokens = AntigravityTokenStore(readSnapshot: { try await source.read() })
+            tokens.panelIsVisible = true
+            _antigravityStore = State(initialValue: AntigravityUsageStore(previewMode: true, tokenUsage: tokens))
+            // This executable has its own preview-only preferences domain.
+            UserDefaults.standard.set(QuotaProvider.antigravity.rawValue, forKey: QuotaProvider.panelDefaultsKey)
+        }
         let shouldRenderSettings = arguments.contains("--settings")
         let tab: SettingsTab = {
             guard

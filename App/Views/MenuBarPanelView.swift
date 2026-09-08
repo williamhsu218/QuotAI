@@ -53,6 +53,11 @@ struct MenuBarPanelView: View {
         .padding(AppTheme.Spacing.large)
         .frame(width: 340)
         .appPanelSurface()
+        .task(id: effectiveQuotaProvider == .antigravity && antigravityStore.tokenUsage.panelIsVisible) {
+            guard effectiveQuotaProvider == .antigravity, antigravityStore.tokenUsage.panelIsVisible,
+                  !designPreviewRendering else { return }
+            await antigravityStore.tokenUsage.refresh()
+        }
         .task {
             store.start()
             if shouldShowAntigravity {
@@ -362,6 +367,7 @@ struct MenuBarPanelView: View {
             Task { await store.refresh() }
         case .antigravity:
             Task { await antigravityStore.refresh() }
+            Task(priority: .utility) { await antigravityStore.tokenUsage.refresh() }
         }
     }
 

@@ -1,30 +1,39 @@
 import SwiftUI
 
 struct AntigravityQuotaView: View {
+    @AppStorage(AntigravityQuotaGroup.panelGroupDefaultsKey)
+    private var selectedGroupID = "gemini"
     let store: AntigravityUsageStore
 
     var body: some View {
-        if let snapshot = store.snapshot {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.compact) {
-                ForEach(snapshot.groups) { group in
-                    quotaGroup(group)
-                }
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.compact) {
+            if let snapshot = store.snapshot, let group = snapshot.panelGroup(id: selectedGroupID) {
+                quotaGroup(group, in: snapshot)
+            } else {
+                emptyState
             }
-        } else {
-            emptyState
+            AntigravityTokenUsageView(store: store.tokenUsage)
         }
     }
 
-    private func quotaGroup(_ group: AntigravityQuotaGroup) -> some View {
+    private func quotaGroup(_ group: AntigravityQuotaGroup, in snapshot: AntigravityQuotaSnapshot) -> some View {
         let accent = groupAccent(for: group.id)
         return VStack(alignment: .leading, spacing: AppTheme.Spacing.small) {
-            HStack(spacing: AppTheme.Spacing.small) {
-                Text(group.localizedDisplayName)
-                    .font(.system(size: AppTheme.TypeSize.cardTitle, weight: .semibold))
-                    .foregroundStyle(AppTheme.primaryText)
-
-                Spacer()
+            Picker(L10n.text("antigravity.quota_group", fallback: "Quota group"), selection: Binding(
+                get: { snapshot.panelGroup(id: selectedGroupID)?.id ?? group.id },
+                set: { selectedGroupID = $0 }
+            )) {
+                ForEach(AntigravityQuotaTab.allCases) { tab in
+                    Text(tab.title).tag(tab.rawValue)
+                        .disabled(!snapshot.groups.contains { $0.id == tab.rawValue })
+                }
             }
+            .pickerStyle(.segmented)
+            .controlSize(.small)
+            .labelsHidden()
+            .fixedSize(horizontal: true, vertical: false)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .accessibilityIdentifier("antigravity.quotaGroupPicker")
 
             VStack(spacing: AppTheme.Spacing.small) {
                 ForEach(Array(group.orderedQuotas.enumerated()), id: \.element.id) { index, quota in
@@ -35,6 +44,7 @@ struct AntigravityQuotaView: View {
                     QuotaRowView(quota: quota, compact: true)
                 }
             }
+            .id(group.id) // Replace quota rows immediately; don't animate from another pool.
         }
         .padding(AppTheme.Spacing.compact)
         .appCardSurface(cornerRadius: 10)
@@ -46,6 +56,7 @@ struct AntigravityQuotaView: View {
                 .padding(.leading, 1)
         }
         .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("antigravity.quotaGroup.\(group.id)")
     }
 
     private func groupAccent(for groupID: String) -> Color {
