@@ -14,11 +14,15 @@ public struct AntigravityTokenModel: Equatable, Sendable, Identifiable {
 }
 
 public enum AntigravityTokenFormat {
-    /// Fixed M units at every scale. Keep small nonzero values distinct from zero.
-    public static func millions(_ tokens: Int64, locale: Locale = L10n.locale) -> String {
+    /// M as the minimum unit, automatically promoted to B at display precision.
+    public static func compact(_ tokens: Int64, locale: Locale = L10n.locale) -> String {
         let style = Decimal.FormatStyle.number.locale(locale).precision(.fractionLength(2))
         if tokens > 0 && tokens < 10_000 {
             return "<" + (Decimal(1) / 100).formatted(style) + " M"
+        }
+        // Two-decimal M would round to 1,000.00 here; promote the unit too.
+        if tokens >= 999_995_000 {
+            return (Decimal(tokens) / 1_000_000_000).formatted(style) + " B"
         }
         return (Decimal(tokens) / 1_000_000).formatted(style) + " M"
     }

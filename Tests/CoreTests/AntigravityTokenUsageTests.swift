@@ -377,21 +377,34 @@ func agCalendarSemantics() throws {
     #expect(snapshot().activityWeeks(count: 0).isEmpty)
 }
 
-@Test("AG uses fixed M units with honest small values and no K or B switching")
-func agMillionUnits() {
+@Test("AG uses M and B units with honest small values and no K switching")
+func agCompactUnits() {
     for language in ["en_US", "zh_CN"] {
         let locale = Locale(identifier: language)
-        #expect(AntigravityTokenFormat.millions(0, locale: locale) == "0.00 M")
-        #expect(AntigravityTokenFormat.millions(1, locale: locale) == "<0.01 M")
-        #expect(AntigravityTokenFormat.millions(9_999, locale: locale) == "<0.01 M")
-        #expect(AntigravityTokenFormat.millions(10_000, locale: locale) == "0.01 M")
-        #expect(AntigravityTokenFormat.millions(105_800, locale: locale) == "0.11 M")
-        #expect(AntigravityTokenFormat.millions(3_215_617, locale: locale) == "3.22 M")
-        #expect(AntigravityTokenFormat.millions(1_100_000_000, locale: locale) == "1,100.00 M")
-        #expect(AntigravityTokenFormat.millions(Int64.max, locale: locale) == "9,223,372,036,854.78 M")
+        #expect(AntigravityTokenFormat.compact(0, locale: locale) == "0.00 M")
+        #expect(AntigravityTokenFormat.compact(1, locale: locale) == "<0.01 M")
+        #expect(AntigravityTokenFormat.compact(9_999, locale: locale) == "<0.01 M")
+        #expect(AntigravityTokenFormat.compact(10_000, locale: locale) == "0.01 M")
+        #expect(AntigravityTokenFormat.compact(105_800, locale: locale) == "0.11 M")
+        #expect(AntigravityTokenFormat.compact(3_215_617, locale: locale) == "3.22 M")
+        #expect(AntigravityTokenFormat.compact(71_300_000, locale: locale) == "71.30 M")
+        #expect(AntigravityTokenFormat.compact(1_100_000_000, locale: locale) == "1.10 B")
+        #expect(AntigravityTokenFormat.compact(Int64.max, locale: locale) == "9,223,372,036.85 B")
     }
     // The shared Codex formatter is not changed by this AG-only preference.
     #expect(DailyUsageBucket.formatTokens(105_800).contains("K"))
+}
+
+@Test("AG promotes rounded 1000 M to B without changing underlying totals")
+func agBillionBoundary() {
+    for language in ["en_US", "zh_CN"] {
+        let locale = Locale(identifier: language)
+        #expect(AntigravityTokenFormat.compact(999_994_999, locale: locale) == "999.99 M")
+        #expect(AntigravityTokenFormat.compact(999_995_000, locale: locale) == "1.00 B")
+        #expect(AntigravityTokenFormat.compact(999_999_999, locale: locale) == "1.00 B")
+        #expect(AntigravityTokenFormat.compact(1_000_000_000, locale: locale) == "1.00 B")
+        #expect(AntigravityTokenFormat.compact(1_640_000_000, locale: locale) == "1.64 B")
+    }
 }
 
 @Test("AG total, model totals, breakdown and complete daily fixture reconcile including cache")

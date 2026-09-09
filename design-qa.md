@@ -1,6 +1,15 @@
 # Design QA
 
-## Latest UI verification — 2026-09-08 cache-inclusive M token card
+## Latest unit correction — 2026-09-09 M / B switching
+
+2.0.10 (27) corrects the fixed-M interpretation in 2.0.9. Antigravity totals,
+breakdowns, model summaries and day details automatically use M / B with two
+decimals; cache-inclusive counting and layout are unchanged. 60 tests and
+English/light plus Chinese/dark four-model card renders passed. The Universal
+ZIP was validated and installed with rollback retained.
+See [the unit correction record](Design/antigravity-token-units-qa-2.0.10.md).
+
+## Previous UI verification — 2026-09-08 cache-inclusive M token card
 
 2.0.9 (26) uses input + output + cache hits for the Antigravity total,
 model summaries and reliably dated daily cells. All values use fixed M units,

@@ -42,7 +42,7 @@ struct AntigravityTokenUsageView: View {
 
             if let snapshot = store.snapshot, snapshot.generations > 0 {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(AntigravityTokenFormat.millions(snapshot.total))
+                    Text(AntigravityTokenFormat.compact(snapshot.total))
                         .font(.system(size: 22, weight: .semibold, design: .rounded))
                         .monospacedDigit()
                         .lineLimit(1)
@@ -71,7 +71,7 @@ struct AntigravityTokenUsageView: View {
                             Text(model.id == "Other" ? L10n.text("ag_tokens.other", fallback: "Other") : model.id)
                                 .foregroundStyle(AppTheme.secondaryText)
                             Spacer(minLength: 0)
-                            Text(AntigravityTokenFormat.millions(model.total))
+                            Text(AntigravityTokenFormat.compact(model.total))
                                 .fontWeight(.medium).monospacedDigit()
                         }
                         .font(.system(size: AppTheme.TypeSize.small))
@@ -107,7 +107,7 @@ struct AntigravityTokenUsageView: View {
             Text(L10n.text(key, fallback: fallback))
                 .font(.system(size: 9))
                 .foregroundStyle(AppTheme.secondaryText)
-            Text(AntigravityTokenFormat.millions(tokens))
+            Text(AntigravityTokenFormat.compact(tokens))
                 .font(.system(size: AppTheme.TypeSize.small, weight: .medium))
                 .monospacedDigit()
         }
@@ -270,7 +270,7 @@ private struct AntigravityTokenCalendarView: View {
 
     private func valueText(_ day: AntigravityTokenDay) -> String {
         guard let tokens = day.tokens else { return L10n.text("ag_tokens.calendar_unknown", fallback: "Unknown") }
-        let value = AntigravityTokenFormat.millions(tokens)
+        let value = AntigravityTokenFormat.compact(tokens)
         if stale { return L10n.format("ag_tokens.calendar_stale_format", fallback: "%@ · previous", value) }
         if day.isPartial { return L10n.format("ag_tokens.calendar_partial_format", fallback: "%@ · partial", value) }
         return value
