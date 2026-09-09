@@ -11,7 +11,7 @@ struct AntigravityTokenUsageView: View {
                 Text(L10n.text("ag_tokens.all_models", fallback: "All models"))
                     .font(.system(size: 9))
                     .foregroundStyle(AppTheme.secondaryText)
-                    .help(L10n.text("ag_tokens.scope", fallback: "Local retained sessions only. Output includes thinking; cache read is separate. Not account-wide usage."))
+                    .help(L10n.text("ag_tokens.scope", fallback: "Total = recorded input + output + cache hits. Output includes thinking. Local retained sessions only, not account-wide or billed usage."))
                 if store.failed || store.snapshot?.isCalendarPartial == true {
                     Text(L10n.text(store.failed ? "ag_tokens.stale_badge" : "ag_tokens.partial_badge",
                                    fallback: store.failed ? "Not updated" : "Partial"))
@@ -30,6 +30,7 @@ struct AntigravityTokenUsageView: View {
                         Label(L10n.text(store.snapshot?.pendingFiles ?? 0 > 0 ? "ag_tokens.continue" : "action.refresh",
                             fallback: "Read usage"), systemImage: "arrow.clockwise")
                             .font(.system(size: AppTheme.TypeSize.small))
+                            .labelStyle(.iconOnly)
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("antigravity.tokenUsage.refresh")
@@ -41,31 +42,45 @@ struct AntigravityTokenUsageView: View {
 
             if let snapshot = store.snapshot, snapshot.generations > 0 {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(DailyUsageBucket.formatTokens(snapshot.processed))
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                    Text(AntigravityTokenFormat.millions(snapshot.total))
+                        .font(.system(size: 22, weight: .semibold, design: .rounded))
                         .monospacedDigit()
-                    Text(L10n.text("ag_tokens.input_output", fallback: "input + output"))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .accessibilityIdentifier("antigravity.tokenUsage.total")
+                    Text(L10n.text("ag_tokens.includes_cache", fallback: "incl. cache"))
                         .font(.system(size: AppTheme.TypeSize.small))
                         .foregroundStyle(AppTheme.secondaryText)
+                        .fixedSize()
                     Spacer(minLength: 0)
                 }
+
+                HStack(spacing: 8) {
+                    tokenMetric("ag_tokens.input", fallback: "Input", tokens: snapshot.input, id: "input")
+                    tokenMetric("ag_tokens.output", fallback: "Output", tokens: snapshot.output, id: "output")
+                    tokenMetric("ag_tokens.cache_hits", fallback: "Cache hits", tokens: snapshot.cacheRead, id: "cache")
+                }
+                .padding(.vertical, 2)
+
+                Divider().overlay(AppTheme.separator.opacity(0.5))
+
                 LazyVGrid(columns: [.init(.flexible(), alignment: .leading), .init(.flexible(), alignment: .leading)],
                           alignment: .leading, spacing: 3) {
                     ForEach(snapshot.models) { model in
-                        HStack(spacing: 3) {
+                        HStack(spacing: 4) {
                             Text(model.id == "Other" ? L10n.text("ag_tokens.other", fallback: "Other") : model.id)
                                 .foregroundStyle(AppTheme.secondaryText)
-                            Text(DailyUsageBucket.formatTokens(model.processed))
+                            Spacer(minLength: 0)
+                            Text(AntigravityTokenFormat.millions(model.total))
                                 .fontWeight(.medium).monospacedDigit()
                         }
                         .font(.system(size: AppTheme.TypeSize.small))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                         .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("antigravity.tokenUsage.model.\(model.id)")
                     }
                 }
-                Text(L10n.format("ag_tokens.cache_format", fallback: "Cache read: %@ (separate)",
-                                 DailyUsageBucket.formatTokens(snapshot.cacheRead)))
-                    .font(.system(size: AppTheme.TypeSize.small))
-                    .foregroundStyle(AppTheme.secondaryText)
             }
 
             if let snapshot = store.snapshot, snapshot.files > 0 {
@@ -85,6 +100,22 @@ struct AntigravityTokenUsageView: View {
         .appCardSurface(cornerRadius: 10)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("antigravity.tokenUsage")
+    }
+
+    private func tokenMetric(_ key: String, fallback: String, tokens: Int64, id: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(L10n.text(key, fallback: fallback))
+                .font(.system(size: 9))
+                .foregroundStyle(AppTheme.secondaryText)
+            Text(AntigravityTokenFormat.millions(tokens))
+                .font(.system(size: AppTheme.TypeSize.small, weight: .medium))
+                .monospacedDigit()
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.85)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("antigravity.tokenUsage.\(id)")
     }
 
     private var status: String {
@@ -146,7 +177,7 @@ private struct AntigravityTokenCalendarView: View {
                     Spacer(minLength: 0)
                     Text(valueText(day)).monospacedDigit()
                 } else {
-                    Text(L10n.text("ag_tokens.calendar_title", fallback: "Daily tokens · 18 weeks"))
+                    Text(L10n.text("ag_tokens.calendar_title", fallback: "Daily total · 18 weeks"))
                     Spacer(minLength: 0)
                     Text(L10n.text("ag_tokens.calendar_hint", fallback: "Hover or click"))
                 }
@@ -177,7 +208,7 @@ private struct AntigravityTokenCalendarView: View {
             }
             .frame(maxWidth: .infinity, alignment: .center)
             .accessibilityElement(children: .contain)
-            .accessibilityLabel(L10n.text("ag_tokens.calendar_title", fallback: "Daily tokens · 18 weeks"))
+            .accessibilityLabel(L10n.text("ag_tokens.calendar_title", fallback: "Daily total · 18 weeks"))
 
             HStack(spacing: 3) {
                 RoundedRectangle(cornerRadius: 1.5)
@@ -185,7 +216,7 @@ private struct AntigravityTokenCalendarView: View {
                     .frame(width: 8, height: 8)
                 Text(L10n.text("ag_tokens.calendar_unknown", fallback: "Unknown"))
                 Spacer(minLength: 2)
-                Text("0")
+                Text("0 M")
                 ForEach(0..<5) { level in
                     RoundedRectangle(cornerRadius: 1.5).fill(color(level)).frame(width: 8, height: 8)
                 }
@@ -239,10 +270,10 @@ private struct AntigravityTokenCalendarView: View {
 
     private func valueText(_ day: AntigravityTokenDay) -> String {
         guard let tokens = day.tokens else { return L10n.text("ag_tokens.calendar_unknown", fallback: "Unknown") }
-        let exact = tokens.formatted(.number.locale(L10n.locale))
-        if stale { return L10n.format("ag_tokens.calendar_stale_format", fallback: "%@ tokens · previous", exact) }
-        if day.isPartial { return L10n.format("ag_tokens.calendar_partial_format", fallback: "%@ tokens · partial", exact) }
-        return "\(exact) tokens"
+        let value = AntigravityTokenFormat.millions(tokens)
+        if stale { return L10n.format("ag_tokens.calendar_stale_format", fallback: "%@ · previous", value) }
+        if day.isPartial { return L10n.format("ag_tokens.calendar_partial_format", fallback: "%@ · partial", value) }
+        return value
     }
 
     private func weekday(_ index: Int) -> String {

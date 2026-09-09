@@ -352,7 +352,9 @@ actor AntigravityTokenReader {
             totals[model] = total
             let key = query.text(1)
             if !key.isEmpty {
-                daily[key, default: 0] += input + output
+                // v2 retains all three fields, so this also updates historical
+                // totals without a cache migration or another source query.
+                daily[key, default: 0] += input + output + cacheRead
             } else { undated += count }
         }
         let models = totals.keys.sorted().map { model in

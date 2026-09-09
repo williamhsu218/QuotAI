@@ -253,7 +253,7 @@ func agStepDateValidation() throws {
     #expect(try AntigravityTokenDecoder.decode(oversizedReferences).firstStepIndex == nil)
 }
 
-@Test("AG daily totals use linked step dates, separate cache, and preserve undated calls")
+@Test("AG daily totals include cache hits, use linked dates, and preserve undated calls")
 func agDailyAttribution() async throws {
     let fixture = try TokenFixture()
     let (_, db) = try fixture.database()
@@ -268,8 +268,9 @@ func agDailyAttribution() async throws {
     try fixture.put(db, index: 2, blob: tokenBlob(response: "undated"))
     let reader = fixture.reader()
     let snapshot = try await reader.read()
-    #expect(snapshot.dailyBuckets == [.init(startDate: "2026-05-03", tokens: 35), .init(startDate: "2026-05-04", tokens: 35)])
+    #expect(snapshot.dailyBuckets == [.init(startDate: "2026-05-03", tokens: 90), .init(startDate: "2026-05-04", tokens: 90)])
     #expect(snapshot.processed == 105 && snapshot.cacheRead == 165)
+    #expect(snapshot.total == 270 && snapshot.models.reduce(0) { $0 + $1.total } == 270)
     #expect(snapshot.undatedGenerations == 1 && snapshot.isCalendarPartial && !snapshot.isPartial)
     #expect(snapshot.rowsRead == 5 && snapshot.stepRowsRead == 2)
     #expect(snapshot.bytesRead < 1024) // Million-byte step_payload was never fetched.
@@ -278,7 +279,7 @@ func agDailyAttribution() async throws {
     #expect(unchanged.dailyBuckets == snapshot.dailyBuckets)
     // Step edits alone invalidate the source fingerprint; no refresh-date backfill.
     try fixture.putStep(db, index: 8, blob: stepBlob(seconds: seconds - 2, response: "after"))
-    #expect(try await reader.read().dailyBuckets == [.init(startDate: "2026-05-03", tokens: 70)])
+    #expect(try await reader.read().dailyBuckets == [.init(startDate: "2026-05-03", tokens: 180)])
     try db.run("DELETE FROM steps WHERE idx=8")
     #expect(try await reader.read().undatedGenerations == 2)
 }
@@ -300,7 +301,7 @@ func agDateReadBudget() async throws {
         if final!.pendingFiles == 0 { break }
     }
     #expect(final?.pendingFiles == 0 && final?.generations == 4)
-    #expect(final?.dailyBuckets.reduce(0) { $0 + $1.tokens } == 140)
+    #expect(final?.dailyBuckets.reduce(0) { $0 + $1.tokens } == 360)
 }
 
 @Test("AG timestamp conflicts keep counts but exclude ambiguous dates")
@@ -314,10 +315,11 @@ func agDateDeduplication() async throws {
     let reader = fixture.reader()
     let same = try await reader.read()
     #expect(same.generations == 1 && same.undatedGenerations == 0)
-    #expect(same.dailyBuckets.reduce(0) { $0 + $1.tokens } == 35)
+    #expect(same.dailyBuckets.reduce(0) { $0 + $1.tokens } == 90)
     try fixture.putStep(b, index: 0, blob: stepBlob(seconds: 1_777_766_400 + 86400))
     let conflict = try await reader.read()
     #expect(conflict.generations == 1 && conflict.processed == 35)
+    #expect(conflict.total == 90)
     #expect(conflict.dailyBuckets.isEmpty && conflict.undatedGenerations == 1)
 }
 
@@ -357,20 +359,69 @@ func agCalendarSemantics() throws {
         .init(models: [.init(id: "Gemini", input: 22, output: 13, cacheRead: 55, generations: 1)],
               files: 1, pendingFiles: pending, unavailableFiles: 0, skippedRecords: 0,
               limited: false, checkedAt: today, rowsRead: 0, bytesRead: 0,
-              dailyBuckets: [.init(startDate: "2026-03-08", tokens: 35)], undatedGenerations: undated)
+              dailyBuckets: [.init(startDate: "2026-03-08", tokens: 90)], undatedGenerations: undated)
     }
     let days = snapshot().activityWeeks(calendar: calendar).flatMap(\.days)
     #expect(days.count == 126 && Set(days.map(\.id)).count == 126)
     #expect(days.first?.id == "2025-11-10" && days.last?.id == "2026-03-15")
-    #expect(days.first { $0.id == "2026-03-08" }?.tokens == 35)
+    #expect(days.first { $0.id == "2026-03-08" }?.tokens == 90)
     #expect(days.first { $0.isToday }?.id == "2026-03-10")
     #expect(days.first { $0.id == "2026-03-09" }?.tokens == 0)
     #expect(days.filter(\.isFuture).allSatisfy { $0.tokens == nil })
     for partial in [snapshot(pending: 1), snapshot(undated: 1)] {
         let partialDays = partial.activityWeeks(calendar: calendar).flatMap(\.days)
         #expect(partialDays.first { $0.id == "2026-03-09" }?.tokens == nil)
-        #expect(partialDays.first { $0.id == "2026-03-08" }?.tokens == 35)
+        #expect(partialDays.first { $0.id == "2026-03-08" }?.tokens == 90)
         #expect(partialDays.allSatisfy { $0.isPartial })
     }
     #expect(snapshot().activityWeeks(count: 0).isEmpty)
+}
+
+@Test("AG uses fixed M units with honest small values and no K or B switching")
+func agMillionUnits() {
+    for language in ["en_US", "zh_CN"] {
+        let locale = Locale(identifier: language)
+        #expect(AntigravityTokenFormat.millions(0, locale: locale) == "0.00 M")
+        #expect(AntigravityTokenFormat.millions(1, locale: locale) == "<0.01 M")
+        #expect(AntigravityTokenFormat.millions(9_999, locale: locale) == "<0.01 M")
+        #expect(AntigravityTokenFormat.millions(10_000, locale: locale) == "0.01 M")
+        #expect(AntigravityTokenFormat.millions(105_800, locale: locale) == "0.11 M")
+        #expect(AntigravityTokenFormat.millions(3_215_617, locale: locale) == "3.22 M")
+        #expect(AntigravityTokenFormat.millions(1_100_000_000, locale: locale) == "1,100.00 M")
+        #expect(AntigravityTokenFormat.millions(Int64.max, locale: locale) == "9,223,372,036,854.78 M")
+    }
+    // The shared Codex formatter is not changed by this AG-only preference.
+    #expect(DailyUsageBucket.formatTokens(105_800).contains("K"))
+}
+
+@Test("AG total, model totals, breakdown and complete daily fixture reconcile including cache")
+func agInclusiveTotal() {
+    let snapshot = AntigravityTokenSnapshot.preview
+    #expect(snapshot.input == 3_280_000 && snapshot.output == 760_000 && snapshot.cacheRead == 10_300_000)
+    #expect(snapshot.total == snapshot.input + snapshot.output + snapshot.cacheRead)
+    #expect(snapshot.total == 14_340_000)
+    #expect(snapshot.models.map(\.total) == [12_640_000, 1_700_000])
+    #expect(snapshot.dailyBuckets.reduce(0) { $0 + $1.tokens } == snapshot.total)
+}
+
+@Test("AG cache-only usage is counted once across duplicate sources and a retained v2 cache")
+func agCacheOnlyTotal() async throws {
+    let fixture = try TokenFixture()
+    let (_, first) = try fixture.database(), (_, duplicate) = try fixture.database()
+    let usage = numeric(2, 0) + numeric(3, 0) + numeric(5, 2_000_000)
+        + numeric(9, 0) + numeric(10, 0) + message(11, Data("cache-only".utf8))
+    let blob = message(1, message(4, usage) + message(21, Data("Gemini".utf8)))
+        + message(2, encodedVarint(0)) + message(4, Data("execution-test".utf8))
+    for db in [first, duplicate] {
+        try fixture.put(db, index: 0, blob: blob)
+        try fixture.putStep(db, index: 0, blob: stepBlob(seconds: 1_777_766_400, response: "cache-only"))
+    }
+    let initial = try await fixture.reader().read()
+    #expect(initial.generations == 1 && initial.processed == 0 && initial.total == 2_000_000)
+    #expect(initial.dailyBuckets.reduce(0) { $0 + $1.tokens } == initial.total)
+    let cached = try await fixture.reader().read()
+    #expect(cached.total == initial.total && cached.dailyBuckets == initial.dailyBuckets)
+    #expect(cached.rowsRead == 0 && cached.stepRowsRead == 0 && cached.bytesRead == 0)
+    let cache = try TokenUsageDatabase(path: fixture.cache.path, readOnly: true)
+    #expect(try cache.integer("PRAGMA user_version") == 2)
 }

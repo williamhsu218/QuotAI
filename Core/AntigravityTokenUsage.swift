@@ -9,6 +9,19 @@ public struct AntigravityTokenModel: Equatable, Sendable, Identifiable {
     public let cacheRead: Int64
     public let generations: Int
     public var processed: Int64 { input + output }
+    /// Recorded input + output + cache hits; not a provider billing metric.
+    public var total: Int64 { processed + cacheRead }
+}
+
+public enum AntigravityTokenFormat {
+    /// Fixed M units at every scale. Keep small nonzero values distinct from zero.
+    public static func millions(_ tokens: Int64, locale: Locale = L10n.locale) -> String {
+        let style = Decimal.FormatStyle.number.locale(locale).precision(.fractionLength(2))
+        if tokens > 0 && tokens < 10_000 {
+            return "<" + (Decimal(1) / 100).formatted(style) + " M"
+        }
+        return (Decimal(tokens) / 1_000_000).formatted(style) + " M"
+    }
 }
 
 public struct AntigravityTokenSnapshot: Equatable, Sendable {
@@ -22,10 +35,13 @@ public struct AntigravityTokenSnapshot: Equatable, Sendable {
     public let rowsRead: Int
     public let bytesRead: Int
     public let stepRowsRead: Int
-    public let dailyBuckets: [DailyUsageBucket]
+    public let dailyBuckets: [DailyUsageBucket] // Same cache-inclusive total, for reliably dated records only.
     public let undatedGenerations: Int
     public var processed: Int64 { models.reduce(0) { $0 + $1.processed } }
+    public var input: Int64 { models.reduce(0) { $0 + $1.input } }
+    public var output: Int64 { models.reduce(0) { $0 + $1.output } }
     public var cacheRead: Int64 { models.reduce(0) { $0 + $1.cacheRead } }
+    public var total: Int64 { models.reduce(0) { $0 + $1.total } }
     public var generations: Int { models.reduce(0) { $0 + $1.generations } }
     public var isPartial: Bool {
         pendingFiles > 0 || unavailableFiles > 0 || skippedRecords > 0 || limited
@@ -83,7 +99,7 @@ public struct AntigravityTokenSnapshot: Equatable, Sendable {
             .init(id: "Claude", input: 480_000, output: 120_000, cacheRead: 1_100_000, generations: 40)
         ], files: 5, pendingFiles: 0, unavailableFiles: 0, skippedRecords: 0,
         limited: false, checkedAt: Date(), rowsRead: 0, bytesRead: 0,
-        dailyBuckets: previewBuckets(total: 4_040_000), undatedGenerations: 0
+        dailyBuckets: previewBuckets(total: 14_340_000), undatedGenerations: 0
     )
 
     /// Synthetic UI-only fixture; never mixed with local cached records.

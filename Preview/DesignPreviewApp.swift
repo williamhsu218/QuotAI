@@ -15,7 +15,7 @@ private actor TokenInteractionPreviewSource {
         ], files: 2, pendingFiles: reads == 1 ? 1 : 0, unavailableFiles: 0,
            skippedRecords: 0, limited: false, checkedAt: Date(), rowsRead: 100, bytesRead: 4096,
            stepRowsRead: 50,
-           dailyBuckets: AntigravityTokenSnapshot.previewBuckets(total: Int64(reads) * 1_000_000 + 550_000 - (reads == 1 ? 20_000 : 0)),
+           dailyBuckets: AntigravityTokenSnapshot.previewBuckets(total: Int64(reads) * 1_000_000 + 4_350_000 - (reads == 1 ? 20_000 : 0)),
            undatedGenerations: reads == 1 ? 3 : 0)
     }
 }

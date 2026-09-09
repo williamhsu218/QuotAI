@@ -1,6 +1,18 @@
 # Design QA
 
-## Latest UI verification — 2026-09-08 centered quota tabs, no scrolling
+## Latest UI verification — 2026-09-08 cache-inclusive M token card
+
+2.0.9 (26) uses input + output + cache hits for the Antigravity total,
+model summaries and reliably dated daily cells. All values use fixed M units,
+with a compact three-column breakdown and honest `<0.01 M` nonzero values.
+59 tests, Universal Release, native English/light and Chinese/dark preview checks,
+and a four-model large-value card render passed. No new polling, source reads,
+cache migration or scrolling container was added. On September 9, the user approved
+delivery: the ad-hoc Universal ZIP passed package checks and was installed as 2.0.9,
+with the previous application, preferences and v2 cache retained for rollback.
+See [the scoped verification and delivery record](Design/antigravity-token-millions-qa-2.0.9.md).
+
+## Previous UI verification — 2026-09-08 centered quota tabs, no scrolling
 
 2.0.8 (25) uses exactly two centered native quota tabs: Gemini and Claude / GPT.
 Only one pool is visible, while the local Token grid always covers all models.

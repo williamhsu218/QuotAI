@@ -39,7 +39,7 @@ struct RenderDesignPreview {
                 .init(id: "Other", input: 100_000_000, output: 10_000_000, cacheRead: 300_000_000, generations: 1000)
               ], files: 34, pendingFiles: 30, unavailableFiles: 1, skippedRecords: 2,
                  limited: true, checkedAt: Date(), rowsRead: 512, bytesRead: 768 * 1024,
-                 stepRowsRead: 256, dailyBuckets: AntigravityTokenSnapshot.previewBuckets(total: 400_000_000),
+                 stepRowsRead: 256, dailyBuckets: AntigravityTokenSnapshot.previewBuckets(total: 1_600_000_000),
                  undatedGenerations: 30)
             : nil
         let tokenPreviewStore = AntigravityUsageStore(previewMode: true,
