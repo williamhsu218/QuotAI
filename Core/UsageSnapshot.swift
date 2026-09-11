@@ -350,6 +350,19 @@ public struct UsageSnapshot: Codable, Equatable, Sendable {
         return parts.isEmpty ? "Codex --" : parts.joined(separator: " · ")
     }
 
+    public func menuBarLines(for mode: MenuBarQuotaDisplayMode) -> [String] {
+        let quotasByKind = Dictionary(
+            uniqueKeysWithValues: orderedQuotas.map { ($0.kind, $0) }
+        )
+        let lines = mode.selectedKinds.compactMap { kind -> String? in
+            if let quota = quotasByKind[kind] {
+                return "\(kind.shortLabel) \(quota.remainingPercent)%"
+            }
+            return mode == .both ? nil : "\(kind.shortLabel) --"
+        }
+        return lines.isEmpty ? ["--"] : lines
+    }
+
     public var todayBucket: DailyUsageBucket? {
         bucket(for: Date())
     }

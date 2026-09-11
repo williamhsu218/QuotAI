@@ -127,7 +127,7 @@
 "settings.menu_bar_windows" = "菜单栏周期";
 "settings.menu_bar_quota_5h" = "仅显示 5h";
 "settings.menu_bar_quota_7d" = "仅显示 7d";
-"settings.menu_bar_quota_both" = "同时显示 5h 和 7d";
+"settings.menu_bar_quota_both" = "全部可用额度";
 "settings.menu_bar_quota_help" = "选择菜单栏中显示的额度周期。";
 "settings.every_5_minutes" = "每 5 分钟";
 "settings.every_10_minutes" = "每 10 分钟";

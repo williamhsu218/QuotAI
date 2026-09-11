@@ -2,6 +2,7 @@ import AppKit
 import OSLog
 import SwiftUI
 
+
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopoverDelegate {
     private lazy var store = UsageStore.shared
@@ -380,38 +381,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         guard let button = statusItem?.button else { return }
 
         let presentation = menuBarPresentation
-        let title = presentation.title
-        button.title = title
-        button.image = menuBarStatusImage()
-        button.imagePosition = .imageLeading
-        button.imageScaling = .scaleProportionallyDown
+        let composite = MenuBarStatusRenderer.image(for: presentation)
 
-        let awakeStatus = L10n.text(
-            "awake.menu_bar_active",
-            fallback: "Stay Awake on"
-        )
-        let toolTip = stayAwakeStore.isActive
-            ? "QuotAI · \(presentation.detail) · \(awakeStatus)"
-            : "QuotAI · \(presentation.detail)"
+        button.image = composite
+        button.imagePosition = .imageOnly
+        button.imageScaling = .scaleNone
+        button.title = ""
+
+        let toolTip = presentation.accessibilityLabel
         button.toolTip = toolTip
         button.setAccessibilityLabel(toolTip)
+        button.setAccessibilityTitle(toolTip)
     }
 
-    private func menuBarStatusImage() -> NSImage? {
-        if stayAwakeStore.isActive {
-            return stayAwakeStatusImage()
-        }
-        let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .medium)
-        if let symbol = NSImage(
-            systemSymbolName: "gauge.with.dots.needle.bottom.50percent",
-            accessibilityDescription: "QuotAI"
-        ) {
-            let img = symbol.withSymbolConfiguration(config) ?? symbol
-            img.isTemplate = true
-            return img
-        }
-        return nil
-    }
 
     private var menuBarQuotaDisplayMode: MenuBarQuotaDisplayMode {
         let rawValue = UserDefaults.standard.string(
@@ -450,37 +432,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         }
     }
 
-    private var menuBarPresentation: (title: String, detail: String) {
-        switch effectiveMenuBarQuotaProvider {
-        case .codex:
-            let title = store.snapshot?.menuBarTitle(for: menuBarQuotaDisplayMode) ?? "--"
-            return (title, "Codex · \(title)")
-        case .antigravity:
-            let groupID = UserDefaults.standard.string(
-                forKey: AntigravityQuotaGroup.menuBarGroupDefaultsKey
-            )
-            guard let group = antigravityStore.snapshot?.group(id: groupID) else {
-                return ("✦ --", "Antigravity · --")
-            }
-            let title = group.menuBarTitle(for: menuBarQuotaDisplayMode)
-            return (title, "Antigravity · \(group.localizedDisplayName) · \(title)")
-        }
-    }
-
-    private func stayAwakeStatusImage() -> NSImage? {
-        let description = L10n.text(
-            "awake.menu_bar_active",
-            fallback: "Stay Awake on"
+    private var menuBarPresentation: MenuBarPresentation {
+        MenuBarPresentation(
+            provider: menuBarQuotaProvider,
+            antigravityEnabled: antigravityIntegrationEnabled,
+            antigravityAvailable: antigravityStore.isInstalled,
+            selectedGroupID: UserDefaults.standard.string(forKey: AntigravityQuotaGroup.menuBarGroupDefaultsKey),
+            mode: menuBarQuotaDisplayMode,
+            codexSnapshot: store.snapshot,
+            antigravitySnapshot: antigravityStore.snapshot,
+            isStayAwakeActive: stayAwakeStore.isActive
         )
-        guard let baseImage = NSImage(
-            systemSymbolName: "cup.and.saucer.fill",
-            accessibilityDescription: description
-        ) else {
-            return nil
-        }
-        let configuration = NSImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
-        let image = baseImage.withSymbolConfiguration(configuration) ?? baseImage
-        image.isTemplate = true
-        return image
     }
 }

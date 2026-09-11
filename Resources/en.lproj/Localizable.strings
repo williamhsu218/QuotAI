@@ -127,7 +127,7 @@
 "settings.menu_bar_windows" = "Menu bar windows";
 "settings.menu_bar_quota_5h" = "5h only";
 "settings.menu_bar_quota_7d" = "7d only";
-"settings.menu_bar_quota_both" = "5h and 7d";
+"settings.menu_bar_quota_both" = "All available quotas";
 "settings.menu_bar_quota_help" = "Choose which quota windows appear in the menu bar.";
 "settings.every_5_minutes" = "Every 5 minutes";
 "settings.every_10_minutes" = "Every 10 minutes";

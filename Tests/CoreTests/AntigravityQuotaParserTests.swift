@@ -50,11 +50,29 @@ func formatsAntigravityMenuBarTitle() {
     #expect(geminiGroup.menuBarTitle(for: .fiveHour) == "✦ 5h 76%")
     #expect(geminiGroup.menuBarTitle(for: .sevenDay) == "✦ 7d 61%")
     #expect(geminiGroup.menuBarTitle(for: .both) == "✦ 5h 76% · 7d 61%")
+    #expect(geminiGroup.menuBarLines(for: .both) == ["5h 76%", "7d 61%"])
+    #expect(geminiGroup.menuBarLines(for: .fiveHour) == ["5h 76%"])
+    #expect(geminiGroup.menuBarLines(for: .sevenDay) == ["7d 61%"])
 
     let thirdPartyGroup = AntigravityQuotaSnapshot.preview.groups[1]
     #expect(thirdPartyGroup.menuBarTitle(for: .fiveHour) == "✳ 5h 44%")
     #expect(thirdPartyGroup.menuBarTitle(for: .sevenDay) == "✳ 7d 28%")
     #expect(thirdPartyGroup.menuBarTitle(for: .both) == "✳ 5h 44% · 7d 28%")
+    #expect(thirdPartyGroup.menuBarLines(for: .both) == ["5h 44%", "7d 28%"])
+}
+
+@Test("Hides the 5-hour quota when Antigravity group omits it")
+func antigravityOmitsMissingFiveHourWindow() {
+    let group = AntigravityQuotaGroup(
+        id: "gemini",
+        displayName: "Gemini",
+        fiveHour: nil,
+        sevenDay: QuotaWindow(kind: .sevenDay, remainingPercent: 88, resetsAt: Date())
+    )
+    #expect(group.menuBarLines(for: .both) == ["7d 88%"])
+    #expect(group.menuBarLines(for: .fiveHour) == ["5h --"])
+    #expect(group.menuBarLines(for: .sevenDay) == ["7d 88%"])
+    #expect(group.menuBarTitle(for: .both) == "✦ 7d 88%")
 }
 
 @Test("Antigravity quota tabs preserve separate pools and fall back for a missing selection")

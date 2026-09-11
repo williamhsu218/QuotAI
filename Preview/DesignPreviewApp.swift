@@ -32,6 +32,7 @@ private final class NativeSettingsPreviewWindow {
         let content = SettingsView(
             store: UsageStore(previewMode: true),
             antigravityStore: AntigravityUsageStore(previewMode: true),
+            stayAwakeStore: StayAwakeStore(previewMode: true),
             initialTab: tab
         )
         let hostingController = NSHostingController(rootView: content)
@@ -117,6 +118,7 @@ struct DesignPreviewApp: App {
                     SettingsView(
                         store: store,
                         antigravityStore: antigravityStore,
+                        stayAwakeStore: stayAwakeStore,
                         initialTab: requestedSettingsTab
                     )
                 } else {
@@ -131,7 +133,7 @@ struct DesignPreviewApp: App {
         .windowResizability(.contentSize)
 
         Settings {
-            SettingsView(store: store, antigravityStore: antigravityStore)
+            SettingsView(store: store, antigravityStore: antigravityStore, stayAwakeStore: stayAwakeStore)
         }
     }
 }

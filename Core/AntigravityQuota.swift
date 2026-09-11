@@ -100,6 +100,19 @@ public struct AntigravityQuotaGroup: Codable, Equatable, Identifiable, Sendable 
             : "\(menuBarPrefix) \(parts.joined(separator: " · "))"
     }
 
+    public func menuBarLines(for mode: MenuBarQuotaDisplayMode) -> [String] {
+        let quotasByKind = Dictionary(
+            uniqueKeysWithValues: orderedQuotas.map { ($0.kind, $0) }
+        )
+        let lines = mode.selectedKinds.compactMap { kind -> String? in
+            if let quota = quotasByKind[kind] {
+                return "\(kind.shortLabel) \(quota.remainingPercent)%"
+            }
+            return mode == .both ? nil : "\(kind.shortLabel) --"
+        }
+        return lines.isEmpty ? ["--"] : lines
+    }
+
     private var menuBarPrefix: String {
         switch id.lowercased() {
         case "gemini": "✦"

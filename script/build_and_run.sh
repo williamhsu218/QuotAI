@@ -106,6 +106,7 @@ build_preview() {
   cp -R "$ROOT_DIR/Resources/en.lproj" "$preview_resources/"
   cp -R "$ROOT_DIR/Resources/zh-Hans.lproj" "$preview_resources/"
   cp "$ROOT_DIR/Design/AppMark-master.png" "$preview_resources/"
+  cp "$ROOT_DIR/Design/CodexMark-master.png" "$preview_resources/"
 
   xcrun swiftc \
     -parse-as-library \
@@ -227,6 +228,7 @@ render_preview() {
   cp -R "$ROOT_DIR/Resources/en.lproj" "$renderer_resources/"
   cp -R "$ROOT_DIR/Resources/zh-Hans.lproj" "$renderer_resources/"
   cp "$ROOT_DIR/Design/AppMark-master.png" "$renderer_resources/"
+  cp "$ROOT_DIR/Design/CodexMark-master.png" "$renderer_resources/"
   xcrun swiftc \
     -parse-as-library \
     -target arm64-apple-macosx14.0 \
@@ -277,6 +279,7 @@ render_settings() {
   local language="${1:-en}"
   local appearance="${2:-light}"
   local provider="${3:-codex}"
+  local settings_tab="${4:-general}"
   local qa_root="$ROOT_DIR/build/qa"
   local renderer="$qa_root/RenderDesignPreview.app/Contents/MacOS/RenderDesignPreview"
   local output="$qa_root/settings-$language-$appearance.png"
@@ -288,16 +291,22 @@ render_settings() {
     exit 2
   fi
 
-  render_preview "$language" "$appearance" "$provider" >/dev/null
-  if [[ "$appearance" == "dark" && "$provider" == "antigravity" ]]; then
-    "$renderer" "$output" --settings --antigravity --dark -AppleLanguages "($language)"
-  elif [[ "$appearance" == "dark" ]]; then
-    "$renderer" "$output" --settings --dark -AppleLanguages "($language)"
-  elif [[ "$provider" == "antigravity" ]]; then
-    "$renderer" "$output" --settings --antigravity -AppleLanguages "($language)"
-  else
-    "$renderer" "$output" --settings -AppleLanguages "($language)"
+  local settings_arguments=(--settings)
+  case "$settings_tab" in
+    general) ;;
+    menuBar) settings_arguments+=(--menu-bar) ;;
+    providers) settings_arguments+=(--providers) ;;
+    about) settings_arguments+=(--about) ;;
+    *) echo "settings tab must be general, menuBar, providers, or about" >&2; exit 2 ;;
+  esac
+  if [[ "$settings_tab" != "general" ]]; then
+    output="${output%.png}-$settings_tab.png"
   fi
+
+  render_preview "$language" "$appearance" "$provider" >/dev/null
+  [[ "$appearance" == "dark" ]] && settings_arguments+=(--dark)
+  [[ "$provider" == "antigravity" ]] && settings_arguments+=(--antigravity)
+  "$renderer" "$output" "${settings_arguments[@]}" -AppleLanguages "($language)"
   echo "$output"
 }
 
@@ -344,13 +353,13 @@ case "$MODE" in
     render_preview "${2:-en}" "${3:-light}" "${4:-codex}" "${5:-standard}"
     ;;
   --render-settings|render-settings)
-    render_settings "${2:-en}" "${3:-light}" "${4:-codex}"
+    render_settings "${2:-en}" "${3:-light}" "${4:-codex}" "${5:-general}"
     ;;
   --package-release|package-release)
     package_release
     ;;
   *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--preview [panel|settings|tokens] [general|menuBar|providers|about] [system|light|dark]|--render-preview [en|zh-Hans] [light|dark] [codex|antigravity] [standard|sparse]|--render-settings [en|zh-Hans] [light|dark] [codex|antigravity]|--package-release]" >&2
+    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--preview [panel|settings|tokens] [general|menuBar|providers|about] [system|light|dark]|--render-preview [en|zh-Hans] [light|dark] [codex|antigravity] [standard|sparse]|--render-settings [en|zh-Hans] [light|dark] [codex|antigravity] [general|menuBar|providers|about]|--package-release]" >&2
     exit 2
     ;;
 esac

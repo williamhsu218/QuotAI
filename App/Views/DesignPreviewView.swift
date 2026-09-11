@@ -17,16 +17,7 @@ struct DesignPreviewView: View {
 
     var body: some View {
         VStack(alignment: .center, spacing: 12) {
-            HStack(spacing: 6) {
-                if stayAwakeStore.isActive {
-                    Image(systemName: "cup.and.saucer.fill")
-                        .accessibilityLabel(
-                            L10n.text("awake.menu_bar_active", fallback: "Stay Awake on")
-                        )
-                }
-                Text(menuBarTitle)
-            }
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
+            MenuBarStatusLabel(presentation: menuBarPresentation)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 7))
@@ -43,19 +34,17 @@ struct DesignPreviewView: View {
         .background { previewBackdrop }
     }
 
-    private var menuBarTitle: String {
-        let effectiveProvider = menuBarQuotaProvider.effectiveProvider(
+    private var menuBarPresentation: MenuBarPresentation {
+        MenuBarPresentation(
+            provider: menuBarQuotaProvider,
             antigravityEnabled: antigravityIntegrationEnabled,
-            antigravityAvailable: antigravityStore.isInstalled || antigravityStore.isAvailable
+            antigravityAvailable: antigravityStore.isInstalled,
+            selectedGroupID: menuBarAntigravityGroupID,
+            mode: menuBarQuotaDisplayMode,
+            codexSnapshot: store.snapshot,
+            antigravitySnapshot: antigravityStore.snapshot,
+            isStayAwakeActive: stayAwakeStore.isActive
         )
-        switch effectiveProvider {
-        case .codex:
-            return store.snapshot?.menuBarTitle(for: menuBarQuotaDisplayMode) ?? "--"
-        case .antigravity:
-            return antigravityStore.snapshot?
-                .group(id: menuBarAntigravityGroupID)?
-                .menuBarTitle(for: menuBarQuotaDisplayMode) ?? "✦ --"
-        }
     }
 
     private var previewBackdrop: some View {

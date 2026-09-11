@@ -48,6 +48,7 @@ struct SettingsView: View {
 
     let store: UsageStore
     let antigravityStore: AntigravityUsageStore
+    let stayAwakeStore: StayAwakeStore
     var initialTab: SettingsTab = .general
 
     @State private var selectedTab: SettingsTab
@@ -55,10 +56,12 @@ struct SettingsView: View {
     init(
         store: UsageStore,
         antigravityStore: AntigravityUsageStore,
+        stayAwakeStore: StayAwakeStore? = nil,
         initialTab: SettingsTab = .general
     ) {
         self.store = store
         self.antigravityStore = antigravityStore
+        self.stayAwakeStore = stayAwakeStore ?? .shared
         self.initialTab = initialTab
         _selectedTab = State(initialValue: initialTab)
     }
@@ -239,6 +242,7 @@ struct SettingsView: View {
                             }
                         }
                         .labelsHidden()
+                        .accessibilityLabel(L10n.text("settings.menu_bar_source", fallback: "Menu bar source"))
                         .frame(width: 160)
                         .onChange(of: menuBarQuotaProvider) {
                             postMenuBarPreferenceChange()
@@ -257,11 +261,13 @@ struct SettingsView: View {
                                         .tag(menuBarAntigravityGroupID)
                                 } else {
                                     ForEach(antigravityGroups) { group in
-                                        Text(group.localizedDisplayName).tag(group.id)
+                                        Text(AntigravityQuotaTab(rawValue: group.id)?.title ?? group.localizedDisplayName)
+                                            .tag(group.id)
                                     }
                                 }
                             }
                             .labelsHidden()
+                            .accessibilityLabel(L10n.text("settings.antigravity_group", fallback: "Antigravity group"))
                             .frame(width: 160)
                             .disabled(antigravityGroups.isEmpty)
                             .onChange(of: menuBarAntigravityGroupID) {
@@ -279,9 +285,10 @@ struct SettingsView: View {
                     Picker("", selection: $menuBarQuotaDisplayMode) {
                         Text(L10n.text("settings.menu_bar_quota_5h", fallback: "5h only")).tag(MenuBarQuotaDisplayMode.fiveHour)
                         Text(L10n.text("settings.menu_bar_quota_7d", fallback: "7d only")).tag(MenuBarQuotaDisplayMode.sevenDay)
-                        Text(L10n.text("settings.menu_bar_quota_both", fallback: "5h and 7d")).tag(MenuBarQuotaDisplayMode.both)
+                        Text(L10n.text("settings.menu_bar_quota_both", fallback: "All available quotas")).tag(MenuBarQuotaDisplayMode.both)
                     }
                     .labelsHidden()
+                    .accessibilityLabel(L10n.text("settings.menu_bar_windows", fallback: "Menu bar windows"))
                     .frame(width: 160)
                     .onChange(of: menuBarQuotaDisplayMode) {
                         postMenuBarPreferenceChange()
@@ -497,26 +504,26 @@ struct SettingsView: View {
     }
 
     private var menuBarPreviewBadge: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "cup.and.saucer.fill")
-                .font(.system(size: 11, weight: .semibold))
-            Text(currentMenuBarTitle)
-                .font(.system(size: 12, weight: .medium))
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(
-            Color.primary.opacity(0.08),
-            in: RoundedRectangle(cornerRadius: 6, style: .continuous)
-        )
+        MenuBarStatusLabel(presentation: menuBarPreviewPresentation)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 3)
+            .background(
+                Color.primary.opacity(0.08),
+                in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+            )
     }
 
-    private var currentMenuBarTitle: String {
-        if !shouldShowAntigravity || menuBarQuotaProvider == .codex {
-            return store.snapshot?.menuBarTitle(for: menuBarQuotaDisplayMode) ?? "5h 82% · 7d 93%"
-        }
-        let group = antigravityStore.snapshot?.group(id: menuBarAntigravityGroupID)
-        return group?.menuBarTitle(for: menuBarQuotaDisplayMode) ?? "✦ 5h 76% · 7d 61%"
+    private var menuBarPreviewPresentation: MenuBarPresentation {
+        MenuBarPresentation(
+            provider: menuBarQuotaProvider,
+            antigravityEnabled: antigravityIntegrationEnabled,
+            antigravityAvailable: antigravityStore.isInstalled,
+            selectedGroupID: menuBarAntigravityGroupID,
+            mode: menuBarQuotaDisplayMode,
+            codexSnapshot: store.snapshot,
+            antigravitySnapshot: antigravityStore.snapshot,
+            isStayAwakeActive: stayAwakeStore.isActive
+        )
     }
 
     private var codexPathIsValid: Bool {
