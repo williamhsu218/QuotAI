@@ -183,3 +183,10 @@
 "ag_tokens.loading" = "Reading local token metadata…";
 "ag_tokens.partial_format" = "%d calls recorded · %d sessions pending · %d records excluded";
 "ag_tokens.complete_format" = "%d calls recorded · updated on demand";
+"ag_tokens.dates_missing_badge" = "Dates missing";
+"ag_tokens.recorded_local" = "Recorded local usage";
+"ag_tokens.progress_format" = "%d/%d sessions · %d calls";
+"ag_tokens.aux_skipped" = "%d excluded";
+"ag_tokens.aux_unavailable" = "%d unreadable";
+"ag_tokens.aux_limited" = "History capped";
+"ag_tokens.aux_undated" = "%d dates missing";

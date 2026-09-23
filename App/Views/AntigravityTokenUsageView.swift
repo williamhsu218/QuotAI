@@ -5,82 +5,11 @@ struct AntigravityTokenUsageView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 6) {
-                Text(L10n.text("ag_tokens.title", fallback: "Local tokens"))
-                    .font(.system(size: AppTheme.TypeSize.cardTitle, weight: .semibold))
-                Text(L10n.text("ag_tokens.all_models", fallback: "All models"))
-                    .font(.system(size: 9))
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .help(L10n.text("ag_tokens.scope", fallback: "Total = recorded input + output + cache hits. Output includes thinking. Local retained sessions only, not account-wide or billed usage."))
-                if store.failed || store.snapshot?.isCalendarPartial == true {
-                    Text(L10n.text(store.failed ? "ag_tokens.stale_badge" : "ag_tokens.partial_badge",
-                                   fallback: store.failed ? "Not updated" : "Partial"))
-                        .font(.system(size: 9))
-                        .foregroundStyle(.orange)
-                        .help(status)
-                }
-                Spacer(minLength: 4)
-                if store.isLoading {
-                    ProgressView().controlSize(.mini)
-                        .accessibilityLabel(L10n.text("ag_tokens.loading", fallback: "Reading local token metadata…"))
-                } else {
-                    Button {
-                        Task(priority: .utility) { await store.refresh() }
-                    } label: {
-                        Label(L10n.text(store.snapshot?.pendingFiles ?? 0 > 0 ? "ag_tokens.continue" : "action.refresh",
-                            fallback: "Read usage"), systemImage: "arrow.clockwise")
-                            .font(.system(size: AppTheme.TypeSize.small))
-                            .labelStyle(.iconOnly)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("antigravity.tokenUsage.refresh")
-                    .foregroundStyle(AppTheme.cyan)
-                    .help(status + "\n" + L10n.text("ag_tokens.on_demand", fallback: "Reads a bounded batch only on demand. No background polling."))
-                }
-            }
-            .lineLimit(1)
+            headerRow
+                .lineLimit(1)
 
             if let snapshot = store.snapshot, snapshot.generations > 0 {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(AntigravityTokenFormat.compact(snapshot.total))
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
-                        .monospacedDigit()
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                        .accessibilityIdentifier("antigravity.tokenUsage.total")
-                    Text(L10n.text("ag_tokens.includes_cache", fallback: "incl. cache"))
-                        .font(.system(size: AppTheme.TypeSize.small))
-                        .foregroundStyle(AppTheme.secondaryText)
-                        .fixedSize()
-                    Spacer(minLength: 0)
-                }
-
-                HStack(spacing: 8) {
-                    tokenMetric("ag_tokens.input", fallback: "Input", tokens: snapshot.input, id: "input")
-                    tokenMetric("ag_tokens.output", fallback: "Output", tokens: snapshot.output, id: "output")
-                    tokenMetric("ag_tokens.cache_hits", fallback: "Cache hits", tokens: snapshot.cacheRead, id: "cache")
-                }
-                .padding(.vertical, 2)
-
-                Divider().overlay(AppTheme.separator.opacity(0.5))
-
-                LazyVGrid(columns: [.init(.flexible(), alignment: .leading), .init(.flexible(), alignment: .leading)],
-                          alignment: .leading, spacing: 3) {
-                    ForEach(snapshot.models) { model in
-                        HStack(spacing: 4) {
-                            Text(model.id == "Other" ? L10n.text("ag_tokens.other", fallback: "Other") : model.id)
-                                .foregroundStyle(AppTheme.secondaryText)
-                            Spacer(minLength: 0)
-                            Text(AntigravityTokenFormat.compact(model.total))
-                                .fontWeight(.medium).monospacedDigit()
-                        }
-                        .font(.system(size: AppTheme.TypeSize.small))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                        .accessibilityElement(children: .combine)
-                        .accessibilityIdentifier("antigravity.tokenUsage.model.\(model.id)")
-                    }
-                }
+                tokenSummarySection(snapshot)
             }
 
             if let snapshot = store.snapshot, snapshot.files > 0 {
@@ -88,18 +17,120 @@ struct AntigravityTokenUsageView: View {
                     .padding(.top, 3)
             }
 
-            if store.snapshot == nil || store.snapshot?.files == 0 {
-                Text(status)
-                    .font(.system(size: AppTheme.TypeSize.small))
-                    .foregroundStyle(store.failed ? Color.orange : AppTheme.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            statusSection
         }
         .foregroundStyle(AppTheme.primaryText)
         .padding(AppTheme.Spacing.compact)
         .appCardSurface(cornerRadius: 10)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("antigravity.tokenUsage")
+    }
+
+    private var headerRow: some View {
+        HStack(spacing: 6) {
+            Text(L10n.text("ag_tokens.title", fallback: "Local tokens"))
+                .font(.system(size: AppTheme.TypeSize.cardTitle, weight: .semibold))
+            Text(L10n.text("ag_tokens.all_models", fallback: "All models"))
+                .font(.system(size: 9))
+                .foregroundStyle(AppTheme.secondaryText)
+                .help(L10n.text("ag_tokens.scope", fallback: "Total = recorded input + output + cache hits. Output includes thinking. Local retained sessions only, not account-wide or billed usage."))
+
+            headerBadge
+
+            Spacer(minLength: 4)
+
+            if store.isLoading {
+                ProgressView().controlSize(.mini)
+                    .accessibilityLabel(L10n.text("ag_tokens.loading", fallback: "Reading local token metadata…"))
+            } else {
+                Button {
+                    Task(priority: .utility) { await store.refresh() }
+                } label: {
+                    Label(L10n.text("action.refresh", fallback: "Refresh"), systemImage: "arrow.clockwise")
+                        .font(.system(size: AppTheme.TypeSize.small))
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("antigravity.tokenUsage.refresh")
+                .foregroundStyle(AppTheme.cyan)
+                .help(headerRefreshTooltip)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var headerBadge: some View {
+        if store.failed {
+            Text(L10n.text("ag_tokens.stale_badge", fallback: "Not updated"))
+                .font(.system(size: 9))
+                .foregroundStyle(.orange)
+                .help(L10n.text("ag_tokens.unavailable", fallback: "Local data unavailable. Previous counts have not been refreshed."))
+                .accessibilityIdentifier("antigravity.tokenUsage.badge.failed")
+        } else if let snapshot = store.snapshot {
+            if snapshot.isPartial {
+                Text(L10n.text("ag_tokens.partial_badge", fallback: "Partial"))
+                    .font(.system(size: 9))
+                    .foregroundStyle(.orange)
+                    .help(partialBadgeHelp(snapshot))
+                    .accessibilityIdentifier("antigravity.tokenUsage.badge.partial")
+            } else if snapshot.undatedGenerations > 0 {
+                Text(L10n.text("ag_tokens.dates_missing_badge", fallback: "Dates missing"))
+                    .font(.system(size: 9))
+                    .foregroundStyle(.orange)
+                    .help(L10n.format("ag_tokens.undated_format", fallback: "%d undated calls", snapshot.undatedGenerations))
+                    .accessibilityIdentifier("antigravity.tokenUsage.badge.datesMissing")
+            }
+        }
+    }
+
+    private func tokenSummarySection(_ snapshot: AntigravityTokenSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(AntigravityTokenFormat.compact(snapshot.total))
+                    .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    .accessibilityIdentifier("antigravity.tokenUsage.total")
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(L10n.text("ag_tokens.recorded_local", fallback: "Recorded local usage"))
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(AppTheme.primaryText)
+                    Text(L10n.text("ag_tokens.includes_cache", fallback: "incl. cache"))
+                        .font(.system(size: 9))
+                        .foregroundStyle(AppTheme.secondaryText)
+                }
+                .help(L10n.text("ag_tokens.scope", fallback: "Total = recorded input + output + cache hits. Output includes thinking. Local retained sessions only, not account-wide or billed usage."))
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: 8) {
+                tokenMetric("ag_tokens.input", fallback: "Input", tokens: snapshot.input, id: "input")
+                tokenMetric("ag_tokens.output", fallback: "Output", tokens: snapshot.output, id: "output")
+                tokenMetric("ag_tokens.cache_hits", fallback: "Cache hits", tokens: snapshot.cacheRead, id: "cache")
+            }
+            .padding(.vertical, 2)
+
+            Divider().overlay(AppTheme.separator.opacity(0.5))
+
+            LazyVGrid(columns: [.init(.flexible(), alignment: .leading), .init(.flexible(), alignment: .leading)],
+                      alignment: .leading, spacing: 3) {
+                ForEach(snapshot.models) { model in
+                    HStack(spacing: 4) {
+                        Text(model.id == "Other" ? L10n.text("ag_tokens.other", fallback: "Other") : model.id)
+                            .foregroundStyle(AppTheme.secondaryText)
+                        Spacer(minLength: 0)
+                        Text(AntigravityTokenFormat.compact(model.total))
+                            .fontWeight(.medium).monospacedDigit()
+                    }
+                    .font(.system(size: AppTheme.TypeSize.small))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("antigravity.tokenUsage.model.\(model.id)")
+                }
+            }
+        }
     }
 
     private func tokenMetric(_ key: String, fallback: String, tokens: Int64, id: String) -> some View {
@@ -118,31 +149,138 @@ struct AntigravityTokenUsageView: View {
         .accessibilityIdentifier("antigravity.tokenUsage.\(id)")
     }
 
-    private var status: String {
-        let summary = readStatus
-        guard let snapshot = store.snapshot, snapshot.undatedGenerations > 0 else { return summary }
-        return summary + " · " + L10n.format("ag_tokens.undated_format", fallback: "%d undated calls", snapshot.undatedGenerations)
+    @ViewBuilder
+    private var statusSection: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            if store.failed {
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.orange)
+                    Text(L10n.text("ag_tokens.unavailable", fallback: "Local data unavailable. Previous counts have not been refreshed."))
+                        .font(.system(size: AppTheme.TypeSize.small))
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("antigravity.tokenUsage.staleNotice")
+            }
+
+            if let snapshot = store.snapshot {
+                if snapshot.files == 0 {
+                    Text(L10n.text("ag_tokens.empty", fallback: "No supported local conversation databases."))
+                        .font(.system(size: AppTheme.TypeSize.small))
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    HStack(alignment: .center, spacing: 6) {
+                        if snapshot.pendingFiles > 0 {
+                            let totalFiles = max(0, snapshot.files)
+                            let pending = max(0, snapshot.pendingFiles)
+                            let processed = max(0, min(totalFiles, totalFiles - pending))
+                            Text(L10n.format("ag_tokens.progress_format",
+                                             fallback: "%d/%d sessions · %d calls",
+                                             processed, totalFiles, snapshot.generations))
+                                .font(.system(size: AppTheme.TypeSize.small))
+                                .foregroundStyle(AppTheme.secondaryText)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                                .accessibilityIdentifier("antigravity.tokenUsage.progress")
+
+                            Spacer(minLength: 4)
+
+                            Button {
+                                Task(priority: .userInitiated) {
+                                    await store.continueHistory()
+                                }
+                            } label: {
+                                HStack(spacing: 3) {
+                                    if store.isLoading {
+                                        ProgressView().controlSize(.mini)
+                                    }
+                                    Text(L10n.text("ag_tokens.continue", fallback: "Read more"))
+                                        .font(.system(size: AppTheme.TypeSize.small, weight: .medium))
+                                }
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2.5)
+                                .background(AppTheme.cyan.opacity(0.12), in: RoundedRectangle(cornerRadius: 5))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 5)
+                                        .strokeBorder(AppTheme.cyan.opacity(0.3), lineWidth: 0.5)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(store.isLoading)
+                            .accessibilityLabel(L10n.text("ag_tokens.continue", fallback: "Read more"))
+                            .accessibilityIdentifier("antigravity.tokenUsage.continueHistory")
+                        } else {
+                            Text(L10n.format("ag_tokens.complete_format",
+                                             fallback: "%d calls recorded · updated on demand",
+                                             snapshot.generations))
+                                .font(.system(size: AppTheme.TypeSize.small))
+                                .foregroundStyle(AppTheme.secondaryText)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                                .accessibilityIdentifier("antigravity.tokenUsage.statusComplete")
+                            Spacer(minLength: 0)
+                        }
+                    }
+
+                    let aux = auxiliaryNotes(for: snapshot)
+                    if !aux.isEmpty {
+                        Text(aux.joined(separator: " · "))
+                            .font(.system(size: 9))
+                            .foregroundStyle(AppTheme.secondaryText)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("antigravity.tokenUsage.auxiliary")
+                    }
+                }
+            } else if !store.failed {
+                Text(L10n.text(store.isLoading ? "ag_tokens.loading" : "ag_tokens.on_demand",
+                               fallback: store.isLoading ? "Reading local token metadata…" : "Read on demand"))
+                    .font(.system(size: AppTheme.TypeSize.small))
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.top, 2)
     }
 
-    private var readStatus: String {
+    private func auxiliaryNotes(for snapshot: AntigravityTokenSnapshot) -> [String] {
+        var items: [String] = []
+        if snapshot.skippedRecords > 0 {
+            items.append(L10n.format("ag_tokens.aux_skipped", fallback: "%d excluded", snapshot.skippedRecords))
+        }
+        if snapshot.unavailableFiles > 0 {
+            items.append(L10n.format("ag_tokens.aux_unavailable", fallback: "%d unreadable", snapshot.unavailableFiles))
+        }
+        // A pending slice can set `limited` after its normal per-read budget.
+        // Only a finished scan with this flag proves a history cap was hit.
+        if snapshot.limited && snapshot.pendingFiles == 0 {
+            items.append(L10n.text("ag_tokens.aux_limited", fallback: "History capped"))
+        }
+        if snapshot.undatedGenerations > 0 {
+            items.append(L10n.format("ag_tokens.aux_undated", fallback: "%d dates missing", snapshot.undatedGenerations))
+        }
+        return items
+    }
+
+    private func partialBadgeHelp(_ snapshot: AntigravityTokenSnapshot) -> String {
+        if snapshot.limited && snapshot.pendingFiles == 0 {
+            return L10n.text("ag_tokens.limited", fallback: "Only part of the local history fits within the safety limit.")
+        }
+        return L10n.format("ag_tokens.partial_format", fallback: "%d calls recorded · %d sessions pending · %d records excluded",
+                           snapshot.generations, snapshot.pendingFiles, snapshot.skippedRecords)
+    }
+
+    private var headerRefreshTooltip: String {
+        let base = L10n.text("ag_tokens.on_demand", fallback: "Reads a bounded batch only on demand. No background polling.")
         if store.failed {
-            return L10n.text("ag_tokens.unavailable", fallback: "Local data unavailable. Previous counts have not been refreshed.")
+            return L10n.text("ag_tokens.unavailable", fallback: "Local data unavailable. Previous counts have not been refreshed.") + "\n" + base
         }
-        guard let snapshot = store.snapshot else {
-            return L10n.text(store.isLoading ? "ag_tokens.loading" : "ag_tokens.on_demand", fallback: "Read on demand")
-        }
-        if snapshot.files == 0 {
-            return L10n.text("ag_tokens.empty", fallback: "No supported local conversation databases.")
-        }
-        if snapshot.isPartial {
-            if snapshot.limited && snapshot.pendingFiles == 0 {
-                return L10n.text("ag_tokens.limited", fallback: "Only part of the local history fits within the safety limit.")
-            }
-            return L10n.format("ag_tokens.partial_format", fallback: "%d calls recorded · %d sessions pending · %d records excluded",
-                               snapshot.generations, snapshot.pendingFiles, snapshot.skippedRecords)
-        }
-        return L10n.format("ag_tokens.complete_format", fallback: "%d calls recorded · updated on demand",
-                           snapshot.generations)
+        guard let snapshot = store.snapshot else { return base }
+        return L10n.format("ag_tokens.complete_format", fallback: "%d calls recorded · updated on demand", snapshot.generations) + "\n" + base
     }
 }
 

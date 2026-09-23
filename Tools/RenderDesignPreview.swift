@@ -34,19 +34,32 @@ struct RenderDesignPreview {
                 : nil
         )
         let antigravityStore = AntigravityUsageStore(previewMode: true)
-        let tokenState = CommandLine.arguments.contains("--ag-tokens-partial")
-            ? AntigravityTokenSnapshot(models: [
-                .init(id: "Gemini", input: 100_000_000, output: 10_000_000, cacheRead: 300_000_000, generations: 1000),
-                .init(id: "Claude", input: 100_000_000, output: 10_000_000, cacheRead: 300_000_000, generations: 1000),
-                .init(id: "GPT", input: 100_000_000, output: 10_000_000, cacheRead: 300_000_000, generations: 1000),
-                .init(id: "Other", input: 100_000_000, output: 10_000_000, cacheRead: 300_000_000, generations: 1000)
-              ], files: 34, pendingFiles: 30, unavailableFiles: 1, skippedRecords: 2,
-                 limited: true, checkedAt: Date(), rowsRead: 512, bytesRead: 768 * 1024,
-                 stepRowsRead: 256, dailyBuckets: AntigravityTokenSnapshot.previewBuckets(total: 1_600_000_000),
-                 undatedGenerations: 30)
-            : nil
+        let tokenState: AntigravityTokenSnapshot? = {
+            if CommandLine.arguments.contains("--ag-tokens-partial") {
+                return AntigravityTokenSnapshot(models: [
+                    .init(id: "Gemini", input: 100_000_000, output: 10_000_000, cacheRead: 300_000_000, generations: 1000),
+                    .init(id: "Claude", input: 100_000_000, output: 10_000_000, cacheRead: 300_000_000, generations: 1000),
+                    .init(id: "GPT", input: 100_000_000, output: 10_000_000, cacheRead: 300_000_000, generations: 1000),
+                    .init(id: "Other", input: 100_000_000, output: 10_000_000, cacheRead: 300_000_000, generations: 1000)
+                  ], files: 34, pendingFiles: 30, unavailableFiles: 1, skippedRecords: 2,
+                     limited: true, checkedAt: Date(), rowsRead: 512, bytesRead: 768 * 1024,
+                     stepRowsRead: 256, dailyBuckets: AntigravityTokenSnapshot.previewBuckets(total: 1_600_000_000),
+                     undatedGenerations: 30)
+            } else if CommandLine.arguments.contains("--ag-tokens-dates-missing") {
+                return AntigravityTokenSnapshot(models: [
+                    .init(id: "Gemini", input: 100_000_000, output: 10_000_000, cacheRead: 300_000_000, generations: 1000),
+                    .init(id: "Claude", input: 100_000_000, output: 10_000_000, cacheRead: 300_000_000, generations: 1000)
+                  ], files: 12, pendingFiles: 0, unavailableFiles: 0, skippedRecords: 0,
+                     limited: false, checkedAt: Date(), rowsRead: 0, bytesRead: 0,
+                     stepRowsRead: 0, dailyBuckets: AntigravityTokenSnapshot.previewBuckets(total: 820_000_000),
+                     undatedGenerations: 15)
+            } else {
+                return nil
+            }
+        }()
+        let tokenFailed = CommandLine.arguments.contains("--ag-tokens-failed")
         let tokenPreviewStore = AntigravityUsageStore(previewMode: true,
-            tokenUsage: AntigravityTokenStore(previewMode: true, previewSnapshot: tokenState))
+            tokenUsage: AntigravityTokenStore(previewMode: true, previewSnapshot: tokenState, failed: tokenFailed))
         let stayAwakeStore = StayAwakeStore(previewMode: true)
         let colorScheme: ColorScheme = CommandLine.arguments.contains("--dark") ? .dark : .light
         NSApplication.shared.appearance = NSAppearance(named: colorScheme == .dark ? .darkAqua : .aqua)

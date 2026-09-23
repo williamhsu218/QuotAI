@@ -4,6 +4,7 @@ import Foundation
 /// No timer, watcher, subprocess, network request or retained SQLite connection.
 /// One bounded slice of work is performed only when explicitly requested.
 actor AntigravityTokenReader {
+    static let maxSnapshotFileSize: Int64 = 64 * 1024 * 1024
     struct Budget: Sendable {
         var rows = 512
         var bytes = 768 * 1024
@@ -195,6 +196,9 @@ actor AntigravityTokenReader {
         }
         let walMode = bytes[18] == 2
         let immutable = walMode && !wal && !shm
+        if immutable && !allowImmutable {
+            return try readSnapshotSlice(url, after: cursor, maxRows: maxRows, maxBytes: maxBytes, deadline: deadline)
+        }
         // Never pretend a live WAL database is immutable or create its sidecars.
         guard !walMode || (wal && shm) || (immutable && allowImmutable) else {
             throw TokenUsageReadError.unavailable
@@ -202,6 +206,112 @@ actor AntigravityTokenReader {
         let path = immutable ? url.absoluteString + "?mode=ro&immutable=1" : url.path
         let database = try TokenUsageDatabase(path: path, readOnly: true)
         database.limitWork(until: deadline)
+        let result = try extractRows(from: database, after: cursor, maxRows: maxRows,
+                                     maxBytes: maxBytes, deadline: deadline)
+        guard try fingerprint(url) == before, !immutable || !runtimeIsRunning() else {
+            throw TokenUsageReadError.unavailable
+        }
+        return Slice(rows: result.rows, bytes: result.bytes, ended: result.ended, fingerprint: before,
+                     rowsRead: result.rowsRead, stepRowsRead: result.stepRowsRead)
+    }
+
+    private func readSnapshotSlice(_ url: URL, after cursor: Int64, maxRows: Int, maxBytes: Int,
+                                   deadline: TimeInterval) throws -> Slice {
+        guard ProcessInfo.processInfo.systemUptime < deadline else {
+            throw TokenUsageReadError.budget
+        }
+        let fm = FileManager.default
+        var srcStat = stat()
+        guard stat(url.path, &srcStat) == 0,
+              (srcStat.st_mode & S_IFMT) == S_IFREG,
+              srcStat.st_size >= 0,
+              srcStat.st_size <= Self.maxSnapshotFileSize else {
+            throw TokenUsageReadError.unavailable
+        }
+        guard !fm.fileExists(atPath: url.path + "-wal"),
+              !fm.fileExists(atPath: url.path + "-shm") else {
+            throw TokenUsageReadError.unavailable
+        }
+        let fingerprintBefore = try fingerprint(url)
+
+        let sourceDir = url.deletingLastPathComponent().resolvingSymlinksInPath().path
+        let candidates = [
+            FileManager.default.temporaryDirectory,
+            cacheURL.deletingLastPathComponent(),
+            URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true),
+            URL(fileURLWithPath: "/tmp", isDirectory: true)
+        ]
+        var tempBaseURL: URL?
+        for candidate in candidates {
+            let candPath = candidate.resolvingSymlinksInPath().path
+            guard candPath != sourceDir, !candPath.hasPrefix(sourceDir + "/") else { continue }
+            var candStat = stat()
+            if stat(candPath, &candStat) == 0 && candStat.st_dev == srcStat.st_dev {
+                tempBaseURL = candidate
+                break
+            }
+        }
+        guard let tempBase = tempBaseURL else {
+            throw TokenUsageReadError.unavailable
+        }
+
+        let tempDir = tempBase.appendingPathComponent("quotai-snapshot-\(UUID().uuidString)", isDirectory: true)
+        try fm.createDirectory(at: tempDir, withIntermediateDirectories: true,
+                               attributes: [.posixPermissions: 0o700])
+        defer { try? fm.removeItem(at: tempDir) }
+        guard tempDir.path.withCString({ chmod($0, 0o700) }) == 0 else {
+            throw TokenUsageReadError.unavailable
+        }
+
+        let cloneURL = tempDir.appendingPathComponent("snapshot.db", isDirectory: false)
+        let cloneStatus = url.path.withCString { src in
+            cloneURL.path.withCString { dst in
+                clonefile(src, dst, 0)
+            }
+        }
+        guard cloneStatus == 0 else {
+            throw TokenUsageReadError.unavailable
+        }
+        guard cloneURL.path.withCString({ chmod($0, 0o600) }) == 0 else {
+            throw TokenUsageReadError.unavailable
+        }
+
+        guard !fm.fileExists(atPath: url.path + "-wal"),
+              !fm.fileExists(atPath: url.path + "-shm"),
+              try fingerprint(url) == fingerprintBefore else {
+            throw TokenUsageReadError.unavailable
+        }
+
+        let clonePath = cloneURL.absoluteString + "?mode=ro&immutable=1"
+        let result: (rows: [Row], bytes: Int, ended: Bool, rowsRead: Int, stepRowsRead: Int)
+        do {
+            let database = try TokenUsageDatabase(path: clonePath, readOnly: true)
+            database.limitWork(until: deadline)
+            let check = try database.prepare("PRAGMA quick_check(1)")
+            guard try check.next(), check.text(0) == "ok" else {
+                throw TokenUsageReadError.unavailable
+            }
+            guard ProcessInfo.processInfo.systemUptime < deadline else {
+                throw TokenUsageReadError.budget
+            }
+            result = try extractRows(from: database, after: cursor, maxRows: maxRows,
+                                     maxBytes: maxBytes, deadline: deadline)
+        }
+
+        guard !fm.fileExists(atPath: url.path + "-wal"),
+              !fm.fileExists(atPath: url.path + "-shm"),
+              try fingerprint(url) == fingerprintBefore else {
+            throw TokenUsageReadError.unavailable
+        }
+
+        return Slice(rows: result.rows, bytes: result.bytes, ended: result.ended,
+                     fingerprint: fingerprintBefore, rowsRead: result.rowsRead,
+                     stepRowsRead: result.stepRowsRead)
+    }
+
+    private func extractRows(from database: TokenUsageDatabase, after cursor: Int64,
+                             maxRows: Int, maxBytes: Int,
+                             deadline: TimeInterval) throws -> (rows: [Row], bytes: Int, ended: Bool, rowsRead: Int, stepRowsRead: Int) {
         guard try database.integer("PRAGMA user_version") == 1 else { throw TokenUsageReadError.schema }
         let kind = try database.prepare("SELECT type FROM sqlite_schema WHERE name='gen_metadata'")
         guard try kind.next(), kind.text(0) == "table" else { throw TokenUsageReadError.schema }
@@ -255,11 +365,7 @@ actor AntigravityTokenReader {
             }
             rows.append(Row(index: statement.int(0), record: record, occurredAt: occurredAt))
         }
-        guard try fingerprint(url) == before, !immutable || !runtimeIsRunning() else {
-            throw TokenUsageReadError.unavailable
-        }
-        return Slice(rows: rows, bytes: byteCount, ended: ended, fingerprint: before,
-                     rowsRead: rowCount, stepRowsRead: stepCount)
+        return (rows: rows, bytes: byteCount, ended: ended, rowsRead: rowCount, stepRowsRead: stepCount)
     }
 
     private func stepQuery(_ database: TokenUsageDatabase) throws -> TokenUsageStatement? {

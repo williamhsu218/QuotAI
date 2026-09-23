@@ -6,17 +6,19 @@ private actor TokenInteractionPreviewSource {
     private var reads = 0
 
     func read() async throws -> AntigravityTokenSnapshot {
-        try await Task.sleep(for: .milliseconds(200))
+        try await Task.sleep(for: .milliseconds(100))
         reads += 1
+        let totalFiles = 6
+        let pending = max(0, totalFiles - reads)
         return AntigravityTokenSnapshot(models: [
             .init(id: "Gemini", input: Int64(reads) * 1_000_000, output: 200_000,
                   cacheRead: 3_000_000, generations: reads * 100),
             .init(id: "Claude", input: 300_000, output: 50_000, cacheRead: 800_000, generations: 20)
-        ], files: 2, pendingFiles: reads == 1 ? 1 : 0, unavailableFiles: 0,
-           skippedRecords: 0, limited: false, checkedAt: Date(), rowsRead: 100, bytesRead: 4096,
+        ], files: totalFiles, pendingFiles: pending, unavailableFiles: reads == 1 ? 1 : 0,
+           skippedRecords: reads == 1 ? 2 : 0, limited: false, checkedAt: Date(), rowsRead: 100, bytesRead: 4096,
            stepRowsRead: 50,
-           dailyBuckets: AntigravityTokenSnapshot.previewBuckets(total: Int64(reads) * 1_000_000 + 4_350_000 - (reads == 1 ? 20_000 : 0)),
-           undatedGenerations: reads == 1 ? 3 : 0)
+           dailyBuckets: AntigravityTokenSnapshot.previewBuckets(total: Int64(reads) * 1_000_000 + 4_350_000 - (pending > 0 ? 20_000 : 0)),
+           undatedGenerations: pending > 0 ? 3 : 0)
     }
 }
 

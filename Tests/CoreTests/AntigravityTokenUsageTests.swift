@@ -192,7 +192,7 @@ func agTokenChangedBetweenSlices() async throws {
     #expect(final?.models.first(where: { $0.id == "Claude" })?.generations == 1)
 }
 
-@Test("AG reader refuses immutable access while a runtime may be running")
+@Test("AG reader safely recovers WAL-header DB without sidecars via COW snapshot when runtime is running")
 func agTokenOfflineWALSafety() async throws {
     let fixture = try TokenFixture()
     // Build a checkpointed, closed WAL-mode fixture without sidecars. Closing
@@ -210,13 +210,90 @@ func agTokenOfflineWALSafety() async throws {
         }
     }
     #expect(!FileManager.default.fileExists(atPath: url.path + "-wal"))
+    #expect(!FileManager.default.fileExists(atPath: url.path + "-shm"))
     let before = try Data(contentsOf: url)
-    let unavailable = try await fixture.reader(running: true).read()
-    #expect(unavailable.generations == 0)
-    #expect(unavailable.unavailableFiles == 1)
+
+    // When runtime is running, private COW snapshot recovers the committed data safely.
+    let snapshot = try await fixture.reader(running: true).read()
+    #expect(snapshot.generations == 1)
+    #expect(snapshot.unavailableFiles == 0)
+    #expect(snapshot.pendingFiles == 0)
     #expect(!FileManager.default.fileExists(atPath: url.path + "-wal"))
+    #expect(!FileManager.default.fileExists(atPath: url.path + "-shm"))
+    #expect(try Data(contentsOf: url) == before)
+
+    // When runtime is not running, direct immutable read succeeds and leaves source untouched.
     #expect(try await fixture.reader(running: false).read().generations == 1)
     #expect(try Data(contentsOf: url) == before)
+}
+
+@Test("AG reader fails closed when snapshot quick_check detects corruption")
+func agTokenSnapshotFailsClosedOnCorruptData() async throws {
+    let fixture = try TokenFixture()
+    var created: (URL, TokenUsageDatabase)? = try fixture.database()
+    let url = created!.0
+    try created!.1.run("PRAGMA journal_mode=WAL")
+    try fixture.put(created!.1, index: 0, blob: tokenBlob())
+    try #require(try created!.1.integer("PRAGMA wal_checkpoint(TRUNCATE)") == 0)
+    created = nil
+    for suffix in ["-wal", "-shm"] {
+        let sidecar = URL(fileURLWithPath: url.path + suffix)
+        if FileManager.default.fileExists(atPath: sidecar.path) {
+            try FileManager.default.removeItem(at: sidecar)
+        }
+    }
+
+    // Page 1's b-tree header begins at offset 100; zero is not a valid page type.
+    var fileData = try Data(contentsOf: url)
+    try #require(fileData.count > 256)
+    fileData[100] = 0
+    try fileData.write(to: url)
+
+    let before = try Data(contentsOf: url)
+    let snapshot = try await fixture.reader(running: true).read()
+    #expect(snapshot.generations == 0)
+    #expect(snapshot.unavailableFiles == 1)
+    #expect(snapshot.pendingFiles == 1)
+    #expect(!FileManager.default.fileExists(atPath: url.path + "-wal"))
+    #expect(!FileManager.default.fileExists(atPath: url.path + "-shm"))
+    #expect(try Data(contentsOf: url) == before)
+}
+
+@Test("AG reader fails closed on oversized database exceeding snapshot size limit")
+func agTokenSnapshotFailsClosedOnOversizedFile() async throws {
+    let fixture = try TokenFixture()
+    var created: (URL, TokenUsageDatabase)? = try fixture.database()
+    let url = created!.0
+    try created!.1.run("PRAGMA journal_mode=WAL")
+    try fixture.put(created!.1, index: 0, blob: tokenBlob())
+    try #require(try created!.1.integer("PRAGMA wal_checkpoint(TRUNCATE)") == 0)
+    created = nil
+    for suffix in ["-wal", "-shm"] {
+        let sidecar = URL(fileURLWithPath: url.path + suffix)
+        if FileManager.default.fileExists(atPath: sidecar.path) {
+            try FileManager.default.removeItem(at: sidecar)
+        }
+    }
+
+    // Expand file to exceed 64 MiB limit as a sparse file
+    let handle = try FileHandle(forWritingTo: url)
+    try handle.truncate(atOffset: UInt64(AntigravityTokenReader.maxSnapshotFileSize + 4096))
+    try handle.close()
+
+    let beforeSize = try #require(FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64)
+    let beforeHandle = try FileHandle(forReadingFrom: url)
+    let beforeHeader = try beforeHandle.read(upToCount: 32)
+    try beforeHandle.close()
+    let snapshot = try await fixture.reader(running: true).read()
+    #expect(snapshot.generations == 0)
+    #expect(snapshot.unavailableFiles == 1)
+    #expect(snapshot.pendingFiles == 1)
+    #expect(!FileManager.default.fileExists(atPath: url.path + "-wal"))
+    #expect(!FileManager.default.fileExists(atPath: url.path + "-shm"))
+    #expect(try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64 == beforeSize)
+    let afterHandle = try FileHandle(forReadingFrom: url)
+    #expect(try afterHandle.read(upToCount: 32) == beforeHeader)
+    try afterHandle.close()
 }
 
 @Test("AG reader rejects a non-indexed metadata schema instead of doing a full scan")

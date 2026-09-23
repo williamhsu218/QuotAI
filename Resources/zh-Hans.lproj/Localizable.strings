@@ -183,3 +183,10 @@
 "ag_tokens.loading" = "正在读取本地 Token 元数据…";
 "ag_tokens.partial_format" = "已记录 %d 次调用 · %d 个会话待补齐 · %d 条记录未计入";
 "ag_tokens.complete_format" = "已记录 %d 次调用 · 按需更新";
+"ag_tokens.dates_missing_badge" = "日期不全";
+"ag_tokens.recorded_local" = "本机已记录用量";
+"ag_tokens.progress_format" = "会话进度 %d/%d · 已记录 %d 次调用";
+"ag_tokens.aux_skipped" = "%d 条未计入";
+"ag_tokens.aux_unavailable" = "%d 个无法读取";
+"ag_tokens.aux_limited" = "历史已截断";
+"ag_tokens.aux_undated" = "%d 次日期未知";
