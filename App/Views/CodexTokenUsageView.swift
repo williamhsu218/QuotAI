@@ -3,12 +3,21 @@ import SwiftUI
 struct CodexTokenUsageView: View {
     let snapshot: UsageSnapshot
 
+    @AppStorage(TokenActivityTheme.defaultsKey) private var storedTheme = TokenActivityTheme.defaultTheme.rawValue
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorSchemeContrast) private var contrast
+
     @State private var hoveredDay: ActivityDay? = nil
 
     private let weeksCount = 18
     private let cellSize: CGFloat = 11
     private let cellGap: CGFloat = 2.8
     private let cornerRadius: CGFloat = 2.2
+
+    private var palette: TokenActivityPalette {
+        TokenActivityPalette(theme: TokenActivityTheme(storedValue: storedTheme),
+                             colorScheme: colorScheme, increasedContrast: contrast == .increased)
+    }
 
     private var summary: AccountTokenUsageSummary? {
         snapshot.tokenUsageSummary
@@ -36,6 +45,7 @@ struct CodexTokenUsageView: View {
                 legendRow
             }
             .padding(AppTheme.Spacing.compact)
+            .background(palette.surface, in: RoundedRectangle(cornerRadius: 10))
             .appCardSurface(cornerRadius: 10)
         }
     }
@@ -93,10 +103,10 @@ struct CodexTokenUsageView: View {
                     if day.isToday {
                         Text(L10n.text("usage.today_tag", fallback: "今天"))
                             .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(AppTheme.cyan)
+                            .foregroundStyle(palette.accent)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)
-                            .background(AppTheme.cyan.opacity(0.12), in: Capsule())
+                            .background(palette.accent.opacity(0.12), in: Capsule())
                     }
                 }
 
@@ -115,7 +125,7 @@ struct CodexTokenUsageView: View {
 
                 Text(L10n.text("usage.hover_hint", fallback: "悬停方格查看每日用量"))
                     .font(.system(size: AppTheme.TypeSize.small))
-                    .foregroundStyle(AppTheme.secondaryText.opacity(0.75))
+                    .foregroundStyle(AppTheme.secondaryText)
             }
         }
         .frame(height: 16)
@@ -144,7 +154,7 @@ struct CodexTokenUsageView: View {
         VStack(spacing: cellGap) {
             Text(L10n.text("usage.weekday_mon", fallback: "一"))
                 .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(AppTheme.secondaryText.opacity(0.65))
+                .foregroundStyle(AppTheme.secondaryText)
                 .frame(width: 12, height: cellSize)
 
             Text("")
@@ -152,7 +162,7 @@ struct CodexTokenUsageView: View {
 
             Text(L10n.text("usage.weekday_wed", fallback: "三"))
                 .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(AppTheme.secondaryText.opacity(0.65))
+                .foregroundStyle(AppTheme.secondaryText)
                 .frame(width: 12, height: cellSize)
 
             Text("")
@@ -160,7 +170,7 @@ struct CodexTokenUsageView: View {
 
             Text(L10n.text("usage.weekday_fri", fallback: "五"))
                 .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(AppTheme.secondaryText.opacity(0.65))
+                .foregroundStyle(AppTheme.secondaryText)
                 .frame(width: 12, height: cellSize)
 
             Text("")
@@ -180,18 +190,9 @@ struct CodexTokenUsageView: View {
             let isHovered = hoveredDay?.id == day.id
             let level = levelForTokens(day.tokens)
 
-            RoundedRectangle(cornerRadius: cornerRadius)
-                .fill(colorForLevel(level))
+            TokenActivitySwatch(level: level, palette: palette, cornerRadius: cornerRadius,
+                                emphasized: isHovered || day.isToday)
                 .frame(width: cellSize, height: cellSize)
-                .overlay(
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .strokeBorder(
-                            isHovered
-                                ? Color.white
-                                : (day.isToday ? AppTheme.cyan.opacity(0.85) : (level == 0 ? Color.primary.opacity(0.04) : Color.clear)),
-                            lineWidth: isHovered ? 1.2 : (day.isToday ? 1.0 : 0.5)
-                        )
-                )
                 .scaleEffect(isHovered ? 1.25 : 1.0)
                 .zIndex(isHovered ? 10 : 0)
                 .animation(.easeInOut(duration: 0.10), value: isHovered)
@@ -204,6 +205,9 @@ struct CodexTokenUsageView: View {
                     }
                 }
                 .help(helpText(for: day))
+                .accessibilityElement(children: .ignore)
+                .accessibilityHidden(false)
+                .accessibilityLabel(helpText(for: day))
         }
     }
 
@@ -213,17 +217,16 @@ struct CodexTokenUsageView: View {
 
             Text(L10n.text("usage.legend_less", fallback: "少"))
                 .font(.system(size: 9))
-                .foregroundStyle(AppTheme.secondaryText.opacity(0.7))
+                .foregroundStyle(AppTheme.secondaryText)
 
             ForEach(0..<5) { level in
-                RoundedRectangle(cornerRadius: 1.5)
-                    .fill(colorForLevel(level))
+                TokenActivitySwatch(level: level, palette: palette, cornerRadius: 1.5)
                     .frame(width: 8, height: 8)
             }
 
             Text(L10n.text("usage.legend_more", fallback: "多"))
                 .font(.system(size: 9))
-                .foregroundStyle(AppTheme.secondaryText.opacity(0.7))
+                .foregroundStyle(AppTheme.secondaryText)
         }
         .padding(.top, 2)
     }
@@ -235,21 +238,6 @@ struct CodexTokenUsageView: View {
         if ratio > 0.40 { return 3 }
         if ratio > 0.15 { return 2 }
         return 1
-    }
-
-    private func colorForLevel(_ level: Int) -> Color {
-        switch level {
-        case 1:
-            return AppTheme.cyan.opacity(0.32)
-        case 2:
-            return AppTheme.cyan.opacity(0.55)
-        case 3:
-            return AppTheme.cyan.opacity(0.78)
-        case 4:
-            return AppTheme.cyan
-        default:
-            return AppTheme.track
-        }
     }
 
     private func formattedDate(_ day: ActivityDay) -> String {

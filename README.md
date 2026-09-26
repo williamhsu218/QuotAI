@@ -6,6 +6,7 @@ macOS 原生菜单栏工具。把本机 Codex 与 Antigravity 额度放在同一
 - 5 小时剩余额度；Codex 暂不返回该窗口时整行隐藏
 - 7 天剩余额度
 - Codex Token 累计用量、连续活跃天数及最近 18 周活跃度；需要本机 Codex 支持可选的 `account/usage/read` 接口
+- 设置 → 通用 → Token 活跃度配色：海蓝（默认）、翠绿、紫罗兰、琥珀，选择即时生效并保存；两个平台共用主题，自动适配浅色、深色及系统“增强对比度”。不透明底板和分级色块避免背景影响辨识，数据不完整仍以虚线标示
 - Antigravity 的 Gemini 与 Claude/GPT 模型组使用居中的两个标签切换；每组分别展示 5 小时与每周额度，
   不与 Codex 或另一个 Antigravity 模型组相加
 - Antigravity 本机 Token 实验统计：输入＋输出（含思考）＋缓存命中总量，三项明细、模型汇总及最近 18 周日期方格按量级自动使用 M / B 单位；只在打开 Antigravity 面板或手动点击时限量读取
@@ -46,6 +47,7 @@ swift test
 ./script/build_and_run.sh --telemetry
 ./script/build_and_run.sh --render-preview
 ./script/build_and_run.sh --render-preview zh-Hans dark antigravity
+./script/render_token_themes.sh en
 ./script/build_and_run.sh --package-release
 ```
 

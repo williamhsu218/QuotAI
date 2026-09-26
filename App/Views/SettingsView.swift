@@ -169,53 +169,57 @@ struct SettingsView: View {
     // MARK: - Panes
 
     private var generalPane: some View {
-        VStack(spacing: AppTheme.Spacing.medium) {
-            SettingsSection(title: L10n.text("settings.section.startup", fallback: "Startup")) {
-                Toggle(
-                    L10n.text("settings.launch_at_login", fallback: "Launch at login"),
-                    isOn: Binding(
-                        get: { launchAtLogin },
-                        set: { setLaunchAtLogin($0) }
+        ScrollView {
+            VStack(spacing: AppTheme.Spacing.medium) {
+                SettingsSection(title: L10n.text("settings.section.startup", fallback: "Startup")) {
+                    Toggle(
+                        L10n.text("settings.launch_at_login", fallback: "Launch at login"),
+                        isOn: Binding(
+                            get: { launchAtLogin },
+                            set: { setLaunchAtLogin($0) }
+                        )
                     )
-                )
-                .help(L10n.text("settings.launch_at_login_help", fallback: "Automatically start QuotAI when you log in."))
-            }
-
-            SettingsSection(title: L10n.text("settings.section.refresh", fallback: "Refresh & Sync")) {
-                HStack {
-                    Text(L10n.text("settings.auto_refresh", fallback: "Auto-refresh"))
-                    Spacer()
-                    Picker("", selection: $refreshInterval) {
-                        Text(L10n.text("settings.every_1_minute", fallback: "Every 1 minute")).tag(60.0)
-                        Text(L10n.text("settings.every_5_minutes", fallback: "Every 5 minutes")).tag(300.0)
-                        Text(L10n.text("settings.every_10_minutes", fallback: "Every 10 minutes")).tag(600.0)
-                        Text(L10n.text("settings.every_15_minutes", fallback: "Every 15 minutes")).tag(900.0)
-                    }
-                    .labelsHidden()
-                    .frame(width: 150)
+                    .help(L10n.text("settings.launch_at_login_help", fallback: "Automatically start QuotAI when you log in."))
                 }
 
-                Divider().overlay(AppTheme.separator.opacity(0.5))
+                SettingsSection(title: L10n.text("settings.section.token_activity", fallback: "Token Activity Colors")) {
+                    TokenActivityThemePicker()
+                }
 
-                HStack {
-                    Text(L10n.text("action.refresh", fallback: "Refresh"))
-                    Spacer()
-                    Button {
-                        refreshAllProviders()
-                    } label: {
-                        if store.isLoading || antigravityStore.isLoading {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Text(L10n.text("action.refresh_now", fallback: "Refresh Now"))
+                SettingsSection(title: L10n.text("settings.section.refresh", fallback: "Refresh & Sync")) {
+                    HStack {
+                        Text(L10n.text("settings.auto_refresh", fallback: "Auto-refresh"))
+                        Spacer()
+                        Picker("", selection: $refreshInterval) {
+                            Text(L10n.text("settings.every_1_minute", fallback: "Every 1 minute")).tag(60.0)
+                            Text(L10n.text("settings.every_5_minutes", fallback: "Every 5 minutes")).tag(300.0)
+                            Text(L10n.text("settings.every_10_minutes", fallback: "Every 10 minutes")).tag(600.0)
+                            Text(L10n.text("settings.every_15_minutes", fallback: "Every 15 minutes")).tag(900.0)
                         }
+                        .labelsHidden()
+                        .frame(width: 150)
                     }
-                    .disabled(store.isLoading || antigravityStore.isLoading)
+
+                    Divider().overlay(AppTheme.separator.opacity(0.5))
+
+                    HStack {
+                        Text(L10n.text("action.refresh", fallback: "Refresh"))
+                        Spacer()
+                        Button {
+                            refreshAllProviders()
+                        } label: {
+                            if store.isLoading || antigravityStore.isLoading {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Text(L10n.text("action.refresh_now", fallback: "Refresh Now"))
+                            }
+                        }
+                        .disabled(store.isLoading || antigravityStore.isLoading)
+                    }
                 }
             }
-
-            Spacer(minLength: 0)
+            .padding(AppTheme.Spacing.large)
         }
-        .padding(AppTheme.Spacing.large)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 

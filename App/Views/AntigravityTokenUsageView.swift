@@ -2,6 +2,14 @@ import SwiftUI
 
 struct AntigravityTokenUsageView: View {
     let store: AntigravityTokenStore
+    @AppStorage(TokenActivityTheme.defaultsKey) private var storedTheme = TokenActivityTheme.defaultTheme.rawValue
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    private var palette: TokenActivityPalette {
+        TokenActivityPalette(theme: TokenActivityTheme(storedValue: storedTheme),
+                             colorScheme: colorScheme, increasedContrast: contrast == .increased)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -13,7 +21,7 @@ struct AntigravityTokenUsageView: View {
             }
 
             if let snapshot = store.snapshot, snapshot.files > 0 {
-                AntigravityTokenCalendarView(snapshot: snapshot, stale: store.failed)
+                AntigravityTokenCalendarView(snapshot: snapshot, stale: store.failed, palette: palette)
                     .padding(.top, 3)
             }
 
@@ -21,6 +29,7 @@ struct AntigravityTokenUsageView: View {
         }
         .foregroundStyle(AppTheme.primaryText)
         .padding(AppTheme.Spacing.compact)
+        .background(palette.surface, in: RoundedRectangle(cornerRadius: 10))
         .appCardSurface(cornerRadius: 10)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("antigravity.tokenUsage")
@@ -288,6 +297,7 @@ struct AntigravityTokenUsageView: View {
 private struct AntigravityTokenCalendarView: View {
     let snapshot: AntigravityTokenSnapshot
     let stale: Bool
+    let palette: TokenActivityPalette
     private let weeks: [AntigravityTokenWeek]
     private let peak: Int64
     @State private var hoveredID: String?
@@ -295,8 +305,9 @@ private struct AntigravityTokenCalendarView: View {
     private let cellSize: CGFloat = 11
     private let gap: CGFloat = 2.8
 
-    init(snapshot: AntigravityTokenSnapshot, stale: Bool) {
+    init(snapshot: AntigravityTokenSnapshot, stale: Bool, palette: TokenActivityPalette) {
         self.snapshot = snapshot; self.stale = stale
+        self.palette = palette
         let weeks = snapshot.activityWeeks()
         self.weeks = weeks
         self.peak = max(1, weeks.flatMap(\.days).compactMap(\.tokens).max() ?? 0)
@@ -349,21 +360,21 @@ private struct AntigravityTokenCalendarView: View {
             .accessibilityLabel(L10n.text("ag_tokens.calendar_title", fallback: "Daily total · 18 weeks"))
 
             HStack(spacing: 3) {
-                RoundedRectangle(cornerRadius: 1.5)
-                    .strokeBorder(AppTheme.secondaryText.opacity(0.7), style: StrokeStyle(lineWidth: 0.6, dash: [1.5, 1]))
+                TokenActivitySwatch(level: 0, palette: palette, cornerRadius: 1.5, unknown: true)
                     .frame(width: 8, height: 8)
                 Text(L10n.text("ag_tokens.calendar_unknown", fallback: "Unknown"))
                 Spacer(minLength: 2)
                 Text("0 M")
                 ForEach(0..<5) { level in
-                    RoundedRectangle(cornerRadius: 1.5).fill(color(level)).frame(width: 8, height: 8)
+                    TokenActivitySwatch(level: level, palette: palette, cornerRadius: 1.5)
+                        .frame(width: 8, height: 8)
                 }
                 Text(L10n.text("usage.legend_more", fallback: "More"))
             }
             .font(.system(size: 9))
             .foregroundStyle(AppTheme.secondaryText)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(L10n.text("ag_tokens.calendar_legend", fallback: "Darker means more tokens. Dashed cells are incomplete, not zero."))
+            .accessibilityLabel(L10n.text("ag_tokens.calendar_legend", fallback: "Color intensity indicates token usage. Dashed cells are incomplete, not zero."))
             .help(calendarScope)
         }
     }
@@ -375,14 +386,9 @@ private struct AntigravityTokenCalendarView: View {
         } else {
             let active = (hoveredID ?? selectedID) == day.id
             Button { selectedID = selectedID == day.id ? nil : day.id } label: {
-                RoundedRectangle(cornerRadius: 2.2)
-                    .fill(day.tokens == nil ? Color.clear : color(level(day.tokens ?? 0)))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 2.2)
-                            .strokeBorder(active ? AppTheme.primaryText : (day.isToday ? AppTheme.cyan : AppTheme.secondaryText.opacity(0.5)),
-                                style: StrokeStyle(lineWidth: active || day.isToday ? 1 : 0.5,
-                                                   dash: day.isPartial || stale ? [1.5, 1] : []))
-                    }
+                TokenActivitySwatch(level: level(day.tokens ?? 0), palette: palette,
+                                    emphasized: active || day.isToday,
+                                    partial: day.isPartial || stale, unknown: day.tokens == nil)
                     .frame(width: cellSize, height: cellSize)
                     .contentShape(Rectangle())
             }
@@ -429,13 +435,4 @@ private struct AntigravityTokenCalendarView: View {
         return ratio > 0.70 ? 4 : (ratio > 0.40 ? 3 : (ratio > 0.15 ? 2 : 1))
     }
 
-    private func color(_ level: Int) -> Color {
-        switch level {
-        case 1: return AppTheme.cyan.opacity(0.32)
-        case 2: return AppTheme.cyan.opacity(0.55)
-        case 3: return AppTheme.cyan.opacity(0.78)
-        case 4: return AppTheme.cyan
-        default: return AppTheme.track
-        }
-    }
 }

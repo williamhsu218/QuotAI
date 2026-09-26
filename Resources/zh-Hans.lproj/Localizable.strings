@@ -164,7 +164,7 @@
 "ag_tokens.calendar_title" = "每日总量 · 近 18 周";
 "ag_tokens.calendar_hint" = "悬停或点击";
 "ag_tokens.calendar_unknown" = "未知";
-"ag_tokens.calendar_legend" = "颜色越深，Token 越多。虚线表示数据不完整，不等于零。";
+"ag_tokens.calendar_legend" = "颜色强度表示 Token 用量。虚线方格表示数据不完整，而非零用量。";
 "ag_tokens.calendar_scope" = "按首个生成步骤日期 · 本地时区";
 "ag_tokens.undated_format" = "%d 次日期未知";
 "ag_tokens.calendar_partial_format" = "%@ · 已读部分";
@@ -190,3 +190,11 @@
 "ag_tokens.aux_unavailable" = "%d 个无法读取";
 "ag_tokens.aux_limited" = "历史已截断";
 "ag_tokens.aux_undated" = "%d 次日期未知";
+
+// Token activity themes
+"settings.section.token_activity" = "Token 活跃度配色";
+"settings.token_theme_help" = "用于 Codex 和 Antigravity 活跃度，自动适配浅色与深色外观。";
+"token_theme.ocean" = "海蓝";
+"token_theme.emerald" = "翠绿";
+"token_theme.violet" = "紫罗兰";
+"token_theme.amber" = "琥珀";

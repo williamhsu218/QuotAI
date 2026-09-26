@@ -6,9 +6,18 @@ import SwiftUI
 struct RenderDesignPreview {
     static func main() throws {
         guard CommandLine.arguments.count >= 2 else {
-            fputs("usage: RenderDesignPreview <output.png>\n", stderr)
+            fputs("usage: RenderDesignPreview <output.png> [--token-theme=ocean|emerald|violet|amber] [--token-themes] [--dark]\n", stderr)
             exit(2)
         }
+
+        let tokenThemeArgument = CommandLine.arguments.first { $0.hasPrefix("--token-theme=") }
+        let tokenTheme = tokenThemeArgument.map { String($0.dropFirst("--token-theme=".count)) } ?? "ocean"
+        guard ["ocean", "emerald", "violet", "amber"].contains(tokenTheme) else {
+            fputs("token theme must be ocean, emerald, violet, or amber\n", stderr)
+            exit(2)
+        }
+        // The renderer is packaged with a dedicated bundle ID, separate from the live app.
+        UserDefaults.standard.set(tokenTheme, forKey: "tokenActivityTheme")
 
         let provider: QuotaProvider = CommandLine.arguments.contains("--antigravity")
             ? .antigravity
@@ -63,7 +72,15 @@ struct RenderDesignPreview {
         let stayAwakeStore = StayAwakeStore(previewMode: true)
         let colorScheme: ColorScheme = CommandLine.arguments.contains("--dark") ? .dark : .light
         NSApplication.shared.appearance = NSAppearance(named: colorScheme == .dark ? .darkAqua : .aqua)
-        if CommandLine.arguments.contains("--menubar-matrix") {
+        if CommandLine.arguments.contains("--token-themes") {
+            let size = CGSize(width: 752, height: 470)
+            try write(
+                tokenThemeComparison(theme: tokenTheme, colorScheme: colorScheme,
+                                     antigravityStore: tokenPreviewStore.tokenUsage)
+                    .frame(width: size.width, height: size.height, alignment: .topLeading),
+                size: size
+            )
+        } else if CommandLine.arguments.contains("--menubar-matrix") {
             try write(menuBarMatrix(colorScheme: colorScheme), size: CGSize(width: 480, height: 400))
         } else if CommandLine.arguments.contains("--ag-tokens-card") {
             let size = CGSize(width: 340, height: 420)
@@ -108,6 +125,55 @@ struct RenderDesignPreview {
                 size: size
             )
         }
+    }
+
+    /// Uses production cards and synthetic snapshots; no provider or local metadata reads.
+    private static func tokenThemeComparison(theme: String, colorScheme: ColorScheme,
+                                             antigravityStore: AntigravityTokenStore) -> some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("\(theme.capitalized) · Token activity")
+                    .font(.system(size: 22, weight: .semibold))
+                Spacer()
+                Text(colorScheme == .dark ? "Dark appearance" : "Light appearance")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            HStack(alignment: .top, spacing: 24) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Codex").font(.system(size: 14, weight: .semibold))
+                    CodexTokenUsageView(snapshot: tokenThemeCodexSnapshot)
+                }
+                .frame(width: 340, alignment: .topLeading)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Antigravity").font(.system(size: 14, weight: .semibold))
+                    AntigravityTokenUsageView(store: antigravityStore)
+                }
+                .frame(width: 340, alignment: .topLeading)
+            }
+        }
+        .padding(24)
+        .frame(width: 752, height: 470, alignment: .topLeading)
+        .foregroundStyle(Color.primary)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .environment(\.colorScheme, colorScheme)
+        .environment(\.nativeGlassRenderingEnabled, false)
+    }
+
+    /// Keep the calendar populated relative to today instead of the dated default fixture.
+    private static var tokenThemeCodexSnapshot: UsageSnapshot {
+        let base = UsageSnapshot.preview
+        let total: Int64 = 13_500_000_000
+        let buckets = AntigravityTokenSnapshot.previewBuckets(total: total)
+        return UsageSnapshot(
+            fetchedAt: Date(), fiveHour: base.fiveHour, sevenDay: base.sevenDay,
+            subscriptionPlan: base.subscriptionPlan, availableResetCount: base.availableResetCount,
+            resetCredits: base.resetCredits, dailyUsageBuckets: buckets,
+            tokenUsageSummary: AccountTokenUsageSummary(
+                lifetimeTokens: total, currentStreakDays: 2,
+                peakDailyTokens: buckets.map(\.tokens).max()
+            )
+        )
     }
 
     /// Synthetic states only; uses the production renderer, never live provider reads.

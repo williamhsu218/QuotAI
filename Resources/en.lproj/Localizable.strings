@@ -164,7 +164,7 @@
 "ag_tokens.calendar_title" = "Daily total · 18 weeks";
 "ag_tokens.calendar_hint" = "Hover or click";
 "ag_tokens.calendar_unknown" = "Unknown";
-"ag_tokens.calendar_legend" = "Darker means more tokens. Dashed cells are incomplete, not zero.";
+"ag_tokens.calendar_legend" = "Color intensity indicates token usage. Dashed cells are incomplete, not zero.";
 "ag_tokens.calendar_scope" = "First generated step date · local time";
 "ag_tokens.undated_format" = "%d undated calls";
 "ag_tokens.calendar_partial_format" = "%@ · partial";
@@ -190,3 +190,11 @@
 "ag_tokens.aux_unavailable" = "%d unreadable";
 "ag_tokens.aux_limited" = "History capped";
 "ag_tokens.aux_undated" = "%d dates missing";
+
+// Token activity themes
+"settings.section.token_activity" = "Token Activity Colors";
+"settings.token_theme_help" = "Applies to both activity grids. Colors adapt to Light and Dark Mode.";
+"token_theme.ocean" = "Ocean";
+"token_theme.emerald" = "Emerald";
+"token_theme.violet" = "Violet";
+"token_theme.amber" = "Amber";
