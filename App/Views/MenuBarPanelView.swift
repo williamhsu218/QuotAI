@@ -3,7 +3,6 @@ import SwiftUI
 
 struct MenuBarPanelView: View {
     @Environment(\.openSettings) private var openSettings
-    @Environment(\.nativeGlassRenderingEnabled) private var nativeGlassRenderingEnabled
     @Environment(\.designPreviewRendering) private var designPreviewRendering
     @AppStorage(QuotaProvider.panelDefaultsKey)
     private var quotaProvider = QuotaProvider.codex
@@ -14,8 +13,24 @@ struct MenuBarPanelView: View {
     let antigravityStore: AntigravityUsageStore
     let stayAwakeStore: StayAwakeStore
 
+    init(
+        store: UsageStore,
+        antigravityStore: AntigravityUsageStore,
+        stayAwakeStore: StayAwakeStore
+    ) {
+        self.store = store
+        self.antigravityStore = antigravityStore
+        self.stayAwakeStore = stayAwakeStore
+    }
+
     private var shouldShowAntigravity: Bool {
-        antigravityIntegrationEnabled && (antigravityStore.isInstalled || antigravityStore.isAvailable)
+        antigravityIntegrationEnabled && antigravityStore.isInstalled
+    }
+
+    private var visibleProviders: [QuotaProvider] {
+        QuotaProvider.visibleProviders(
+            antigravityVisible: shouldShowAntigravity
+        )
     }
 
     private var effectiveQuotaProvider: QuotaProvider {
@@ -25,15 +40,26 @@ struct MenuBarPanelView: View {
         )
     }
 
+    private func providerStore(for provider: QuotaProvider) -> any QuotaProviderStore {
+        switch provider {
+        case .codex, .claude: store
+        case .antigravity: antigravityStore
+        }
+    }
+
+    private var selectedStore: any QuotaProviderStore {
+        providerStore(for: effectiveQuotaProvider)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
                 .padding(
                     .bottom,
-                    shouldShowAntigravity ? AppTheme.Spacing.compact : AppTheme.Spacing.medium
+                    visibleProviders.count > 1 ? AppTheme.Spacing.compact : AppTheme.Spacing.medium
                 )
 
-            if shouldShowAntigravity {
+            if visibleProviders.count > 1 {
                 quotaProviderPicker
                     .padding(.bottom, AppTheme.Spacing.medium)
             }
@@ -53,11 +79,6 @@ struct MenuBarPanelView: View {
         .padding(AppTheme.Spacing.large)
         .frame(width: 340)
         .appPanelSurface()
-        .task(id: effectiveQuotaProvider == .antigravity && antigravityStore.tokenUsage.panelIsVisible) {
-            guard effectiveQuotaProvider == .antigravity, antigravityStore.tokenUsage.panelIsVisible,
-                  !designPreviewRendering else { return }
-            await antigravityStore.tokenUsage.refresh()
-        }
         .task {
             store.start()
             if shouldShowAntigravity {
@@ -92,24 +113,24 @@ struct MenuBarPanelView: View {
 
     private var quotaProviderPicker: some View {
         HStack(spacing: 2) {
-            ForEach(QuotaProvider.allCases, id: \.self) { provider in
+            ForEach(visibleProviders, id: \.self) { provider in
                 Button {
                     quotaProvider = provider
                 } label: {
                     Text(provider.displayName)
-                        .font(.system(size: AppTheme.TypeSize.caption, weight: quotaProvider == provider ? .semibold : .medium))
+                        .font(.system(size: AppTheme.TypeSize.caption, weight: effectiveQuotaProvider == provider ? .semibold : .medium))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, AppTheme.Spacing.xSmall)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(
-                    quotaProvider == provider
+                    effectiveQuotaProvider == provider
                         ? AppTheme.primaryText
                         : AppTheme.secondaryText
                 )
                 .background {
-                    if quotaProvider == provider {
+                    if effectiveQuotaProvider == provider {
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
                             .fill(AppTheme.pickerSelectedBackground)
                             .overlay {
@@ -121,7 +142,7 @@ struct MenuBarPanelView: View {
                 }
                 .accessibilityLabel(provider.displayName)
                 .accessibilityAddTraits(
-                    quotaProvider == provider ? .isSelected : []
+                    effectiveQuotaProvider == provider ? .isSelected : []
                 )
             }
         }
@@ -138,9 +159,10 @@ struct MenuBarPanelView: View {
 
     private var quotaContent: some View {
         Group {
-            if effectiveQuotaProvider == .codex {
+            switch effectiveQuotaProvider {
+            case .codex, .claude:
                 codexQuotaContent
-            } else {
+            case .antigravity:
                 AntigravityQuotaView(store: antigravityStore)
             }
         }
@@ -187,7 +209,11 @@ struct MenuBarPanelView: View {
                     Divider()
                         .overlay(AppTheme.separator.opacity(0.5))
                 }
-                QuotaRowView(quota: quota, compact: true)
+                QuotaRowView(
+                    quota: quota,
+                    compact: true,
+                    isExpired: store.expiryReferenceDate.map(quota.isExpired(at:)) ?? false
+                )
             }
         }
         .padding(AppTheme.Spacing.compact)
@@ -227,22 +253,13 @@ struct MenuBarPanelView: View {
         .font(.system(size: AppTheme.TypeSize.caption, weight: .medium))
     }
 
-    @ViewBuilder
     private var footerActions: some View {
-        if #available(macOS 26.0, *), nativeGlassRenderingEnabled {
-            GlassEffectContainer(spacing: AppTheme.Spacing.small) {
-                actionButtons
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.glass)
-                    .controlSize(.small)
-                    .foregroundStyle(AppTheme.primaryText)
-            }
-        } else {
-            actionButtons
-                .buttonStyle(.plain)
-                .foregroundStyle(AppTheme.secondaryText)
-                .fixedSize()
-        }
+        actionButtons
+            .labelStyle(.iconOnly)
+            .buttonStyle(.borderless)
+            .controlSize(.small)
+            .foregroundStyle(AppTheme.primaryText)
+            .fixedSize()
     }
 
     private var actionButtons: some View {
@@ -254,6 +271,7 @@ struct MenuBarPanelView: View {
                     L10n.text("action.refresh", fallback: "Refresh"),
                     systemImage: "arrow.clockwise"
                 )
+                .frame(width: 28, height: 22)
             }
             .disabled(isSelectedProviderLoading)
             .help(L10n.text("action.refresh", fallback: "Refresh"))
@@ -266,6 +284,7 @@ struct MenuBarPanelView: View {
                     L10n.text("action.settings", fallback: "Settings"),
                     systemImage: "gearshape"
                 )
+                .frame(width: 28, height: 22)
             }
             .help(L10n.text("action.settings", fallback: "Settings"))
 
@@ -302,6 +321,7 @@ struct MenuBarPanelView: View {
                 moreMenuLabel
             }
             .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
             .fixedSize()
             .help(L10n.text("action.more", fallback: "More"))
         }
@@ -313,62 +333,32 @@ struct MenuBarPanelView: View {
             systemImage: "ellipsis.circle"
         )
         .labelStyle(.iconOnly)
+        .frame(width: 28, height: 22)
     }
 
     private var statusIcon: String {
-        switch effectiveQuotaProvider {
-        case .codex:
-            switch store.phase {
-            case .ready: "checkmark.circle"
-            case .loading: "arrow.triangle.2.circlepath"
-            case .idle: "clock"
-            case .failed: "exclamationmark.circle.fill"
-            }
-        case .antigravity:
-            switch antigravityStore.phase {
-            case .ready: "checkmark.circle"
-            case .loading: "arrow.triangle.2.circlepath"
-            case .idle: "clock"
-            case .failed: "exclamationmark.circle.fill"
-            }
-        }
+        selectedStore.phase.statusSymbolName
     }
 
     private var statusColor: Color {
-        switch effectiveQuotaProvider {
-        case .codex:
-            switch store.phase {
-            case .ready: AppTheme.quotaHealthy.accent
-            case .failed: AppTheme.quotaCritical.accent
-            case .idle, .loading: AppTheme.secondaryText
-            }
-        case .antigravity:
-            switch antigravityStore.phase {
-            case .ready: AppTheme.quotaHealthy.accent
-            case .failed: AppTheme.quotaCritical.accent
-            case .idle, .loading: AppTheme.secondaryText
-            }
+        switch selectedStore.phase {
+        case .ready: AppTheme.quotaHealthy.accent
+        case .failed: AppTheme.quotaCritical.accent
+        case .idle, .loading: AppTheme.secondaryText
         }
     }
 
     private var isSelectedProviderLoading: Bool {
-        effectiveQuotaProvider == .codex ? store.isLoading : antigravityStore.isLoading
+        selectedStore.isLoading
     }
 
     private func statusMessage(at date: Date) -> String {
-        effectiveQuotaProvider == .codex
-            ? store.statusMessage(at: date)
-            : antigravityStore.statusMessage(at: date)
+        selectedStore.statusMessage(at: date)
     }
 
     private func refreshSelectedProvider() {
-        switch effectiveQuotaProvider {
-        case .codex:
-            Task { await store.refresh() }
-        case .antigravity:
-            Task { await antigravityStore.refresh() }
-            Task(priority: .utility) { await antigravityStore.tokenUsage.refresh() }
-        }
+        let target = selectedStore
+        Task { await target.userRefresh() }
     }
 
     private func openLatestRelease() {
@@ -384,6 +374,9 @@ struct QuotaEmptyState: View {
     let isLoading: Bool
     let title: String
     let detail: String
+    var actionTitle = L10n.text("action.retry", fallback: "Retry")
+    var actionSystemImage = "arrow.clockwise"
+    var isWarning = true
     let retry: () -> Void
 
     var body: some View {
@@ -393,9 +386,9 @@ struct QuotaEmptyState: View {
                     ProgressView()
                         .controlSize(.small)
                 } else {
-                    Image(systemName: "exclamationmark.triangle.fill")
+                    Image(systemName: isWarning ? "exclamationmark.triangle.fill" : "clock")
                         .font(.system(size: AppTheme.TypeSize.body, weight: .semibold))
-                        .foregroundStyle(AppTheme.quotaCritical.accent)
+                        .foregroundStyle(isWarning ? AppTheme.quotaCritical.accent : AppTheme.secondaryText)
                 }
             }
             .frame(width: 22, height: 22)
@@ -412,10 +405,7 @@ struct QuotaEmptyState: View {
 
                 if !isLoading {
                     Button(action: retry) {
-                        Label(
-                            L10n.text("action.retry", fallback: "Retry"),
-                            systemImage: "arrow.clockwise"
-                        )
+                        Label(actionTitle, systemImage: actionSystemImage)
                     }
                     .buttonStyle(.borderless)
                     .controlSize(.small)

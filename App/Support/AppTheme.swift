@@ -392,6 +392,8 @@ private struct AppPanelSurfaceModifier: ViewModifier {
     }
 }
 
+/// Shared content surface inside the system glass panel. Feature-specific
+/// palettes belong to marks and controls, not an extra opaque card background.
 struct AppCardSurfaceModifier: ViewModifier {
     var cornerRadius: CGFloat = 10
     var tintColor: Color? = nil

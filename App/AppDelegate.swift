@@ -11,6 +11,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
     private let popover = NSPopover()
     private var statusItem: NSStatusItem?
     private var outsideClickMonitor: Any?
+    /// Re-renders the status item so reset windows and stale snapshots are
+    /// reflected even when no provider posts a change.
+    private var statusItemClock: Timer?
 
     private lazy var quickMenu: NSMenu = {
         let menu = NSMenu()
@@ -105,6 +108,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         if antigravityIntegrationEnabled {
             antigravityStore.start()
         }
+        startStatusItemClock()
         logger.info("Application did finish launching with AppKit status item")
     }
 
@@ -125,6 +129,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
     func applicationWillTerminate(_ notification: Notification) {
         NotificationCenter.default.removeObserver(self)
         stopOutsideClickMonitor()
+        statusItemClock?.invalidate()
+        statusItemClock = nil
         antigravityStore.stop()
         stayAwakeStore.shutdown()
         if let statusItem {
@@ -172,12 +178,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
 
     func popoverDidShow(_ notification: Notification) {
         startOutsideClickMonitor()
-        antigravityStore.tokenUsage.panelIsVisible = true
     }
 
     func popoverDidClose(_ notification: Notification) {
         stopOutsideClickMonitor()
-        antigravityStore.tokenUsage.panelIsVisible = false
     }
 
     func menuWillOpen(_ menu: NSMenu) {
@@ -206,6 +210,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
             popover.performClose(nil)
             logger.info("Closed quota popover")
         } else {
+            reloadProviderInstallations()
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             // An accessory app has no activatable window until the popover is
             // shown. Activate immediately afterwards, before AppKit commits the
@@ -217,6 +222,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
 
     private func showQuickMenu() {
         guard let statusItem, let button = statusItem.button else { return }
+        reloadProviderInstallations()
         if popover.isShown {
             popover.performClose(nil)
         }
@@ -233,13 +239,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
     }
 
     @objc private func refreshFromQuickMenu() {
-        switch effectiveMenuBarQuotaProvider {
-        case .codex:
-            Task { await store.refresh() }
-        case .antigravity:
-            Task { await antigravityStore.refresh() }
-            Task(priority: .utility) { await antigravityStore.tokenUsage.refresh() }
-        }
+        let target = providerStore(for: effectiveMenuBarQuotaProvider)
+        Task { await target.userRefresh() }
         logger.info(
             "Requested quota refresh from quick menu; provider=\(self.effectiveMenuBarQuotaProvider.rawValue, privacy: .public)"
         )
@@ -338,6 +339,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         updateStatusItemAppearance()
     }
 
+    private func reloadProviderInstallations() {
+        antigravityStore.reloadInstallation()
+    }
+
+    private func startStatusItemClock() {
+        guard statusItemClock == nil else { return }
+        let timer = Timer(timeInterval: 60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.reloadProviderInstallations()
+                self?.updateStatusItemAppearance()
+            }
+        }
+        timer.tolerance = 10
+        RunLoop.main.add(timer, forMode: .common)
+        statusItemClock = timer
+    }
+
     @objc private func stayAwakeStateDidChange() {
         updateStatusItemAppearance()
         logger.info(
@@ -423,13 +441,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         )
     }
 
-    private var isEffectiveMenuBarProviderLoading: Bool {
-        switch effectiveMenuBarQuotaProvider {
-        case .codex:
-            store.isLoading
-        case .antigravity:
-            antigravityStore.isLoading
+    private func providerStore(for provider: QuotaProvider) -> any QuotaProviderStore {
+        switch provider {
+        case .codex, .claude: store
+        case .antigravity: antigravityStore
         }
+    }
+
+    private var isEffectiveMenuBarProviderLoading: Bool {
+        providerStore(for: effectiveMenuBarQuotaProvider).isLoading
+    }
+
+    /// How old a snapshot may be before its tooltip reports stale data.
+    private var menuBarStaleAfter: [QuotaProvider: TimeInterval] {
+        let configured = UserDefaults.standard.double(forKey: "refreshIntervalSeconds")
+        let interval = configured > 0 ? configured : 300
+        let polled = max(2 * interval, 600)
+        return [
+            .codex: polled,
+            .antigravity: polled
+        ]
     }
 
     private var menuBarPresentation: MenuBarPresentation {
@@ -441,7 +472,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
             mode: menuBarQuotaDisplayMode,
             codexSnapshot: store.snapshot,
             antigravitySnapshot: antigravityStore.snapshot,
-            isStayAwakeActive: stayAwakeStore.isActive
+            isStayAwakeActive: stayAwakeStore.isActive,
+            now: Date(),
+            staleAfter: menuBarStaleAfter
         )
     }
 }

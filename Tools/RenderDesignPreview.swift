@@ -43,56 +43,18 @@ struct RenderDesignPreview {
                 : nil
         )
         let antigravityStore = AntigravityUsageStore(previewMode: true)
-        let tokenState: AntigravityTokenSnapshot? = {
-            if CommandLine.arguments.contains("--ag-tokens-partial") {
-                return AntigravityTokenSnapshot(models: [
-                    .init(id: "Gemini", input: 100_000_000, output: 10_000_000, cacheRead: 300_000_000, generations: 1000),
-                    .init(id: "Claude", input: 100_000_000, output: 10_000_000, cacheRead: 300_000_000, generations: 1000),
-                    .init(id: "GPT", input: 100_000_000, output: 10_000_000, cacheRead: 300_000_000, generations: 1000),
-                    .init(id: "Other", input: 100_000_000, output: 10_000_000, cacheRead: 300_000_000, generations: 1000)
-                  ], files: 34, pendingFiles: 30, unavailableFiles: 1, skippedRecords: 2,
-                     limited: true, checkedAt: Date(), rowsRead: 512, bytesRead: 768 * 1024,
-                     stepRowsRead: 256, dailyBuckets: AntigravityTokenSnapshot.previewBuckets(total: 1_600_000_000),
-                     undatedGenerations: 30)
-            } else if CommandLine.arguments.contains("--ag-tokens-dates-missing") {
-                return AntigravityTokenSnapshot(models: [
-                    .init(id: "Gemini", input: 100_000_000, output: 10_000_000, cacheRead: 300_000_000, generations: 1000),
-                    .init(id: "Claude", input: 100_000_000, output: 10_000_000, cacheRead: 300_000_000, generations: 1000)
-                  ], files: 12, pendingFiles: 0, unavailableFiles: 0, skippedRecords: 0,
-                     limited: false, checkedAt: Date(), rowsRead: 0, bytesRead: 0,
-                     stepRowsRead: 0, dailyBuckets: AntigravityTokenSnapshot.previewBuckets(total: 820_000_000),
-                     undatedGenerations: 15)
-            } else {
-                return nil
-            }
-        }()
-        let tokenFailed = CommandLine.arguments.contains("--ag-tokens-failed")
-        let tokenPreviewStore = AntigravityUsageStore(previewMode: true,
-            tokenUsage: AntigravityTokenStore(previewMode: true, previewSnapshot: tokenState, failed: tokenFailed))
         let stayAwakeStore = StayAwakeStore(previewMode: true)
         let colorScheme: ColorScheme = CommandLine.arguments.contains("--dark") ? .dark : .light
         NSApplication.shared.appearance = NSAppearance(named: colorScheme == .dark ? .darkAqua : .aqua)
         if CommandLine.arguments.contains("--token-themes") {
-            let size = CGSize(width: 752, height: 470)
+            let size = CGSize(width: 388, height: 470)
             try write(
-                tokenThemeComparison(theme: tokenTheme, colorScheme: colorScheme,
-                                     antigravityStore: tokenPreviewStore.tokenUsage)
+                tokenThemePreview(theme: tokenTheme, colorScheme: colorScheme)
                     .frame(width: size.width, height: size.height, alignment: .topLeading),
                 size: size
             )
         } else if CommandLine.arguments.contains("--menubar-matrix") {
             try write(menuBarMatrix(colorScheme: colorScheme), size: CGSize(width: 480, height: 400))
-        } else if CommandLine.arguments.contains("--ag-tokens-card") {
-            let size = CGSize(width: 340, height: 420)
-            try write(
-                AntigravityTokenUsageView(store: tokenPreviewStore.tokenUsage)
-                    .padding(16)
-                    .frame(width: size.width, height: size.height)
-                    .background(Color(nsColor: .windowBackgroundColor))
-                    .environment(\.colorScheme, colorScheme)
-                    .environment(\.nativeGlassRenderingEnabled, false),
-                size: size
-            )
         } else if CommandLine.arguments.contains("--settings") {
             let size = CGSize(width: 480, height: 420)
             let initialTab: SettingsTab = CommandLine.arguments.contains("--about") ? .about
@@ -111,11 +73,11 @@ struct RenderDesignPreview {
                 size: size
             )
         } else {
-            let size = CGSize(width: 520, height: provider == .antigravity ? 840 : 760)
+            let size = CGSize(width: 520, height: provider == .antigravity ? 540 : 760)
             try write(
                 DesignPreviewView(
                     store: store,
-                    antigravityStore: tokenPreviewStore,
+                    antigravityStore: antigravityStore,
                     stayAwakeStore: stayAwakeStore
                 )
                     .environment(\.colorScheme, colorScheme)
@@ -127,33 +89,24 @@ struct RenderDesignPreview {
         }
     }
 
-    /// Uses production cards and synthetic snapshots; no provider or local metadata reads.
-    private static func tokenThemeComparison(theme: String, colorScheme: ColorScheme,
-                                             antigravityStore: AntigravityTokenStore) -> some View {
+    /// Uses the production Codex card and a synthetic snapshot; no provider reads.
+    private static func tokenThemePreview(theme: String, colorScheme: ColorScheme) -> some View {
         VStack(alignment: .leading, spacing: 20) {
-            HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text("\(theme.capitalized) · Token activity")
                     .font(.system(size: 22, weight: .semibold))
-                Spacer()
                 Text(colorScheme == .dark ? "Dark appearance" : "Light appearance")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(.secondary)
             }
-            HStack(alignment: .top, spacing: 24) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Codex").font(.system(size: 14, weight: .semibold))
-                    CodexTokenUsageView(snapshot: tokenThemeCodexSnapshot)
-                }
-                .frame(width: 340, alignment: .topLeading)
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Antigravity").font(.system(size: 14, weight: .semibold))
-                    AntigravityTokenUsageView(store: antigravityStore)
-                }
-                .frame(width: 340, alignment: .topLeading)
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Codex").font(.system(size: 14, weight: .semibold))
+                CodexTokenUsageView(snapshot: tokenThemeCodexSnapshot)
             }
+            .frame(width: 340, alignment: .topLeading)
         }
         .padding(24)
-        .frame(width: 752, height: 470, alignment: .topLeading)
+        .frame(width: 388, height: 470, alignment: .topLeading)
         .foregroundStyle(Color.primary)
         .background(Color(nsColor: .windowBackgroundColor))
         .environment(\.colorScheme, colorScheme)
@@ -164,7 +117,7 @@ struct RenderDesignPreview {
     private static var tokenThemeCodexSnapshot: UsageSnapshot {
         let base = UsageSnapshot.preview
         let total: Int64 = 13_500_000_000
-        let buckets = AntigravityTokenSnapshot.previewBuckets(total: total)
+        let buckets = previewTokenBuckets(total: total)
         return UsageSnapshot(
             fetchedAt: Date(), fiveHour: base.fiveHour, sevenDay: base.sevenDay,
             subscriptionPlan: base.subscriptionPlan, availableResetCount: base.availableResetCount,
@@ -174,6 +127,26 @@ struct RenderDesignPreview {
                 peakDailyTokens: buckets.map(\.tokens).max()
             )
         )
+    }
+
+    /// Synthetic Codex UI fixture, kept in the renderer instead of provider code.
+    private static func previewTokenBuckets(total: Int64) -> [DailyUsageBucket] {
+        let calendar = Calendar(identifier: .gregorian)
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        let offsets = (0..<118).filter { $0 % 5 != 2 }
+        let weights = offsets.map { Int64($0 * 17 % 13 + 1) }
+        let sum = weights.reduce(0, +)
+        var remaining = total
+        return offsets.enumerated().compactMap { index, offset in
+            guard let date = calendar.date(byAdding: .day, value: -offset, to: Date()) else { return nil }
+            let tokens = index == offsets.count - 1 ? remaining : total * weights[index] / sum
+            remaining -= tokens
+            return DailyUsageBucket(startDate: formatter.string(from: date), tokens: tokens)
+        }
     }
 
     /// Synthetic states only; uses the production renderer, never live provider reads.

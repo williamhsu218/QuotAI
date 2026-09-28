@@ -16,32 +16,33 @@ extension Notification.Name {
 
 @MainActor
 @Observable
-final class AntigravityUsageStore {
+final class AntigravityUsageStore: QuotaProviderStore {
     static let shared = AntigravityUsageStore()
 
-    enum Phase: Equatable {
-        case idle
-        case loading
-        case ready
-        case failed(String)
-    }
+    typealias Phase = ProviderPhase
 
     private(set) var snapshot: AntigravityQuotaSnapshot?
     private(set) var phase: Phase = .idle
     private(set) var isEnabled = false
-    let tokenUsage: AntigravityTokenStore
+    private(set) var isInstalled: Bool
 
     @ObservationIgnored private let client = AntigravityQuotaClient()
     @ObservationIgnored private var refreshLoop: Task<Void, Never>?
+    @ObservationIgnored private var generation: UInt64 = 0
     @ObservationIgnored private let previewMode: Bool
+    @ObservationIgnored private let detectInstallation: @Sendable () -> Bool
     @ObservationIgnored private let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "com.willhsu.QuotAI",
         category: "AntigravitySync"
     )
 
-    init(previewMode: Bool = false, tokenUsage: AntigravityTokenStore? = nil) {
+    init(
+        previewMode: Bool = false,
+        installationDetector: @escaping @Sendable () -> Bool = { ProviderInstallationDetector.antigravity() }
+    ) {
         self.previewMode = previewMode
-        self.tokenUsage = tokenUsage ?? AntigravityTokenStore(previewMode: previewMode)
+        self.detectInstallation = installationDetector
+        self.isInstalled = previewMode || installationDetector()
         if previewMode {
             snapshot = .preview
             phase = .ready
@@ -51,17 +52,24 @@ final class AntigravityUsageStore {
 
     var isLoading: Bool { phase == .loading }
     var isAvailable: Bool { snapshot != nil }
+    var expiryReferenceDate: Date? { previewMode ? nil : Date() }
 
-    var isInstalled: Bool {
-        if previewMode { return true }
-        let fm = FileManager.default
-        let paths = [
-            "/Applications/Antigravity.app",
-            "/Applications/Antigravity IDE.app",
-            NSString(string: "~/Applications/Antigravity.app").expandingTildeInPath,
-            NSString(string: "~/Applications/Antigravity IDE.app").expandingTildeInPath
-        ]
-        return paths.contains(where: { fm.fileExists(atPath: $0) }) || snapshot != nil
+    /// Manual and periodic refreshes use the same live quota source.
+    func userRefresh() async {
+        reloadInstallation()
+        guard isInstalled else { return }
+        await refresh()
+    }
+
+    func reloadInstallation() {
+        guard !previewMode else { return }
+        let detected = detectInstallation()
+        guard detected != isInstalled else { return }
+        generation &+= 1
+        isInstalled = detected
+        snapshot = nil
+        phase = .idle
+        NotificationCenter.default.post(name: .antigravityUsageSnapshotDidChange, object: self)
     }
 
     var statusMessage: String {
@@ -88,6 +96,7 @@ final class AntigravityUsageStore {
 
     func start() {
         guard !previewMode else { return }
+        reloadInstallation()
         isEnabled = true
         guard refreshLoop == nil else { return }
         logger.info("Starting Antigravity quota refresh loop")
@@ -107,6 +116,7 @@ final class AntigravityUsageStore {
     func stop() {
         guard !previewMode else { return }
         let shouldNotify = snapshot != nil || phase != .idle
+        generation &+= 1
         isEnabled = false
         refreshLoop?.cancel()
         refreshLoop = nil
@@ -122,12 +132,16 @@ final class AntigravityUsageStore {
     }
 
     func refresh() async {
-        guard !previewMode, isEnabled, !isLoading else { return }
+        guard !previewMode else { return }
+        reloadInstallation()
+        guard isEnabled, isInstalled, !isLoading else { return }
         logger.info("Refreshing Antigravity quota snapshot")
         phase = .loading
+        let expectedGeneration = generation
         do {
             let refreshedSnapshot = try await client.fetch()
-            guard isEnabled else { return }
+            reloadInstallation()
+            guard isEnabled, isInstalled, generation == expectedGeneration else { return }
             snapshot = refreshedSnapshot
             phase = .ready
             NotificationCenter.default.post(
@@ -135,7 +149,8 @@ final class AntigravityUsageStore {
                 object: self
             )
         } catch {
-            guard isEnabled else { return }
+            reloadInstallation()
+            guard isEnabled, isInstalled, generation == expectedGeneration else { return }
             // Antigravity quota is deliberately not cached or retained on a
             // failed refresh. Unavailable must never look like a zero balance.
             snapshot = nil

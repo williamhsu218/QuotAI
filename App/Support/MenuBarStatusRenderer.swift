@@ -112,6 +112,9 @@ enum MenuBarStatusRenderer {
             font = createTabularFont(size: 12.5, weight: .medium)
         }
 
+        // Keep template artwork at full opacity in both menu bar appearances.
+        // Freshness is described in the tooltip, not by making an enabled
+        // status item look disabled (including its provider icon).
         let attrs: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: NSColor.black

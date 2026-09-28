@@ -4,6 +4,15 @@ struct QuotaRowView: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     let quota: QuotaWindow
     var compact = false
+    /// The window's reset time has passed: the stored percentage belongs to
+    /// the previous window, so it is shown muted with a pending label.
+    var isExpired = false
+
+    private var resetText: String {
+        isExpired
+            ? L10n.text("date.reset_passed", fallback: "Reset passed · waiting for new data")
+            : DisplayDateFormatter.resetText(for: quota.resetsAt)
+    }
 
     private var quotaPalette: QuotaPalette {
         AppTheme.quotaPalette(for: quota.remainingPercent)
@@ -30,8 +39,9 @@ struct QuotaRowView: View {
 
                     percentageLabel
                 }
+                .opacity(isExpired ? 0.4 : 1)
 
-                Text(DisplayDateFormatter.resetText(for: quota.resetsAt))
+                Text(resetText)
                     .font(.system(size: compact ? AppTheme.TypeSize.small : AppTheme.TypeSize.caption, weight: .regular))
                     .monospacedDigit()
                     .foregroundStyle(AppTheme.secondaryText)
@@ -45,7 +55,7 @@ struct QuotaRowView: View {
                 fallback: "%@, %d%% left, %@",
                 quota.kind.displayName,
                 quota.remainingPercent,
-                DisplayDateFormatter.resetText(for: quota.resetsAt)
+                resetText
             )
         )
     }

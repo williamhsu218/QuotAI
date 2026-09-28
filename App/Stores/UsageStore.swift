@@ -10,15 +10,10 @@ extension Notification.Name {
 
 @MainActor
 @Observable
-final class UsageStore {
+final class UsageStore: QuotaProviderStore {
     static let shared = UsageStore()
 
-    enum Phase: Equatable {
-        case idle
-        case loading
-        case ready
-        case failed(String)
-    }
+    typealias Phase = ProviderPhase
 
     private(set) var snapshot: UsageSnapshot?
     private(set) var phase: Phase = .idle
@@ -46,6 +41,12 @@ final class UsageStore {
     }
 
     var isLoading: Bool { phase == .loading }
+
+    var expiryReferenceDate: Date? { previewMode ? nil : Date() }
+
+    func userRefresh() async {
+        await refresh()
+    }
 
     var statusMessage: String {
         statusMessage(at: Date())

@@ -45,7 +45,6 @@ struct CodexTokenUsageView: View {
                 legendRow
             }
             .padding(AppTheme.Spacing.compact)
-            .background(palette.surface, in: RoundedRectangle(cornerRadius: 10))
             .appCardSurface(cornerRadius: 10)
         }
     }

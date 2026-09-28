@@ -55,7 +55,8 @@ public enum TokenActivityTheme: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// No alpha component is exposed: both the grid surface and cells must be opaque.
+/// Cells and palette reference colors are opaque; card containers use the
+/// shared app material rather than the palette's calibration background.
 public struct TokenActivityRGB: Equatable, Sendable {
     public let hex: UInt32
 
@@ -94,6 +95,7 @@ public struct TokenActivityRGB: Equatable, Sendable {
 }
 
 public struct TokenActivityColorScale: Equatable, Sendable {
+    /// Reference background for contrast calibration and compact theme swatches.
     public let surface: TokenActivityRGB
     public let accent: TokenActivityRGB
     /// Level 0 is no activity; levels 1–4 carry increasing activity.

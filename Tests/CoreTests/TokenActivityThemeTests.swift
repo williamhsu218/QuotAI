@@ -1,7 +1,7 @@
 import Testing
 @testable import QuotAICore
 
-@Test("Every activity level stays visible on its opaque surface", arguments: TokenActivityTheme.allCases)
+@Test("Every activity level stays visible on its palette reference surface", arguments: TokenActivityTheme.allCases)
 func tokenActivitySurfaceContrast(theme: TokenActivityTheme) {
     for dark in [false, true] {
         for increasedContrast in [false, true] {

@@ -6,13 +6,10 @@ struct AntigravityQuotaView: View {
     let store: AntigravityUsageStore
 
     var body: some View {
-        VStack(alignment: .leading, spacing: AppTheme.Spacing.compact) {
-            if let snapshot = store.snapshot, let group = snapshot.panelGroup(id: selectedGroupID) {
-                quotaGroup(group, in: snapshot)
-            } else {
-                emptyState
-            }
-            AntigravityTokenUsageView(store: store.tokenUsage)
+        if let snapshot = store.snapshot, let group = snapshot.panelGroup(id: selectedGroupID) {
+            quotaGroup(group, in: snapshot)
+        } else {
+            emptyState
         }
     }
 
@@ -41,7 +38,11 @@ struct AntigravityQuotaView: View {
                         Divider()
                             .overlay(AppTheme.separator.opacity(0.5))
                     }
-                    QuotaRowView(quota: quota, compact: true)
+                    QuotaRowView(
+                        quota: quota,
+                        compact: true,
+                        isExpired: store.expiryReferenceDate.map(quota.isExpired(at:)) ?? false
+                    )
                 }
             }
             .id(group.id) // Replace quota rows immediately; don't animate from another pool.

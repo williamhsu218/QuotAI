@@ -98,6 +98,41 @@ public struct QuotaWindow: Codable, Equatable, Identifiable, Sendable {
         self.remainingPercent = min(100, max(0, remainingPercent))
         self.resetsAt = resetsAt
     }
+
+    /// True once the window's reset time has passed. The stored percentage
+    /// then describes a window that no longer exists and must not be shown
+    /// as current.
+    public func isExpired(at now: Date) -> Bool {
+        guard let resetsAt else { return false }
+        return resetsAt <= now
+    }
+}
+
+/// Shared menu bar line formatting for every provider.
+public enum MenuBarQuotaLines {
+    /// - Parameter now: When provided, windows whose reset time has passed are
+    ///   shown as `--` instead of their pre-reset percentage. Nil keeps the
+    ///   stored values (design previews and fixtures).
+    public static func lines(
+        for quotas: [QuotaWindow],
+        mode: MenuBarQuotaDisplayMode,
+        now: Date? = nil
+    ) -> [String] {
+        let quotasByKind = Dictionary(
+            quotas.map { ($0.kind, $0) },
+            uniquingKeysWith: { _, latest in latest }
+        )
+        let lines = mode.selectedKinds.compactMap { kind -> String? in
+            guard let quota = quotasByKind[kind] else {
+                return mode == .both ? nil : "\(kind.shortLabel) --"
+            }
+            if let now, quota.isExpired(at: now) {
+                return "\(kind.shortLabel) --"
+            }
+            return "\(kind.shortLabel) \(quota.remainingPercent)%"
+        }
+        return lines.isEmpty ? ["--"] : lines
+    }
 }
 
 public struct ResetCredit: Codable, Equatable, Identifiable, Sendable {
@@ -350,17 +385,8 @@ public struct UsageSnapshot: Codable, Equatable, Sendable {
         return parts.isEmpty ? "Codex --" : parts.joined(separator: " · ")
     }
 
-    public func menuBarLines(for mode: MenuBarQuotaDisplayMode) -> [String] {
-        let quotasByKind = Dictionary(
-            uniqueKeysWithValues: orderedQuotas.map { ($0.kind, $0) }
-        )
-        let lines = mode.selectedKinds.compactMap { kind -> String? in
-            if let quota = quotasByKind[kind] {
-                return "\(kind.shortLabel) \(quota.remainingPercent)%"
-            }
-            return mode == .both ? nil : "\(kind.shortLabel) --"
-        }
-        return lines.isEmpty ? ["--"] : lines
+    public func menuBarLines(for mode: MenuBarQuotaDisplayMode, now: Date? = nil) -> [String] {
+        MenuBarQuotaLines.lines(for: orderedQuotas, mode: mode, now: now)
     }
 
     public var todayBucket: DailyUsageBucket? {

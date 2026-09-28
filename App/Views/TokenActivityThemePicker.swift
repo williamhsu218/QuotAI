@@ -15,7 +15,7 @@ struct TokenActivityThemePicker: View {
                 }
             }
 
-            Text(L10n.text("settings.token_theme_help", fallback: "Applies to both activity grids. Colors adapt to Light and Dark Mode."))
+            Text(L10n.text("settings.token_theme_help", fallback: "Applies to Codex token activity. Colors adapt to Light and Dark Mode."))
                 .font(.system(size: AppTheme.TypeSize.small))
                 .foregroundStyle(AppTheme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)

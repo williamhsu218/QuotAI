@@ -80,11 +80,35 @@ struct SettingsView: View {
     @State private var launchAtLogin = false
 
     private var isAntigravitySupported: Bool {
-        antigravityStore.isInstalled || antigravityStore.isAvailable
+        antigravityStore.isInstalled
     }
 
     private var shouldShowAntigravity: Bool {
         antigravityIntegrationEnabled && isAntigravitySupported
+    }
+
+    private var menuBarProviders: [QuotaProvider] {
+        QuotaProvider.visibleProviders(
+            antigravityVisible: shouldShowAntigravity
+        )
+    }
+
+    private var effectiveMenuBarProvider: QuotaProvider {
+        menuBarQuotaProvider.effectiveProvider(
+            antigravityEnabled: antigravityIntegrationEnabled,
+            antigravityAvailable: antigravityStore.isInstalled
+        )
+    }
+
+    private var menuBarProviderSelection: Binding<QuotaProvider> {
+        Binding(
+            get: { effectiveMenuBarProvider },
+            set: { menuBarQuotaProvider = $0 }
+        )
+    }
+
+    private var isAnyProviderLoading: Bool {
+        store.isLoading || antigravityStore.isLoading
     }
 
     var body: some View {
@@ -114,6 +138,7 @@ struct SettingsView: View {
         .frame(width: 480, height: 420)
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
+            antigravityStore.reloadInstallation()
             normalizeAntigravityGroupSelection()
             refreshLaunchAtLogin()
         }
@@ -208,13 +233,13 @@ struct SettingsView: View {
                         Button {
                             refreshAllProviders()
                         } label: {
-                            if store.isLoading || antigravityStore.isLoading {
+                            if isAnyProviderLoading {
                                 ProgressView().controlSize(.small)
                             } else {
                                 Text(L10n.text("action.refresh_now", fallback: "Refresh Now"))
                             }
                         }
-                        .disabled(store.isLoading || antigravityStore.isLoading)
+                        .disabled(isAnyProviderLoading)
                     }
                 }
             }
@@ -236,12 +261,12 @@ struct SettingsView: View {
             }
 
             SettingsSection(title: L10n.text("settings.section.menu_bar_source", fallback: "Source & Display")) {
-                if shouldShowAntigravity {
+                if menuBarProviders.count > 1 {
                     HStack {
                         Text(L10n.text("settings.menu_bar_source", fallback: "Menu bar source"))
                         Spacer()
-                        Picker("", selection: $menuBarQuotaProvider) {
-                            ForEach(QuotaProvider.allCases, id: \.self) { provider in
+                        Picker("", selection: menuBarProviderSelection) {
+                            ForEach(menuBarProviders, id: \.self) { provider in
                                 Text(provider.displayName).tag(provider)
                             }
                         }
@@ -253,7 +278,7 @@ struct SettingsView: View {
                         }
                     }
 
-                    if menuBarQuotaProvider == .antigravity {
+                    if effectiveMenuBarProvider == .antigravity {
                         Divider().overlay(AppTheme.separator.opacity(0.5))
 
                         HStack {
@@ -307,119 +332,120 @@ struct SettingsView: View {
     }
 
     private var providersPane: some View {
-        VStack(spacing: AppTheme.Spacing.medium) {
-            SettingsSection(title: L10n.text("settings.section.codex_client", fallback: "Codex CLI / Client")) {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        TextField(
-                            L10n.text("settings.codex_path", fallback: "Codex path"),
-                            text: $codexBinaryPath,
-                            prompt: Text("/Applications/ChatGPT.app/Contents/Resources/codex")
-                        )
-                        .textFieldStyle(.roundedBorder)
+        ScrollView {
+            VStack(spacing: AppTheme.Spacing.medium) {
+                SettingsSection(title: L10n.text("settings.section.codex_client", fallback: "Codex CLI / Client")) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 8) {
+                            TextField(
+                                L10n.text("settings.codex_path", fallback: "Codex path"),
+                                text: $codexBinaryPath,
+                                prompt: Text("/Applications/ChatGPT.app/Contents/Resources/codex")
+                            )
+                            .textFieldStyle(.roundedBorder)
 
-                        Button(L10n.text("settings.browse", fallback: "Browse…")) {
-                            selectCodexBinary()
-                        }
+                            Button(L10n.text("settings.browse", fallback: "Browse…")) {
+                                selectCodexBinary()
+                            }
 
-                        if !codexBinaryPath.isEmpty {
-                            Button(L10n.text("settings.reset_default", fallback: "Reset")) {
-                                codexBinaryPath = ""
+                            if !codexBinaryPath.isEmpty {
+                                Button(L10n.text("settings.reset_default", fallback: "Reset")) {
+                                    codexBinaryPath = ""
+                                }
                             }
                         }
-                    }
-
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(
-                                codexPathIsValid
-                                    ? AppTheme.quotaHealthy.accent
-                                    : AppTheme.quotaCritical.accent
-                            )
-                            .frame(width: 7, height: 7)
-
-                        Text(codexStatusMessage)
-                            .font(.system(size: 11))
-                            .foregroundStyle(AppTheme.secondaryText)
-                            .lineLimit(1)
-                    }
-                }
-            }
-
-            SettingsSection(title: L10n.text("settings.section.antigravity_service", fallback: "Antigravity Service")) {
-                if isAntigravitySupported {
-                    Toggle(
-                        L10n.text("settings.enable_antigravity", fallback: "Enable Antigravity integration"),
-                        isOn: $antigravityIntegrationEnabled
-                    )
-                    .help(L10n.text("settings.enable_antigravity_help", fallback: "Show Antigravity model quota alongside Codex when Antigravity is running."))
-                    .onChange(of: antigravityIntegrationEnabled) {
-                        NotificationCenter.default.post(
-                            name: .antigravityIntegrationPreferenceDidChange,
-                            object: nil
-                        )
-                    }
-
-                    if antigravityIntegrationEnabled {
-                        Divider().overlay(AppTheme.separator.opacity(0.5))
 
                         HStack(spacing: 6) {
                             Circle()
                                 .fill(
-                                    antigravityIsConnected
+                                    codexPathIsValid
                                         ? AppTheme.quotaHealthy.accent
-                                        : AppTheme.secondaryText.opacity(0.7)
+                                        : AppTheme.quotaCritical.accent
                                 )
                                 .frame(width: 7, height: 7)
 
-                            Text(
-                                antigravityIsConnected
-                                    ? L10n.text("settings.antigravity_status_connected", fallback: "Connected & Active")
-                                    : L10n.text("settings.antigravity_status_idle", fallback: "Idle / Not Running")
-                            )
-                            .font(.system(size: 12, weight: .medium))
-
-                            Spacer()
-
-                            if antigravityIsConnected {
-                                Text(
-                                    L10n.format(
-                                        "settings.antigravity_group_count_format",
-                                        fallback: "%d groups",
-                                        antigravityGroups.count
-                                    )
-                                )
-                                    .font(.system(size: 11, weight: .regular))
-                                    .foregroundStyle(AppTheme.secondaryText)
-                            }
+                            Text(codexStatusMessage)
+                                .font(.system(size: 11))
+                                .foregroundStyle(AppTheme.secondaryText)
+                                .lineLimit(1)
                         }
                     }
-                } else {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(AppTheme.secondaryText.opacity(0.6))
-                            .frame(width: 7, height: 7)
+                }
 
-                        Text(L10n.text("settings.antigravity_not_installed", fallback: "Not installed on this Mac"))
-                            .font(.system(size: AppTheme.TypeSize.caption))
-                            .foregroundStyle(AppTheme.secondaryText)
+                SettingsSection(title: L10n.text("settings.section.antigravity_service", fallback: "Antigravity Service")) {
+                    if isAntigravitySupported {
+                        Toggle(
+                            L10n.text("settings.enable_antigravity", fallback: "Enable Antigravity integration"),
+                            isOn: $antigravityIntegrationEnabled
+                        )
+                        .help(L10n.text("settings.enable_antigravity_help", fallback: "Show Antigravity model quota alongside Codex when Antigravity is running."))
+                        .onChange(of: antigravityIntegrationEnabled) {
+                            NotificationCenter.default.post(
+                                name: .antigravityIntegrationPreferenceDidChange,
+                                object: nil
+                            )
+                        }
+
+                        if antigravityIntegrationEnabled {
+                            Divider().overlay(AppTheme.separator.opacity(0.5))
+
+                            HStack(spacing: 6) {
+                                Circle()
+                                    .fill(
+                                        antigravityIsConnected
+                                            ? AppTheme.quotaHealthy.accent
+                                            : AppTheme.secondaryText.opacity(0.7)
+                                    )
+                                    .frame(width: 7, height: 7)
+
+                                Text(
+                                    antigravityIsConnected
+                                        ? L10n.text("settings.antigravity_status_connected", fallback: "Connected & Active")
+                                        : L10n.text("settings.antigravity_status_idle", fallback: "Idle / Not Running")
+                                )
+                                .font(.system(size: 12, weight: .medium))
+
+                                Spacer()
+
+                                if antigravityIsConnected {
+                                    Text(
+                                        L10n.format(
+                                            "settings.antigravity_group_count_format",
+                                            fallback: "%d groups",
+                                            antigravityGroups.count
+                                        )
+                                    )
+                                        .font(.system(size: 11, weight: .regular))
+                                        .foregroundStyle(AppTheme.secondaryText)
+                                }
+                            }
+                        }
+                    } else {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(AppTheme.secondaryText.opacity(0.6))
+                                .frame(width: 7, height: 7)
+
+                            Text(L10n.text("settings.antigravity_not_installed", fallback: "Not installed on this Mac"))
+                                .font(.system(size: AppTheme.TypeSize.caption))
+                                .foregroundStyle(AppTheme.secondaryText)
+                        }
                     }
                 }
-            }
 
-            Text(
-                L10n.text(
-                    "settings.privacy_note",
-                    fallback: "Codex cache stays on this Mac; Antigravity quota and local authentication are never saved."
+                Text(
+                    L10n.text(
+                        "settings.privacy_note",
+                        fallback: "Codex cache stays on this Mac; Antigravity quota and local authentication are never saved."
+                    )
                 )
-            )
-            .font(.system(size: 11))
-            .foregroundStyle(AppTheme.secondaryText)
-            .padding(.horizontal, 4)
-
-            Spacer(minLength: 0)
+                .font(.system(size: 11))
+                .foregroundStyle(AppTheme.secondaryText)
+                .padding(.horizontal, 4)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(AppTheme.Spacing.large)
         }
-        .padding(AppTheme.Spacing.large)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
@@ -438,7 +464,7 @@ struct SettingsView: View {
                     .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(AppTheme.primaryText)
 
-                Text(L10n.text("settings.app_subtitle", fallback: "ChatGPT & Antigravity Quota Monitor"))
+                Text(L10n.text("settings.app_subtitle", fallback: "Codex & Antigravity Quota Monitor"))
                     .font(.system(size: AppTheme.TypeSize.cardTitle, weight: .medium))
                     .foregroundStyle(AppTheme.secondaryText)
 
