@@ -15,7 +15,7 @@ enum CodexAppServerClientError: LocalizedError {
         case .launchFailed:
             L10n.text(
                 "error.client.launch_failed",
-                fallback: "Codex App Server could not start. Confirm that Codex is signed in and working."
+                fallback: "Codex App Server could not start. Check the configured Codex path and CLI installation."
             )
         case .invalidOutput:
             L10n.text(
@@ -189,6 +189,13 @@ actor CodexAppServerClient {
                 }
             }
             guard let text = String(data: buffer, encoding: .utf8) else { continue }
+
+            if streamEnded && buffer.isEmpty {
+                try? inputPipe.fileHandleForWriting.close()
+                stop(process)
+                logger.error("Codex App Server exited before returning protocol data")
+                throw CodexAppServerClientError.launchFailed
+            }
 
             let hasRateLimits = jsonLinesContainResponse(for: 3, in: text)
             let hasUsage = jsonLinesContainResponse(for: 4, in: text)

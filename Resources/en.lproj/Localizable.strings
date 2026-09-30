@@ -143,7 +143,7 @@
 "error.parser.missing_limits" = "Codex returned no recognizable quota windows.";
 "error.binary.invalid_path_format" = "The configured Codex path is not executable: %@";
 "error.binary.not_found" = "Codex was not found on this Mac. Install or sign in to ChatGPT/Codex, or specify the Codex path in Settings.";
-"error.client.launch_failed" = "Codex App Server could not start. Confirm that Codex is signed in and working.";
+"error.client.launch_failed" = "Codex App Server could not start. Check the configured Codex path and CLI installation.";
 "error.client.invalid_output" = "Codex returned unrecognized quota data.";
 "error.client.protocol_format" = "The Codex protocol response is incompatible (%@).";
 "error.client.network_unavailable" = "Codex could not connect to ChatGPT. Check this Mac’s network, proxy, or TLS certificate settings (%@).";

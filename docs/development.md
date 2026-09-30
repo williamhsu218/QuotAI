@@ -64,9 +64,17 @@ mkdir -p build
 swiftc -parse-as-library Core/*.swift App/Services/CodexBinaryLocator.swift \
   App/Services/CodexAppServerClient.swift Tools/ClientFallbackProbe.swift \
   -o build/client-fallback-probe
-for mode in silent eof unsupported usage; do
+for mode in silent eof unsupported usage launchFailure; do
   QUOTAI_PROBE_MODE=$mode build/client-fallback-probe || exit 1
 done
+```
+
+Codex 命令发现的隔离回归探针，覆盖桌面版优先、旧路径、CLI 回退、自定义路径和符号链接去重，使用临时可执行文件：
+
+```bash
+swiftc -parse-as-library Core/*.swift App/Services/CodexBinaryLocator.swift \
+  Tools/CodexBinaryLocatorProbe.swift -o build/codex-binary-locator-probe
+build/codex-binary-locator-probe
 ```
 
 Antigravity 仅保留实时额度链路，不再提供本机 Token 扫描、专用 Probe 或 Token 预览模式。
@@ -88,7 +96,7 @@ Claude 仅保留旧状态栏配置的恢复兼容，迁移验证使用隔离配�
 正式发布前需要审查工作区差异、版本说明和发布动作。
 脚本依赖 `Design/release-notes-<版本>.md`。本地修复、构建或文档整理均不等于发布授权。
 
-当前版本的测试、构建和安装状态以[版本说明](../Design/release-notes-2.0.15.md)为准，
+当前版本的测试、构建和安装状态以[版本说明](../Design/release-notes-2.0.16.md)为准，
 不能沿用旧版本的验收结果。
 
 ad-hoc 签名没有 Apple Developer ID 或公证。可信安装包经浏览器等途径传输后可能带隔离标记。

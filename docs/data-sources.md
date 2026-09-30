@@ -26,8 +26,11 @@ Codex 额度。
 系统的 HTTP、HTTPS 或 SOCKS 代理，再传给 `codex app-server`。代理地址和证书路径
 不会写入日志。
 
-App 会依次尝试本机 Codex CLI、PATH 中的 Codex 和 ChatGPT 内置 Codex，并选择首个
-能够返回额度的版本。额度仅适用于 ChatGPT Codex 登录；API Key 登录不包含 ChatGPT
+App 会优先尝试 ChatGPT／Codex 桌面版内置的 Codex 命令，兼容新的
+`Contents/Resources/codex-cli/bin/codex` 和旧的 `Contents/Resources/codex` 路径，
+再尝试本机 Codex CLI 与 PATH 中的 Codex，并选择首个能够返回额度的版本。
+桌面版命令不依赖终端的 Node 环境；设置中手动指定的路径仍为唯一候选。
+额度仅适用于 ChatGPT Codex 登录；API Key 登录不包含 ChatGPT
 订阅额度。若本机所有 Codex 版本都不支持 `account/rateLimits/read`，App 会提示更新
 ChatGPT 或 Codex CLI。
 
@@ -54,4 +57,4 @@ ChatGPT 或 Codex CLI。
 - 旧 Antigravity Token 缓存和 Claude 额度缓存不再读取，也不自动删除；它们不是当前数据源。
   不读取或删除会话正文、凭据、钥匙串或账户数据。
 
-恢复兼容不等于重新启用 Claude 数据源。当前候选的验证状态见[2.0.15 版本说明](../Design/release-notes-2.0.15.md)。
+恢复兼容不等于重新启用 Claude 数据源。当前版本的验证状态见[2.0.16 版本说明](../Design/release-notes-2.0.16.md)。

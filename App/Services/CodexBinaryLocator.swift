@@ -22,7 +22,19 @@ enum CodexBinaryLocatorError: LocalizedError {
 }
 
 enum CodexBinaryLocator {
-    static func candidates(customPath: String?) throws -> [URL] {
+    static func candidates(
+        customPath: String?,
+        applicationPaths: [String] = [
+            "/Applications/ChatGPT.app",
+            "/Applications/Codex.app"
+        ],
+        commandDirectories: [String] = [
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+            NSString(string: "~/.local/bin").expandingTildeInPath
+        ],
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) throws -> [URL] {
         let fileManager = FileManager.default
 
         if let customPath, !customPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -33,19 +45,25 @@ enum CodexBinaryLocator {
             return [URL(fileURLWithPath: expanded)]
         }
 
-        var candidates = [
-            "/opt/homebrew/bin/codex",
-            "/usr/local/bin/codex",
-            NSString(string: "~/.local/bin/codex").expandingTildeInPath
-        ]
+        // The desktop wrapper resolves its bundled native executable without
+        // requiring Node on the Finder-launched app's PATH.
+        var candidates = applicationPaths.map {
+            URL(fileURLWithPath: $0)
+                .appendingPathComponent("Contents/Resources/codex-cli/bin/codex").path
+        }
+        candidates.append(contentsOf: applicationPaths.map {
+            URL(fileURLWithPath: $0)
+                .appendingPathComponent("Contents/Resources/codex").path
+        })
+        candidates.append(contentsOf: commandDirectories.map {
+            URL(fileURLWithPath: $0).appendingPathComponent("codex").path
+        })
 
-        if let path = ProcessInfo.processInfo.environment["PATH"] {
+        if let path = environment["PATH"] {
             candidates.append(contentsOf: path.split(separator: ":").map {
                 URL(fileURLWithPath: String($0)).appendingPathComponent("codex").path
             })
         }
-        candidates.append("/Applications/ChatGPT.app/Contents/Resources/codex")
-
         var seenPaths = Set<String>()
         let executables = candidates.compactMap { path -> URL? in
             guard fileManager.isExecutableFile(atPath: path) else { return nil }

@@ -143,7 +143,7 @@
 "error.parser.missing_limits" = "Codex 返回的数据中没有可识别的额度窗口。";
 "error.binary.invalid_path_format" = "设置的 Codex 路径不可执行：%@";
 "error.binary.not_found" = "找不到本机 Codex。请安装或登录 ChatGPT/Codex，或在设置中指定 Codex 路径。";
-"error.client.launch_failed" = "Codex App Server 启动失败。请确认 Codex 已登录并可正常运行。";
+"error.client.launch_failed" = "Codex App Server 启动失败。请检查配置的 Codex 路径及 CLI 安装。";
 "error.client.invalid_output" = "Codex 返回了无法识别的额度数据。";
 "error.client.protocol_format" = "Codex 协议响应不兼容（%@）。";
 "error.client.network_unavailable" = "Codex 无法连接 ChatGPT。请检查这台 Mac 的网络、代理或 TLS 证书设置（%@）。";
