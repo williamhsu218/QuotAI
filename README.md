@@ -1,6 +1,6 @@
 # QuotAI
 
-macOS 原生菜单栏额度工具，支持 Codex 和 Antigravity。两个来源独立读取、独立显示，
+macOS 原生菜单栏额度工具，支持 Codex、Antigravity 和 Claude Code。各来源独立读取、独立显示，
 同时提供 Codex Token 活跃度和“保持唤醒”功能。运行要求为 macOS 14 或更新版本。
 
 ## 功能
@@ -11,7 +11,8 @@ macOS 原生菜单栏额度工具，支持 Codex 和 Antigravity。两个来源�
 - **菜单栏**：供应商图标配合一行或两行额度；可选择来源、Antigravity 模型组及显示窗口。
   左键打开面板，右键快速刷新、打开设置或切换唤醒状态。
 - **Codex Token 活跃度**：支持累计用量、连续天数和最近 18 周图表，大数自动使用 M / B 单位。
-  Antigravity 页面只显示实时额度。
+  Antigravity 页面只显示额度；Claude Code 页面只显示官方状态栏最近报告的 5h/7d 与重置时间。
+  Claude Code 不显示重置卡、查看入口或 Token 统计。
 - **外观**：四种热力图配色，适配浅色、深色和增强对比度；统一半透明卡片与原生工具按钮。
 - **保持唤醒**：支持定时或持续开启，可选择是否同时保持显示器唤醒。
 - **语言**：English 与简体中文，默认跟随系统，也可在 macOS 的应用程序语言设置中单独指定。
@@ -24,8 +25,12 @@ QuotAI 是菜单栏 App，不显示 Dock 图标。安装后打开菜单栏图标
 | --- | --- |
 | Codex | 本机 Codex / ChatGPT 已登录订阅账户；API Key 登录不提供订阅额度 |
 | Antigravity | 已安装、登录并正在运行；Gemini 与 Claude/GPT 额度分组显示 |
+| Claude Code | 已安装并登录 Pro/Max 订阅的 Claude CLI，在设置中接入官方状态栏报告 |
 
-缺失数据不会显示成 0。QuotAI 不再展示 Claude 的快照额度，也不再读取 Antigravity 本机会话 Token。
+缺失数据不会显示成 0。Claude Code 的百分比来自官方状态栏报告，标注收到时间；
+官方未提供源采样时间，因此不能当成持续实时查询。两个窗口分别计时，重复相同报告不延长
+展示期限；超过 30 分钟或达到重置时间后隐藏数字，等待新报告。正常 Claude 使用将官方报告写为 JSON；QuotAI 在启动或手动刷新时载入。载入后默认选择最近官方报告，可手动固定会话，不合并为账户统计。
+QuotAI 不读取 Antigravity 本机会话 Token。
 从旧版本升级时，会识别并恢复由 QuotAI 安装的 Claude Code 状态栏配置；历史缓存保留且不再读取。
 完整口径和隐私边界见[数据来源与隐私](docs/data-sources.md)。
 
@@ -45,9 +50,9 @@ QuotAI 是菜单栏 App，不显示 Dock 图标。安装后打开菜单栏图标
 | 文档 | 内容 |
 | --- | --- |
 | [开发与验证](docs/development.md) | 源码结构、构建、测试、预览、打包及本地文件保留规则 |
-| [数据来源与隐私](docs/data-sources.md) | 两个来源的读取链路、统计口径、缓存与数据缺失处理 |
+| [数据来源与隐私](docs/data-sources.md) | 三个来源的读取链路、统计口径、缓存与数据缺失处理 |
 | [界面设计规范](docs/design.md) | 材质、控件、颜色、图标和界面验收边界 |
-| [2.0.16 版本说明](Design/release-notes-2.0.16.md) | 当前版本变更与验收状态 |
+| [2.1.0 版本说明](Design/release-notes-2.1.0.md) | 当前版本变更与验收状态 |
 
 `Design/` 保留有效图标主稿和当前版本说明；旧设计过程、旧 QA 及旧版本说明由 Git 历史保存。
 生成的构建、截图和本机验收证据位于被 Git 忽略的 `build/`，不作为项目使用文档。

@@ -14,6 +14,19 @@ struct DesignPreviewView: View {
     let store: UsageStore
     let antigravityStore: AntigravityUsageStore
     let stayAwakeStore: StayAwakeStore
+    let claudeCodeStore: ClaudeCodeUsageStore
+
+    init(
+        store: UsageStore,
+        antigravityStore: AntigravityUsageStore,
+        stayAwakeStore: StayAwakeStore,
+        claudeCodeStore: ClaudeCodeUsageStore? = nil
+    ) {
+        self.store = store
+        self.antigravityStore = antigravityStore
+        self.stayAwakeStore = stayAwakeStore
+        self.claudeCodeStore = claudeCodeStore ?? .shared
+    }
 
     var body: some View {
         VStack(alignment: .center, spacing: 12) {
@@ -25,7 +38,8 @@ struct DesignPreviewView: View {
             MenuBarPanelView(
                 store: store,
                 antigravityStore: antigravityStore,
-                stayAwakeStore: stayAwakeStore
+                stayAwakeStore: stayAwakeStore,
+                claudeCodeStore: claudeCodeStore
             )
                 .shadow(color: .black.opacity(0.18), radius: 22, y: 12)
         }
@@ -43,7 +57,10 @@ struct DesignPreviewView: View {
             mode: menuBarQuotaDisplayMode,
             codexSnapshot: store.snapshot,
             antigravitySnapshot: antigravityStore.snapshot,
-            isStayAwakeActive: stayAwakeStore.isActive
+            isStayAwakeActive: stayAwakeStore.isActive,
+            claudeCodeSnapshot: claudeCodeStore.snapshot,
+            claudeCodeEnabled: claudeCodeStore.isEnabled,
+            claudeCodeAvailable: claudeCodeStore.isInstalled
         )
     }
 

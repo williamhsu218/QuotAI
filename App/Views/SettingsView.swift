@@ -48,6 +48,7 @@ struct SettingsView: View {
 
     let store: UsageStore
     let antigravityStore: AntigravityUsageStore
+    let claudeCodeStore: ClaudeCodeUsageStore
     let stayAwakeStore: StayAwakeStore
     var initialTab: SettingsTab = .general
 
@@ -57,10 +58,12 @@ struct SettingsView: View {
         store: UsageStore,
         antigravityStore: AntigravityUsageStore,
         stayAwakeStore: StayAwakeStore? = nil,
-        initialTab: SettingsTab = .general
+        initialTab: SettingsTab = .general,
+        claudeCodeStore: ClaudeCodeUsageStore? = nil
     ) {
         self.store = store
         self.antigravityStore = antigravityStore
+        self.claudeCodeStore = claudeCodeStore ?? .shared
         self.stayAwakeStore = stayAwakeStore ?? .shared
         self.initialTab = initialTab
         _selectedTab = State(initialValue: initialTab)
@@ -78,6 +81,8 @@ struct SettingsView: View {
     private var antigravityIntegrationEnabled = true
 
     @State private var launchAtLogin = false
+    @State private var showsClaudeCodeConnectionConfirmation = false
+    @State private var claudeCodeActionError: String?
 
     private var isAntigravitySupported: Bool {
         antigravityStore.isInstalled
@@ -89,14 +94,17 @@ struct SettingsView: View {
 
     private var menuBarProviders: [QuotaProvider] {
         QuotaProvider.visibleProviders(
-            antigravityVisible: shouldShowAntigravity
+            antigravityVisible: shouldShowAntigravity,
+            claudeCodeVisible: claudeCodeStore.isEnabled && claudeCodeStore.isInstalled
         )
     }
 
     private var effectiveMenuBarProvider: QuotaProvider {
         menuBarQuotaProvider.effectiveProvider(
             antigravityEnabled: antigravityIntegrationEnabled,
-            antigravityAvailable: antigravityStore.isInstalled
+            antigravityAvailable: antigravityStore.isInstalled,
+            claudeCodeEnabled: claudeCodeStore.isEnabled,
+            claudeCodeAvailable: claudeCodeStore.isInstalled
         )
     }
 
@@ -139,11 +147,28 @@ struct SettingsView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
             antigravityStore.reloadInstallation()
+            claudeCodeStore.reloadInstallation()
             normalizeAntigravityGroupSelection()
             refreshLaunchAtLogin()
         }
         .onChange(of: antigravityGroupIDs) {
             normalizeAntigravityGroupSelection()
+        }
+        .alert(
+            L10n.text("claude.settings.connect_title", fallback: "Connect Claude Code reports?"),
+            isPresented: $showsClaudeCodeConnectionConfirmation
+        ) {
+            Button(L10n.text("claude.settings.connect", fallback: "Connect")) {
+                performClaudeCodeAction { try claudeCodeStore.enable() }
+            }
+            Button(L10n.text("action.cancel", fallback: "Cancel"), role: .cancel) { }
+        } message: {
+            Text(L10n.format(
+                "claude.settings.connect_confirmation_format",
+                fallback: "QuotAI will back up and modify %@ to run %@. Existing status-line output is preserved. Disable & Restore restores the original configuration when it still matches QuotAI's changes.",
+                claudeCodeStore.configurationPath,
+                claudeCodeStore.helperCommand
+            ))
         }
     }
 
@@ -433,10 +458,12 @@ struct SettingsView: View {
                     }
                 }
 
+                claudeCodeProviderSection
+
                 Text(
                     L10n.text(
                         "settings.privacy_note",
-                        fallback: "Codex cache stays on this Mac; Antigravity quota and local authentication are never saved."
+                        fallback: "Codex cache and Claude reports stay on this Mac. Claude credentials and conversations are not read; Antigravity quota and authentication are not saved."
                     )
                 )
                 .font(.system(size: 11))
@@ -464,7 +491,7 @@ struct SettingsView: View {
                     .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(AppTheme.primaryText)
 
-                Text(L10n.text("settings.app_subtitle", fallback: "Codex & Antigravity Quota Monitor"))
+                Text(L10n.text("settings.app_subtitle", fallback: "Codex, Claude Code & Antigravity Quotas"))
                     .font(.system(size: AppTheme.TypeSize.cardTitle, weight: .medium))
                     .foregroundStyle(AppTheme.secondaryText)
 
@@ -522,6 +549,74 @@ struct SettingsView: View {
 
     // MARK: - Helpers
 
+    private var claudeCodeProviderSection: some View {
+        SettingsSection(title: L10n.text("claude.settings.section", fallback: "Claude Code Reports")) {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.small) {
+                Text(claudeCodeStore.isInstalled
+                    ? L10n.text("claude.settings.cli_available", fallback: "Claude CLI available")
+                    : L10n.text("claude.settings.cli_unavailable", fallback: "Claude CLI not found"))
+                    .font(.system(size: AppTheme.TypeSize.caption, weight: .medium))
+
+                Label(
+                    claudeCodeStore.configurationStatusMessage,
+                    systemImage: claudeCodeStore.isConnected ? "checkmark.circle" : "circle.dashed"
+                )
+                .font(.system(size: AppTheme.TypeSize.caption))
+                .foregroundStyle(AppTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+
+                if claudeCodeStore.isEnabled {
+                    Text(claudeCodeStore.statusMessage(at: Date()))
+                        .font(.system(size: AppTheme.TypeSize.small))
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Text(L10n.text("claude.settings.report_scope", fallback: "Local reports from one CLI session; not live account usage. Refresh loads local JSON without querying limits. Auto selects the latest loaded report. Each window's numbers are hidden when its value and reset time both stay unchanged for 30 minutes, or at reset time."))
+                    .font(.system(size: AppTheme.TypeSize.small))
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: AppTheme.Spacing.small) {
+                    if claudeCodeStore.isEnabled {
+                        Button(L10n.text("claude.settings.disable", fallback: "Disable & Restore")) {
+                            performClaudeCodeAction { try claudeCodeStore.disable() }
+                        }
+                    } else {
+                        Button(L10n.text("claude.settings.connect", fallback: "Connect")) {
+                            claudeCodeActionError = nil
+                            showsClaudeCodeConnectionConfirmation = true
+                        }
+                        .disabled(!claudeCodeStore.isInstalled)
+                    }
+
+                    Button(L10n.text("claude.settings.clear", fallback: "Clear Reports")) {
+                        performClaudeCodeAction { try claudeCodeStore.clearReports() }
+                    }
+                    .disabled(claudeCodeStore.sessions.isEmpty)
+                }
+                .controlSize(.small)
+
+                if let claudeCodeActionError {
+                    Text(claudeCodeActionError)
+                        .font(.system(size: AppTheme.TypeSize.small))
+                        .foregroundStyle(AppTheme.quotaCritical.accent)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    private func performClaudeCodeAction(_ action: () throws -> Void) {
+        do {
+            try action()
+            claudeCodeActionError = nil
+            postMenuBarPreferenceChange()
+        } catch {
+            claudeCodeActionError = error.localizedDescription
+        }
+    }
+
     private var appMarkImage: NSImage {
         if let bundledImage = NSImage(named: "AppMark") {
             return bundledImage
@@ -552,7 +647,11 @@ struct SettingsView: View {
             mode: menuBarQuotaDisplayMode,
             codexSnapshot: store.snapshot,
             antigravitySnapshot: antigravityStore.snapshot,
-            isStayAwakeActive: stayAwakeStore.isActive
+            isStayAwakeActive: stayAwakeStore.isActive,
+            now: effectiveMenuBarProvider == .claudeCode ? Date() : store.expiryReferenceDate,
+            claudeCodeSnapshot: claudeCodeStore.snapshot,
+            claudeCodeEnabled: claudeCodeStore.isEnabled,
+            claudeCodeAvailable: claudeCodeStore.isInstalled
         )
     }
 
@@ -601,6 +700,9 @@ struct SettingsView: View {
         Task { await store.refresh() }
         if antigravityIntegrationEnabled {
             Task { await antigravityStore.refresh() }
+        }
+        if claudeCodeStore.isEnabled {
+            Task { await claudeCodeStore.userRefresh() }
         }
     }
 

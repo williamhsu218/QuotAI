@@ -112,7 +112,7 @@
 "settings.antigravity_status_idle" = "Idle / Not Running";
 "settings.antigravity_group_count_format" = "%d groups";
 
-"settings.app_subtitle" = "Codex & Antigravity Quota Monitor";
+"settings.app_subtitle" = "Codex, Claude Code & Antigravity Quotas";
 "settings.check_updates" = "Check for Updates";
 "settings.github_repo" = "GitHub Repository";
 "settings.acknowledgements" = "Created with pair programming on macOS.";
@@ -136,7 +136,7 @@
 "settings.codex_path_help" = "Leave blank to find Codex automatically.";
 "settings.updates" = "Updates";
 "settings.version_format" = "Version %@ (%@)";
-"settings.privacy_note" = "Codex cache stays on this Mac; Antigravity quota and local authentication are never saved.";
+"settings.privacy_note" = "Codex cache and Claude reports stay on this Mac. Claude credentials and conversations are not read; Antigravity quota and authentication are not saved.";
 
 "error.parser.missing_response" = "Codex did not return quota data.";
 "error.parser.server_format" = "Codex App Server returned an error: %@";
@@ -168,5 +168,53 @@
 
 // Legacy provider label and shared quota states
 "provider.claude" = "Claude Code";
+"claude.report.title" = "Local report";
+"claude.report.beijing" = "Beijing time";
+"claude.report.source_unknown" = "Source sampling time not provided";
+"claude.report.window_received_format" = "%@ received %@";
+"claude.report.session" = "Session";
+"claude.report.session_format" = "Session %@";
+"claude.report.select_session" = "Choose session";
+"claude.report.session_missing" = "Fixed session report unavailable";
+"claude.report.session_missing_detail" = "Choose another session or Automatic below. Your fixed selection stays unchanged; reports are never merged.";
+"claude.report.automatic" = "Auto · loaded reports";
+"claude.report.automatic_session_format" = "Auto · %@";
+"claude.report.pinned_format" = "Fixed %@";
+"claude.report.pinned_missing_format" = "Fixed %@ · unavailable";
+"claude.report.waiting" = "Waiting for Claude Code report";
+"claude.report.waiting_detail" = "Normal Claude Code activity writes report JSON. Click Refresh to load local reports.";
+"claude.report.connection_needed" = "Connection needs attention";
+"claude.report.stale" = "Report too old · waiting for new report";
+"claude.report.reset_passed" = "Reset time passed · waiting for report";
+"claude.report.reread_help" = "Load local report JSON; does not query limits";
+"claude.settings.section" = "Claude Code Reports";
+"claude.settings.cli_available" = "Claude CLI available";
+"claude.settings.cli_unavailable" = "Claude CLI not found";
+"claude.settings.connect_title" = "Connect Claude Code reports?";
+"claude.settings.connect" = "Connect";
+"claude.settings.disable" = "Disable & Restore";
+"claude.settings.clear" = "Clear Reports";
+"claude.settings.report_scope" = "Local reports from one CLI session; not live account usage. Refresh loads local JSON without querying limits. Auto selects the latest loaded report. Each window's numbers are hidden when its value and reset time both stay unchanged for 30 minutes, or at reset time.";
+"claude.settings.connect_confirmation_format" = "QuotAI will back up and modify %@ to run %@. Existing status-line output is preserved. Disable & Restore restores the original configuration when it still matches QuotAI's changes.";
+"claude.status.waiting_report" = "Waiting for Claude Code report";
+"claude.status.stale_report" = "Waiting for a new report";
+"claude.status.recent_report" = "Local report";
+"claude.configuration.not_connected" = "Status-line reports are not connected";
+"claude.configuration.connected" = "Status-line reports are connected";
+"claude.configuration.disabled" = "Status-line reports are disabled";
+"claude.configuration.helper_moved" = "QuotAI helper location changed; settings were left unchanged";
+"claude.configuration.cli_missing" = "Claude CLI not found";
+"claude.configuration.synthetic_preview" = "Synthetic Claude Code preview";
+"claude.error.invalid_settings" = "Claude Code settings.json is unreadable or invalid.";
+"claude.error.unsupported_status_line" = "The existing statusLine is not a supported command; it was left unchanged.";
+"claude.error.recursive_command" = "The existing status line references QuotAI's bridge; it was left unchanged.";
+"claude.error.invalid_state" = "The bridge restoration state is invalid; settings were left unchanged.";
+"claude.error.settings_changed" = "Claude Code settings were changed by another process; QuotAI did not overwrite them.";
+"claude.error.symbolic_link" = "Symbolic links are not supported for bridge configuration files.";
+"claude.error.oversized_file" = "The bridge configuration file exceeds its size limit.";
+"claude.error.lock_timeout" = "The bridge file is busy; this operation was skipped.";
+"claude.error.invalid_helper" = "The standalone QuotAI status-line helper is missing or its location is unsupported.";
+"claude.error.invalid_reports" = "The local Claude Code reports are invalid or belong to another configuration.";
+"action.cancel" = "Cancel";
 "status.stale" = "Not recently updated";
 "date.reset_passed" = "Reset passed · waiting for new data";

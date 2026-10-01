@@ -2,7 +2,7 @@
 
 [返回项目首页](../README.md)
 
-Codex 与 Antigravity 分别读取和呈现；一个来源不可用时，不借用另一个来源的数据。
+Codex、Antigravity 与 Claude Code 分别读取和呈现；一个来源不可用时，不借用另一个来源的数据。
 订阅剩余额度与 Codex Token 用量的含义不同，不能相加或解释成同一个账单。
 
 ## Codex 与 Antigravity 额度
@@ -41,8 +41,32 @@ ChatGPT 或 Codex CLI。
 - **Codex**：订阅额度、套餐、重置卡与账户 Token 图表。Token 图表来自账户接口，不扫描本地对话。
 - **Antigravity**：只显示实时额度，按 Gemini 和 Claude / GPT 分组；面板选择与菜单栏选择独立。
   不再读取本机会话数据库，也不显示 Token 总量、模型汇总或日期图表。
-- **Claude**：不再提供独立页面、菜单栏数据源或设置入口，不显示桌面／终端的 5 小时与每周快照额度，
-  不轮询桌面额度缓存，也不采集终端状态栏中的额度数据。
+- **Claude Code**：通过官方文档化的状态栏 JSON 接收 `rate_limits.five_hour` / `seven_day`
+  的已用百分比与 Unix 秒重置时间，换算为剩余百分比。只表示所选会话的最近报告，
+  不宣称后台实时查询或已绑定当前账户。官方未提供源采样时间；本机收到时间也不代表服务端刷新时间。
+  两个窗口分别计算 30 分钟展示期限；相同窗口值的重复回调不能延长期限。陈旧或到重置时隐藏数字，
+  缺少窗口不补旧值、不推算为 100%。多个会话分别隔离，载入后默认选择最近仍可显示的完整报告；手动固定后不自动切换。
+  不显示重置卡、任何查看入口、套餐或 Token 统计。
+
+本机 Claude CLI 2.1.285 实测：交互模式产生官方状态栏报告；`-p` 模式有 session 和官方流式额度事件，但不执行状态栏回调。
+流式事件需由启动 CLI 的宿主转发，QuotAI 不旁路读取其他进程输出或会话文件。
+依据：[官方 SDK 额度事件](https://code.claude.com/docs/en/agent-sdk/python#ratelimitinfo)。
+
+## Claude Code 接入与隐私
+
+在设置中接入后，QuotAI 先保留恢复记录与原字节备份，再修改 Claude 用户设置的
+`statusLine.command`，保留其他设置及原状态栏参数。独立辅助程序将同一份 stdin
+转交原命令以保留输出；停用时仅恢复仍属于 QuotAI 的配置，用户自行改写的配置不会被覆盖。
+默认使用 `~/.claude/settings.json`，也支持 `CLAUDE_CONFIG_DIR`。损坏配置、符号链接或冲突时停止覆盖。
+
+报告保存在本机 Application Support 的独立 v2 文件，只存必要的额度窗口、加盐会话指纹与本机时间。
+输入、文件大小和会话数量有上限，并发写入有锁，文件采用私有权限与原子替换。
+不保存原始状态栏 JSON、工作目录、会话正文、transcript 路径、cost 或 context Token。
+不读取凭据、钥匙串、桌面缓存、历史对话，不调用未公开 OAuth 接口，也不为刷新生成模型请求。
+CLI 正常使用自动生成 JSON，App 在启动、接入或手动刷新时载入，不监听文件自动变化。
+刷新只重读本机报告；配置连接与是否收到有效报告分别呈现。
+
+官方依据：[状态栏额度](https://code.claude.com/docs/en/statusline#rate-limit-usage)。
 
 ## 旧版本升级与数据保留
 
@@ -57,4 +81,5 @@ ChatGPT 或 Codex CLI。
 - 旧 Antigravity Token 缓存和 Claude 额度缓存不再读取，也不自动删除；它们不是当前数据源。
   不读取或删除会话正文、凭据、钥匙串或账户数据。
 
-恢复兼容不等于重新启用 Claude 数据源。当前版本的验证状态见[2.0.16 版本说明](../Design/release-notes-2.0.16.md)。
+旧桥接恢复兼容与新 v2 接入分别处理。新版本不会因旧的启用偏好自动写入状态栏配置。
+当前版本的验证状态见[2.1.0 版本说明](../Design/release-notes-2.1.0.md)。

@@ -19,9 +19,9 @@ struct RenderDesignPreview {
         // The renderer is packaged with a dedicated bundle ID, separate from the live app.
         UserDefaults.standard.set(tokenTheme, forKey: "tokenActivityTheme")
 
-        let provider: QuotaProvider = CommandLine.arguments.contains("--antigravity")
-            ? .antigravity
-            : .codex
+        let provider: QuotaProvider = CommandLine.arguments.contains("--claude")
+            ? .claudeCode
+            : CommandLine.arguments.contains("--antigravity") ? .antigravity : .codex
         UserDefaults.standard.set(provider.rawValue, forKey: QuotaProvider.panelDefaultsKey)
         UserDefaults.standard.set(provider.rawValue, forKey: QuotaProvider.menuBarDefaultsKey)
         if provider == .antigravity {
@@ -43,6 +43,9 @@ struct RenderDesignPreview {
                 : nil
         )
         let antigravityStore = AntigravityUsageStore(previewMode: true)
+        let claudeScenario = CommandLine.arguments.first { $0.hasPrefix("--claude-state=") }
+            .map { String($0.dropFirst("--claude-state=".count)) } ?? "recent"
+        let claudeCodeStore = ClaudeCodeUsageStore(previewMode: true, previewScenario: claudeScenario)
         let stayAwakeStore = StayAwakeStore(previewMode: true)
         let colorScheme: ColorScheme = CommandLine.arguments.contains("--dark") ? .dark : .light
         NSApplication.shared.appearance = NSAppearance(named: colorScheme == .dark ? .darkAqua : .aqua)
@@ -65,7 +68,8 @@ struct RenderDesignPreview {
                     store: store,
                     antigravityStore: antigravityStore,
                     stayAwakeStore: stayAwakeStore,
-                    initialTab: initialTab
+                    initialTab: initialTab,
+                    claudeCodeStore: claudeCodeStore
                 )
                     .environment(\.colorScheme, colorScheme)
                     .environment(\.nativeGlassRenderingEnabled, false)
@@ -73,12 +77,13 @@ struct RenderDesignPreview {
                 size: size
             )
         } else {
-            let size = CGSize(width: 520, height: provider == .antigravity ? 540 : 760)
+            let size = CGSize(width: 520, height: provider == .codex ? 760 : 540)
             try write(
                 DesignPreviewView(
                     store: store,
                     antigravityStore: antigravityStore,
-                    stayAwakeStore: stayAwakeStore
+                    stayAwakeStore: stayAwakeStore,
+                    claudeCodeStore: claudeCodeStore
                 )
                     .environment(\.colorScheme, colorScheme)
                     .environment(\.nativeGlassRenderingEnabled, false)

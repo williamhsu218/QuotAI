@@ -7,6 +7,7 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopoverDelegate {
     private lazy var store = UsageStore.shared
     private lazy var antigravityStore = AntigravityUsageStore.shared
+    private lazy var claudeCodeStore = ClaudeCodeUsageStore.shared
     private lazy var stayAwakeStore = StayAwakeStore.shared
     private let popover = NSPopover()
     private var statusItem: NSStatusItem?
@@ -92,6 +93,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         )
         NotificationCenter.default.addObserver(
             self,
+            selector: #selector(claudeCodeUsageSnapshotDidChange),
+            name: .claudeCodeUsageSnapshotDidChange,
+            object: claudeCodeStore
+        )
+        NotificationCenter.default.addObserver(
+            self,
             selector: #selector(menuBarQuotaPreferencesDidChange),
             name: .menuBarQuotaPreferencesDidChange,
             object: nil
@@ -107,6 +114,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         store.start()
         if antigravityIntegrationEnabled {
             antigravityStore.start()
+        }
+        if claudeCodeStore.isEnabled {
+            claudeCodeStore.start()
         }
         startStatusItemClock()
         logger.info("Application did finish launching with AppKit status item")
@@ -132,6 +142,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         statusItemClock?.invalidate()
         statusItemClock = nil
         antigravityStore.stop()
+        claudeCodeStore.stop()
         stayAwakeStore.shutdown()
         if let statusItem {
             NSStatusBar.system.removeStatusItem(statusItem)
@@ -163,7 +174,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
             rootView: MenuBarPanelView(
                 store: store,
                 antigravityStore: antigravityStore,
-                stayAwakeStore: stayAwakeStore
+                stayAwakeStore: stayAwakeStore,
+                claudeCodeStore: claudeCodeStore
             )
                 .environment(\.usesSystemPopoverSurface, true)
         )
@@ -339,8 +351,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         updateStatusItemAppearance()
     }
 
+    @objc private func claudeCodeUsageSnapshotDidChange() {
+        updateStatusItemAppearance()
+    }
+
     private func reloadProviderInstallations() {
         antigravityStore.reloadInstallation()
+        claudeCodeStore.reloadInstallation()
     }
 
     private func startStatusItemClock() {
@@ -437,7 +454,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
     private var effectiveMenuBarQuotaProvider: QuotaProvider {
         menuBarQuotaProvider.effectiveProvider(
             antigravityEnabled: antigravityIntegrationEnabled,
-            antigravityAvailable: antigravityStore.isInstalled
+            antigravityAvailable: antigravityStore.isInstalled,
+            claudeCodeEnabled: claudeCodeStore.isEnabled,
+            claudeCodeAvailable: claudeCodeStore.isInstalled
         )
     }
 
@@ -445,6 +464,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         switch provider {
         case .codex, .claude: store
         case .antigravity: antigravityStore
+        case .claudeCode: claudeCodeStore
         }
     }
 
@@ -474,7 +494,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
             antigravitySnapshot: antigravityStore.snapshot,
             isStayAwakeActive: stayAwakeStore.isActive,
             now: Date(),
-            staleAfter: menuBarStaleAfter
+            staleAfter: menuBarStaleAfter,
+            claudeCodeSnapshot: claudeCodeStore.snapshot,
+            claudeCodeEnabled: claudeCodeStore.isEnabled,
+            claudeCodeAvailable: claudeCodeStore.isInstalled
         )
     }
 }

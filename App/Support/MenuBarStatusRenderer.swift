@@ -10,6 +10,11 @@ enum MenuBarProviderIcon {
         case .codex: return openAISpiralImage(size: size)
         case .gemini: return geminiSymbolImage(size: size)
         case .thirdParty: return claudeSymbolImage(size: size)
+        case .claudeCode:
+            let image = NSImage(systemSymbolName: "c.circle",
+                                accessibilityDescription: "Claude Code recent report") ?? NSImage()
+            image.isTemplate = true
+            return image
         case .antigravity:
             let image = NSImage(systemSymbolName: "circle.dashed",
                                 accessibilityDescription: "Antigravity") ?? NSImage()

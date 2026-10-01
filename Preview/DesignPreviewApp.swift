@@ -7,14 +7,15 @@ private final class NativeSettingsPreviewWindow {
 
     private var window: NSWindow?
 
-    func show(tab: SettingsTab) {
+    func show(tab: SettingsTab, claudeScenario: String = "recent") {
         guard window == nil else { return }
 
         let content = SettingsView(
             store: UsageStore(previewMode: true),
             antigravityStore: AntigravityUsageStore(previewMode: true),
             stayAwakeStore: StayAwakeStore(previewMode: true),
-            initialTab: tab
+            initialTab: tab,
+            claudeCodeStore: ClaudeCodeUsageStore(previewMode: true, previewScenario: claudeScenario)
         )
         let hostingController = NSHostingController(rootView: content)
         let window = NSWindow(
@@ -37,6 +38,7 @@ struct DesignPreviewApp: App {
     @State private var store = UsageStore(previewMode: true)
     @State private var antigravityStore = AntigravityUsageStore(previewMode: true)
     @State private var stayAwakeStore = StayAwakeStore(previewMode: true)
+    @State private var claudeCodeStore: ClaudeCodeUsageStore
 
     private var rendersSettings: Bool {
         CommandLine.arguments.contains("--settings")
@@ -55,6 +57,15 @@ struct DesignPreviewApp: App {
 
     init() {
         let arguments = CommandLine.arguments
+        let claudeScenario = arguments.first { $0.hasPrefix("--claude-state=") }
+            .map { String($0.dropFirst("--claude-state=".count)) } ?? "recent"
+        _claudeCodeStore = State(initialValue: ClaudeCodeUsageStore(
+            previewMode: true, previewScenario: claudeScenario
+        ))
+        if arguments.contains("--claude") {
+            UserDefaults.standard.set(QuotaProvider.claudeCode.rawValue, forKey: QuotaProvider.panelDefaultsKey)
+            UserDefaults.standard.set(QuotaProvider.claudeCode.rawValue, forKey: QuotaProvider.menuBarDefaultsKey)
+        }
         let shouldRenderSettings = arguments.contains("--settings")
         let tab: SettingsTab = {
             guard
@@ -79,7 +90,7 @@ struct DesignPreviewApp: App {
             }
             NSApplication.shared.activate(ignoringOtherApps: true)
             if shouldRenderSettings {
-                NativeSettingsPreviewWindow.shared.show(tab: tab)
+                NativeSettingsPreviewWindow.shared.show(tab: tab, claudeScenario: claudeScenario)
             }
         }
     }
@@ -92,13 +103,15 @@ struct DesignPreviewApp: App {
                         store: store,
                         antigravityStore: antigravityStore,
                         stayAwakeStore: stayAwakeStore,
-                        initialTab: requestedSettingsTab
+                        initialTab: requestedSettingsTab,
+                        claudeCodeStore: claudeCodeStore
                     )
                 } else {
                     DesignPreviewView(
                         store: store,
                         antigravityStore: antigravityStore,
-                        stayAwakeStore: stayAwakeStore
+                        stayAwakeStore: stayAwakeStore,
+                        claudeCodeStore: claudeCodeStore
                     )
                 }
             }
@@ -106,7 +119,8 @@ struct DesignPreviewApp: App {
         .windowResizability(.contentSize)
 
         Settings {
-            SettingsView(store: store, antigravityStore: antigravityStore, stayAwakeStore: stayAwakeStore)
+            SettingsView(store: store, antigravityStore: antigravityStore,
+                         stayAwakeStore: stayAwakeStore, claudeCodeStore: claudeCodeStore)
         }
     }
 }

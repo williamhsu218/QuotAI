@@ -112,7 +112,7 @@
 "settings.antigravity_status_idle" = "未运行 / 等待 Antigravity 启动";
 "settings.antigravity_group_count_format" = "%d 个模型组";
 
-"settings.app_subtitle" = "Codex 与 Antigravity 额度监控工具";
+"settings.app_subtitle" = "Codex、Claude Code 与 Antigravity 额度";
 "settings.check_updates" = "检查更新";
 "settings.github_repo" = "开源项目主页";
 "settings.acknowledgements" = "基于 macOS 原生技术栈精心打造。";
@@ -136,7 +136,7 @@
 "settings.codex_path_help" = "留空时自动查找 Codex。";
 "settings.updates" = "更新";
 "settings.version_format" = "版本 %@（%@）";
-"settings.privacy_note" = "Codex 缓存仅保存在本机；Antigravity 额度和本地认证信息均不会保存。";
+"settings.privacy_note" = "Codex 缓存和 Claude 报告仅保存在本机。不读取 Claude 凭据和对话；不保存 Antigravity 额度及认证信息。";
 
 "error.parser.missing_response" = "Codex 没有返回额度数据。";
 "error.parser.server_format" = "Codex App Server 返回错误：%@";
@@ -168,5 +168,53 @@
 
 // Legacy provider label and shared quota states
 "provider.claude" = "Claude Code";
+"claude.report.title" = "本机报告";
+"claude.report.beijing" = "北京时间";
+"claude.report.source_unknown" = "源采样时间未提供";
+"claude.report.window_received_format" = "%@ 收到于 %@";
+"claude.report.session" = "会话";
+"claude.report.session_format" = "会话 %@";
+"claude.report.select_session" = "选择会话";
+"claude.report.session_missing" = "固定会话报告不可用";
+"claude.report.session_missing_detail" = "请在下方选择其他会话或自动模式。固定选择会保留，报告不会合并。";
+"claude.report.automatic" = "自动 · 已载入报告";
+"claude.report.automatic_session_format" = "自动 · %@";
+"claude.report.pinned_format" = "固定 %@";
+"claude.report.pinned_missing_format" = "固定 %@ · 不可用";
+"claude.report.waiting" = "等待 Claude Code 报告";
+"claude.report.waiting_detail" = "正常使用 Claude Code 会生成报告 JSON。点击刷新载入本机报告。";
+"claude.report.connection_needed" = "接入需要处理";
+"claude.report.stale" = "报告已陈旧 · 等待新报告";
+"claude.report.reset_passed" = "已到重置时间 · 等待报告";
+"claude.report.reread_help" = "载入本机报告 JSON，不查询额度";
+"claude.settings.section" = "Claude Code 报告";
+"claude.settings.cli_available" = "Claude CLI 可用";
+"claude.settings.cli_unavailable" = "未找到 Claude CLI";
+"claude.settings.connect_title" = "接入 Claude Code 报告？";
+"claude.settings.connect" = "接入";
+"claude.settings.disable" = "停用并恢复";
+"claude.settings.clear" = "清除报告";
+"claude.settings.report_scope" = "显示一个 CLI 会话的本机报告，不代表实时账户用量。刷新只载入本机 JSON，不查询额度；自动模式选择最近已载入报告。每个窗口的数值和重置时间连续 30 分钟未变，或到重置时间后，隐藏数字。";
+"claude.settings.connect_confirmation_format" = "QuotAI 将备份并修改 %@，使用 %@。原状态栏输出保留；停用并恢复会在配置仍与 QuotAI 修改一致时恢复原配置。";
+"claude.status.waiting_report" = "等待 Claude Code 报告";
+"claude.status.stale_report" = "等待新报告";
+"claude.status.recent_report" = "本机报告";
+"claude.configuration.not_connected" = "尚未接入状态栏报告";
+"claude.configuration.connected" = "状态栏报告已接入";
+"claude.configuration.disabled" = "状态栏报告已停用";
+"claude.configuration.helper_moved" = "QuotAI 辅助程序位置已变化，未改写配置";
+"claude.configuration.cli_missing" = "未找到 Claude CLI";
+"claude.configuration.synthetic_preview" = "Claude Code 合成数据预览";
+"claude.error.invalid_settings" = "Claude Code settings.json 无法读取或格式无效。";
+"claude.error.unsupported_status_line" = "现有 statusLine 不是受支持的命令，未改写配置。";
+"claude.error.recursive_command" = "现有状态栏已引用 QuotAI 桥接，未改写配置。";
+"claude.error.invalid_state" = "桥接恢复信息无效，未改写配置。";
+"claude.error.settings_changed" = "Claude Code 配置已被其他进程修改，QuotAI 未覆盖它。";
+"claude.error.symbolic_link" = "桥接配置文件不支持符号链接。";
+"claude.error.oversized_file" = "桥接配置文件超过大小限制。";
+"claude.error.lock_timeout" = "桥接文件正在使用中，本次操作已跳过。";
+"claude.error.invalid_helper" = "QuotAI 独立状态栏辅助程序缺失，或所在位置不受支持。";
+"claude.error.invalid_reports" = "本机 Claude Code 报告无效，或属于另一份配置。";
+"action.cancel" = "取消";
 "status.stale" = "近期未更新";
 "date.reset_passed" = "已过重置时间 · 等待新数据";

@@ -1,10 +1,28 @@
 import Foundation
 
+/// Finite UI updates that include the exact per-window display cutoff. Periodic
+/// entries alone can leave an old number visible until the next 30-second tick.
+public enum ClaudeCodeReportDisplayTimeline {
+    public static func entries(for snapshot: ClaudeCodeQuotaSnapshot?, from start: Date) -> [Date] {
+        guard let snapshot, !snapshot.orderedReports.isEmpty else { return [start] }
+        let epsilon: TimeInterval = 0.01
+        let horizon = start.addingTimeInterval(ClaudeCodeQuotaReport.displayLifetime + epsilon)
+        var dates = (0...60).map { start.addingTimeInterval(Double($0) * 30) }
+        for report in snapshot.orderedReports {
+            let cutoff = min(report.resetsAt,
+                             report.firstObservedAt.addingTimeInterval(ClaudeCodeQuotaReport.displayLifetime))
+            let entry = cutoff.addingTimeInterval(epsilon)
+            if entry > start, entry <= horizon { dates.append(entry) }
+        }
+        return Array(Set(dates)).sorted()
+    }
+}
+
 /// Value-only presentation shared by the status item and its previews.
 /// Resolves a provider/group once so its icon, numbers and description cannot diverge.
 public struct MenuBarPresentation: Equatable, Sendable {
     public enum Icon: Equatable, Sendable {
-        case codex, gemini, thirdParty, antigravity
+        case codex, gemini, thirdParty, antigravity, claudeCode
     }
 
     public let provider: QuotaProvider
@@ -32,11 +50,16 @@ public struct MenuBarPresentation: Equatable, Sendable {
         antigravitySnapshot: AntigravityQuotaSnapshot?,
         isStayAwakeActive: Bool,
         now: Date? = nil,
-        staleAfter: [QuotaProvider: TimeInterval] = [:]
+        staleAfter: [QuotaProvider: TimeInterval] = [:],
+        claudeCodeSnapshot: ClaudeCodeQuotaSnapshot? = nil,
+        claudeCodeEnabled: Bool = false,
+        claudeCodeAvailable: Bool = false
     ) {
         let effectiveProvider = provider.effectiveProvider(
             antigravityEnabled: antigravityEnabled,
-            antigravityAvailable: antigravityAvailable
+            antigravityAvailable: antigravityAvailable,
+            claudeCodeEnabled: claudeCodeEnabled,
+            claudeCodeAvailable: claudeCodeAvailable
         )
         self.provider = effectiveProvider
         self.isStayAwakeActive = isStayAwakeActive
@@ -62,9 +85,26 @@ public struct MenuBarPresentation: Equatable, Sendable {
                       lines.joined(separator: " · ")]
                 .compactMap { $0 }.joined(separator: " · ")
             fetchedAt = antigravitySnapshot?.fetchedAt
+        case .claudeCode:
+            groupID = nil
+            icon = .claudeCode
+            // Claude reports have no official sampling time. Apply their own
+            // per-window display budget even when a caller supplies no clock.
+            let reference = now ?? Date()
+            lines = claudeCodeSnapshot?.menuBarLines(for: mode, now: reference) ?? ["--"]
+            detail = [effectiveProvider.displayName,
+                      L10n.text("claude.report.title", fallback: "Local report"),
+                      lines.joined(separator: " · "),
+                      L10n.text("claude.report.source_unknown", fallback: "Source sampling time not provided")]
+                .joined(separator: " · ")
+            fetchedAt = nil
         }
 
-        if let now, let fetchedAt, let limit = staleAfter[effectiveProvider],
+        if effectiveProvider == .claudeCode, let snapshot = claudeCodeSnapshot {
+            let reference = now ?? Date()
+            isStale = snapshot.lastCallbackAt > reference
+                || snapshot.orderedReports.contains { !($0.isDisplayable(at: reference)) }
+        } else if let now, let fetchedAt, let limit = staleAfter[effectiveProvider],
            lines != ["--"] {
             isStale = now.timeIntervalSince(fetchedAt) > limit
         } else {

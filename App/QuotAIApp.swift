@@ -28,12 +28,14 @@ struct QuotAIApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var store = UsageStore.shared
     @State private var antigravityStore = AntigravityUsageStore.shared
+    @State private var claudeCodeStore = ClaudeCodeUsageStore.shared
 
     var body: some Scene {
         Settings {
             SettingsView(
                 store: store,
-                antigravityStore: antigravityStore
+                antigravityStore: antigravityStore,
+                claudeCodeStore: claudeCodeStore
             )
         }
     }

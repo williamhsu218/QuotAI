@@ -71,7 +71,7 @@ func menuBarNoData(mode: MenuBarQuotaDisplayMode) {
         #expect(!value.detail.contains("%"))
         #expect(value.groupID == nil)
         let expectedIcon: MenuBarPresentation.Icon = switch provider {
-        case .codex, .claude: .codex // Retired Claude preferences resolve to Codex.
+        case .codex, .claude, .claudeCode: .codex // Unenabled / retired Claude falls back.
         case .antigravity: .antigravity
         }
         #expect(value.icon == expectedIcon)

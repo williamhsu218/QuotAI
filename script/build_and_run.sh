@@ -70,6 +70,8 @@ build_preview() {
   local preview_mode="${1:-panel}"
   local settings_tab="${2:-general}"
   local appearance="${3:-system}"
+  local preview_provider="${4:-codex}"
+  local preview_scenario="${5:-recent}"
   local preview_root="$ROOT_DIR/build/DesignPreview"
   local preview_bundle="$preview_root/QuotAIPreview.app"
   local preview_contents="$preview_bundle/Contents"
@@ -153,6 +155,12 @@ PLIST
   pkill -x CodexcatorPreview >/dev/null 2>&1 || true
 
   local preview_arguments=()
+  if [[ "$preview_provider" == "claude" ]]; then
+    preview_arguments+=(--claude "--claude-state=$preview_scenario")
+  elif [[ "$preview_provider" != "codex" ]]; then
+    echo "native preview provider must be codex or claude" >&2
+    exit 2
+  fi
   if [[ "$preview_mode" == "settings" ]]; then
     preview_arguments+=(--settings --settings-tab "$settings_tab")
   fi
@@ -200,14 +208,22 @@ render_preview() {
     antigravity)
       output="$qa_root/implementation-$language-$appearance-antigravity.png"
       ;;
+    claude)
+      output="$qa_root/implementation-$language-$appearance-claude-$scenario.png"
+      ;;
     *)
-      echo "provider must be codex or antigravity" >&2
+      echo "provider must be codex, antigravity or claude" >&2
       exit 2
       ;;
   esac
 
   case "$scenario" in
-    standard) ;;
+    standard|recent|waiting|stale|single|expired)
+      if [[ "$scenario" != "standard" && "$provider" != "claude" ]]; then
+        echo "report scenarios require Claude" >&2
+        exit 2
+      fi
+      ;;
     sparse)
       if [[ "$provider" != "codex" ]]; then
         echo "sparse scenario is only available for Codex" >&2
@@ -216,7 +232,7 @@ render_preview() {
       output="$qa_root/implementation-$language-$appearance-codex-sparse.png"
       ;;
     *)
-      echo "scenario must be standard or sparse" >&2
+      echo "scenario must be standard, sparse, recent, waiting, stale, single or expired" >&2
       exit 2
       ;;
   esac
@@ -266,6 +282,7 @@ PLIST
 
   local renderer_arguments=("$output")
   [[ "$provider" == "antigravity" ]] && renderer_arguments+=(--antigravity)
+  [[ "$provider" == "claude" ]] && renderer_arguments+=(--claude "--claude-state=${scenario/standard/recent}")
   [[ "$appearance" == "dark" ]] && renderer_arguments+=(--dark)
   [[ "$scenario" == "sparse" ]] && renderer_arguments+=(--sparse)
   renderer_arguments+=(-AppleLanguages "($language)")
@@ -284,8 +301,10 @@ render_settings() {
 
   if [[ "$provider" == "antigravity" ]]; then
     output="$qa_root/settings-$language-$appearance-antigravity.png"
+  elif [[ "$provider" == "claude" ]]; then
+    output="$qa_root/settings-$language-$appearance-claude.png"
   elif [[ "$provider" != "codex" ]]; then
-    echo "provider must be codex or antigravity" >&2
+    echo "provider must be codex, antigravity or claude" >&2
     exit 2
   fi
 
@@ -304,6 +323,7 @@ render_settings() {
   render_preview "$language" "$appearance" "$provider" >/dev/null
   [[ "$appearance" == "dark" ]] && settings_arguments+=(--dark)
   [[ "$provider" == "antigravity" ]] && settings_arguments+=(--antigravity)
+  [[ "$provider" == "claude" ]] && settings_arguments+=(--claude)
   "$renderer" "$output" "${settings_arguments[@]}" -AppleLanguages "($language)"
   echo "$output"
 }
@@ -345,7 +365,7 @@ case "$MODE" in
     pgrep -x "$APP_NAME" >/dev/null
     ;;
   --preview|preview)
-    build_preview "${2:-panel}" "${3:-general}" "${4:-system}"
+    build_preview "${2:-panel}" "${3:-general}" "${4:-system}" "${5:-codex}" "${6:-recent}"
     ;;
   --render-preview|render-preview)
     render_preview "${2:-en}" "${3:-light}" "${4:-codex}" "${5:-standard}"
@@ -357,7 +377,7 @@ case "$MODE" in
     package_release
     ;;
   *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--preview [panel|settings] [general|menuBar|providers|about] [system|light|dark]|--render-preview [en|zh-Hans] [light|dark] [codex|antigravity] [standard|sparse]|--render-settings [en|zh-Hans] [light|dark] [codex|antigravity] [general|menuBar|providers|about]|--package-release]" >&2
+    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--preview [panel|settings] [general|menuBar|providers|about] [system|light|dark]|--render-preview [en|zh-Hans] [light|dark] [codex|antigravity|claude] [standard|sparse|recent|waiting|stale|single|expired]|--render-settings [en|zh-Hans] [light|dark] [codex|antigravity|claude] [general|menuBar|providers|about]|--package-release]" >&2
     exit 2
     ;;
 esac

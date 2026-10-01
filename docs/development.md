@@ -78,7 +78,16 @@ build/codex-binary-locator-probe
 ```
 
 Antigravity 仅保留实时额度链路，不再提供本机 Token 扫描、专用 Probe 或 Token 预览模式。
-Claude 仅保留旧状态栏配置的恢复兼容，迁移验证使用隔离配置，不以真实用户配置作为测试样本。
+Claude Code 新接入使用独立的 `Contents/Helpers/quotai-claude-statusline`，随 Xcode 构建和 Universal 包生成。
+配置与报告测试使用隔离目录，不以真实用户配置作为写入测试样本。旧状态栏恢复兼容仍单独保留。
+辅助程序实际子进程验收：
+
+```bash
+swiftc -parse-as-library Core/*.swift Tools/ClaudeStatusLineProbe.swift -o build/claude-statusline-probe
+build/claude-statusline-probe build/DerivedData/Build/Products/Debug/QuotAI.app/Contents/Helpers/quotai-claude-statusline
+./script/build_and_run.sh --render-preview zh-Hans dark claude recent
+./script/build_and_run.sh --preview panel general dark claude recent
+```
 数据与迁移边界见[数据来源与隐私](data-sources.md)。
 
 ## 打包与发布
@@ -96,7 +105,7 @@ Claude 仅保留旧状态栏配置的恢复兼容，迁移验证使用隔离配�
 正式发布前需要审查工作区差异、版本说明和发布动作。
 脚本依赖 `Design/release-notes-<版本>.md`。本地修复、构建或文档整理均不等于发布授权。
 
-当前版本的测试、构建和安装状态以[版本说明](../Design/release-notes-2.0.16.md)为准，
+当前版本的测试、构建和安装状态以[版本说明](../Design/release-notes-2.1.0.md)为准，
 不能沿用旧版本的验收结果。
 
 ad-hoc 签名没有 Apple Developer ID 或公证。可信安装包经浏览器等途径传输后可能带隔离标记。

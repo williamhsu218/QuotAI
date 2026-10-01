@@ -11,15 +11,18 @@ struct MenuBarPanelView: View {
 
     let store: UsageStore
     let antigravityStore: AntigravityUsageStore
+    let claudeCodeStore: ClaudeCodeUsageStore
     let stayAwakeStore: StayAwakeStore
 
     init(
         store: UsageStore,
         antigravityStore: AntigravityUsageStore,
-        stayAwakeStore: StayAwakeStore
+        stayAwakeStore: StayAwakeStore,
+        claudeCodeStore: ClaudeCodeUsageStore? = nil
     ) {
         self.store = store
         self.antigravityStore = antigravityStore
+        self.claudeCodeStore = claudeCodeStore ?? .shared
         self.stayAwakeStore = stayAwakeStore
     }
 
@@ -29,14 +32,21 @@ struct MenuBarPanelView: View {
 
     private var visibleProviders: [QuotaProvider] {
         QuotaProvider.visibleProviders(
-            antigravityVisible: shouldShowAntigravity
+            antigravityVisible: shouldShowAntigravity,
+            claudeCodeVisible: shouldShowClaudeCode
         )
+    }
+
+    private var shouldShowClaudeCode: Bool {
+        claudeCodeStore.isEnabled && claudeCodeStore.isInstalled
     }
 
     private var effectiveQuotaProvider: QuotaProvider {
         quotaProvider.effectiveProvider(
             antigravityEnabled: antigravityIntegrationEnabled,
-            antigravityAvailable: shouldShowAntigravity
+            antigravityAvailable: shouldShowAntigravity,
+            claudeCodeEnabled: claudeCodeStore.isEnabled,
+            claudeCodeAvailable: claudeCodeStore.isInstalled
         )
     }
 
@@ -44,6 +54,7 @@ struct MenuBarPanelView: View {
         switch provider {
         case .codex, .claude: store
         case .antigravity: antigravityStore
+        case .claudeCode: claudeCodeStore
         }
     }
 
@@ -83,6 +94,9 @@ struct MenuBarPanelView: View {
             store.start()
             if shouldShowAntigravity {
                 antigravityStore.start()
+            }
+            if shouldShowClaudeCode {
+                claudeCodeStore.start()
             }
         }
     }
@@ -164,6 +178,8 @@ struct MenuBarPanelView: View {
                 codexQuotaContent
             case .antigravity:
                 AntigravityQuotaView(store: antigravityStore)
+            case .claudeCode:
+                ClaudeCodeQuotaView(store: claudeCodeStore)
             }
         }
         .frame(maxWidth: .infinity, alignment: .top)
@@ -274,7 +290,9 @@ struct MenuBarPanelView: View {
                 .frame(width: 28, height: 22)
             }
             .disabled(isSelectedProviderLoading)
-            .help(L10n.text("action.refresh", fallback: "Refresh"))
+            .help(effectiveQuotaProvider == .claudeCode
+                ? L10n.text("claude.report.reread_help", fallback: "Load local report JSON; does not query limits")
+                : L10n.text("action.refresh", fallback: "Refresh"))
 
             Button {
                 openSettings()
@@ -337,15 +355,25 @@ struct MenuBarPanelView: View {
     }
 
     private var statusIcon: String {
-        selectedStore.phase.statusSymbolName
+        if effectiveQuotaProvider == .claudeCode, !hasDisplayableClaudeReport {
+            return "clock"
+        }
+        return selectedStore.phase.statusSymbolName
     }
 
     private var statusColor: Color {
-        switch selectedStore.phase {
+        if effectiveQuotaProvider == .claudeCode, !hasDisplayableClaudeReport {
+            return AppTheme.secondaryText
+        }
+        return switch selectedStore.phase {
         case .ready: AppTheme.quotaHealthy.accent
         case .failed: AppTheme.quotaCritical.accent
         case .idle, .loading: AppTheme.secondaryText
         }
+    }
+
+    private var hasDisplayableClaudeReport: Bool {
+        claudeCodeStore.snapshot?.displayableQuotas(at: Date()).isEmpty == false
     }
 
     private var isSelectedProviderLoading: Bool {

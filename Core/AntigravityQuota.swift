@@ -5,9 +5,11 @@ public enum QuotaProvider: String, Codable, CaseIterable, Sendable {
     public static let panelDefaultsKey = "quotaPanelProvider"
     public static let antigravityIntegrationDefaultsKey = "antigravityIntegrationEnabled"
     public static let claudeIntegrationDefaultsKey = "claudeIntegrationEnabled"
+    public static let claudeCodeIntegrationDefaultsKey = "claudeCodeRateLimitBridgeEnabled"
 
     case codex
     case antigravity
+    case claudeCode
     /// Kept for decoding saved preferences from versions that offered Claude
     /// snapshots. It is never presented as an available quota source.
     case claude
@@ -18,17 +20,19 @@ public enum QuotaProvider: String, Codable, CaseIterable, Sendable {
             L10n.text("provider.codex", fallback: "Codex")
         case .antigravity:
             L10n.text("provider.antigravity", fallback: "Antigravity")
-        case .claude:
+        case .claude, .claudeCode:
             L10n.text("provider.claude", fallback: "Claude Code")
         }
     }
 
     /// Resolve saved selections without rewriting the user's preferences.
-    /// Codex is always available, Antigravity requires an enabled installation,
-    /// and the retired Claude snapshot selection always falls back to Codex.
+    /// Codex is always available. Other sources require enabled installations;
+    /// the retired Claude snapshot selection always falls back to Codex.
     public func effectiveProvider(
         antigravityEnabled: Bool,
-        antigravityAvailable: Bool
+        antigravityAvailable: Bool,
+        claudeCodeEnabled: Bool = false,
+        claudeCodeAvailable: Bool = false
     ) -> QuotaProvider {
         switch self {
         case .codex:
@@ -37,14 +41,18 @@ public enum QuotaProvider: String, Codable, CaseIterable, Sendable {
             return antigravityEnabled && antigravityAvailable ? .antigravity : .codex
         case .claude:
             return .codex
+        case .claudeCode:
+            return claudeCodeEnabled && claudeCodeAvailable ? .claudeCode : .codex
         }
     }
 
     /// Providers that should be offered in pickers, in display order.
     public static func visibleProviders(
-        antigravityVisible: Bool
+        antigravityVisible: Bool,
+        claudeCodeVisible: Bool = false
     ) -> [QuotaProvider] {
-        antigravityVisible ? [.codex, .antigravity] : [.codex]
+        [.codex] + (antigravityVisible ? [.antigravity] : [])
+            + (claudeCodeVisible ? [.claudeCode] : [])
     }
 }
 
