@@ -35,28 +35,56 @@ public struct ClaudeCodeQuotaReport: Codable, Equatable, Sendable, Identifiable 
     }
 }
 
+public enum ClaudeCodeQuotaSource: String, Codable, Sendable {
+    case statusLine, usageQuery
+}
+
 public struct ClaudeCodeQuotaSnapshot: Codable, Equatable, Sendable {
     public let fiveHour: ClaudeCodeQuotaReport?
     public let sevenDay: ClaudeCodeQuotaReport?
     public let sessionFingerprint: String
     public let lastCallbackAt: Date
+    public let source: ClaudeCodeQuotaSource
 
-    public init(fiveHour: ClaudeCodeQuotaReport?, sevenDay: ClaudeCodeQuotaReport?, sessionFingerprint: String, lastCallbackAt: Date) {
+    public init(fiveHour: ClaudeCodeQuotaReport?, sevenDay: ClaudeCodeQuotaReport?, sessionFingerprint: String, lastCallbackAt: Date, source: ClaudeCodeQuotaSource = .statusLine) {
         self.fiveHour = fiveHour
         self.sevenDay = sevenDay
         self.sessionFingerprint = sessionFingerprint
         self.lastCallbackAt = lastCallbackAt
+        self.source = source
+    }
+
+    private enum CodingKeys: String, CodingKey { case fiveHour, sevenDay, sessionFingerprint, lastCallbackAt, source }
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        fiveHour = try values.decodeIfPresent(ClaudeCodeQuotaReport.self, forKey: .fiveHour)
+        sevenDay = try values.decodeIfPresent(ClaudeCodeQuotaReport.self, forKey: .sevenDay)
+        sessionFingerprint = try values.decode(String.self, forKey: .sessionFingerprint)
+        lastCallbackAt = try values.decode(Date.self, forKey: .lastCallbackAt)
+        source = try values.decodeIfPresent(ClaudeCodeQuotaSource.self, forKey: .source) ?? .statusLine
+    }
+
+    public func isHistorical(at now: Date) -> Bool {
+        now < lastCallbackAt || now.timeIntervalSince(lastCallbackAt) >= ClaudeCodeQuotaReport.displayLifetime
     }
 
     public var orderedReports: [ClaudeCodeQuotaReport] { [fiveHour, sevenDay].compactMap { $0 } }
 
     public func displayableQuotas(at now: Date) -> [QuotaWindow] {
         guard lastCallbackAt <= now else { return [] }
-        return orderedReports.filter { $0.isDisplayable(at: now) }.map(\.quota)
+        return orderedReports.filter {
+            source == .usageQuery
+                ? $0.usedPercentage.isFinite && (0...100).contains($0.usedPercentage) && $0.resetsAt > now
+                : $0.isDisplayable(at: now)
+        }.map(\.quota)
     }
 
     public func nextDisplayDeadline(after now: Date) -> Date? {
         guard lastCallbackAt <= now else { return nil }
+        if source == .usageQuery {
+            return ([lastCallbackAt.addingTimeInterval(ClaudeCodeQuotaReport.displayLifetime)]
+                + orderedReports.map(\.resetsAt)).filter { $0 > now }.min()
+        }
         return orderedReports.filter { $0.isDisplayable(at: now) }.map {
             min($0.resetsAt, $0.firstObservedAt.addingTimeInterval(ClaudeCodeQuotaReport.displayLifetime))
         }.min()

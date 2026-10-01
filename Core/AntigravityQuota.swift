@@ -5,7 +5,7 @@ public enum QuotaProvider: String, Codable, CaseIterable, Sendable {
     public static let panelDefaultsKey = "quotaPanelProvider"
     public static let antigravityIntegrationDefaultsKey = "antigravityIntegrationEnabled"
     public static let claudeIntegrationDefaultsKey = "claudeIntegrationEnabled"
-    public static let claudeCodeIntegrationDefaultsKey = "claudeCodeRateLimitBridgeEnabled"
+    public static let claudeCodeIntegrationDefaultsKey = "claudeCodeUsageQueryEnabled"
 
     case codex
     case antigravity

@@ -81,7 +81,6 @@ struct SettingsView: View {
     private var antigravityIntegrationEnabled = true
 
     @State private var launchAtLogin = false
-    @State private var showsClaudeCodeConnectionConfirmation = false
     @State private var claudeCodeActionError: String?
 
     private var isAntigravitySupported: Bool {
@@ -153,22 +152,6 @@ struct SettingsView: View {
         }
         .onChange(of: antigravityGroupIDs) {
             normalizeAntigravityGroupSelection()
-        }
-        .alert(
-            L10n.text("claude.settings.connect_title", fallback: "Connect Claude Code reports?"),
-            isPresented: $showsClaudeCodeConnectionConfirmation
-        ) {
-            Button(L10n.text("claude.settings.connect", fallback: "Connect")) {
-                performClaudeCodeAction { try claudeCodeStore.enable() }
-            }
-            Button(L10n.text("action.cancel", fallback: "Cancel"), role: .cancel) { }
-        } message: {
-            Text(L10n.format(
-                "claude.settings.connect_confirmation_format",
-                fallback: "QuotAI will back up and modify %@ to run %@. Existing status-line output is preserved. Disable & Restore restores the original configuration when it still matches QuotAI's changes.",
-                claudeCodeStore.configurationPath,
-                claudeCodeStore.helperCommand
-            ))
         }
     }
 
@@ -550,7 +533,7 @@ struct SettingsView: View {
     // MARK: - Helpers
 
     private var claudeCodeProviderSection: some View {
-        SettingsSection(title: L10n.text("claude.settings.section", fallback: "Claude Code Reports")) {
+        SettingsSection(title: L10n.text("claude.query.title", fallback: "Claude usage")) {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.small) {
                 Text(claudeCodeStore.isInstalled
                     ? L10n.text("claude.settings.cli_available", fallback: "Claude CLI available")
@@ -572,30 +555,43 @@ struct SettingsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Text(L10n.text("claude.settings.report_scope", fallback: "Local reports from one CLI session; not live account usage. Refresh loads local JSON without querying limits. Auto selects the latest loaded report. Each window's numbers are hidden when its value and reset time both stay unchanged for 30 minutes, or at reset time."))
+                Text(L10n.text("claude.query.settings_detail", fallback: "Refresh runs the local Claude /usage command once, without generating a model response. Startup only loads the last query. Old results are gray; a window's numbers disappear at reset. CLI handles its own login; QuotAI does not read credentials or conversations."))
                     .font(.system(size: AppTheme.TypeSize.small))
                     .foregroundStyle(AppTheme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
 
                 HStack(spacing: AppTheme.Spacing.small) {
                     if claudeCodeStore.isEnabled {
-                        Button(L10n.text("claude.settings.disable", fallback: "Disable & Restore")) {
+                        Button(claudeCodeStore.isLoading
+                            ? L10n.text("action.cancel", fallback: "Cancel")
+                            : L10n.text("action.refresh", fallback: "Refresh")) {
+                            if claudeCodeStore.isLoading { claudeCodeStore.cancelRefresh() }
+                            else { Task { await claudeCodeStore.userRefresh() } }
+                        }
+                        .disabled(!claudeCodeStore.isInstalled && !claudeCodeStore.isLoading)
+
+                        Button(L10n.text("claude.query.disable", fallback: "Disable")) {
                             performClaudeCodeAction { try claudeCodeStore.disable() }
                         }
                     } else {
-                        Button(L10n.text("claude.settings.connect", fallback: "Connect")) {
-                            claudeCodeActionError = nil
-                            showsClaudeCodeConnectionConfirmation = true
+                        Button(L10n.text("claude.query.enable", fallback: "Enable")) {
+                            performClaudeCodeAction { try claudeCodeStore.enable() }
                         }
                         .disabled(!claudeCodeStore.isInstalled)
                     }
 
-                    Button(L10n.text("claude.settings.clear", fallback: "Clear Reports")) {
+                    Button(L10n.text("claude.query.clear", fallback: "Clear Query Cache")) {
                         performClaudeCodeAction { try claudeCodeStore.clearReports() }
                     }
-                    .disabled(claudeCodeStore.sessions.isEmpty)
+                    .disabled(!claudeCodeStore.hasQueryCache)
                 }
                 .controlSize(.small)
+
+                if !claudeCodeStore.migrationWarning.isEmpty {
+                    Text(claudeCodeStore.migrationWarning)
+                        .font(.system(size: AppTheme.TypeSize.small)).foregroundStyle(AppTheme.quotaCritical.accent)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
                 if let claudeCodeActionError {
                     Text(claudeCodeActionError)
@@ -651,7 +647,8 @@ struct SettingsView: View {
             now: effectiveMenuBarProvider == .claudeCode ? Date() : store.expiryReferenceDate,
             claudeCodeSnapshot: claudeCodeStore.snapshot,
             claudeCodeEnabled: claudeCodeStore.isEnabled,
-            claudeCodeAvailable: claudeCodeStore.isInstalled
+            claudeCodeAvailable: claudeCodeStore.isInstalled,
+            claudeCodeHistorical: claudeCodeStore.isHistorical(at: Date())
         )
     }
 

@@ -6,6 +6,10 @@ public enum ClaudeCodeReportDisplayTimeline {
     public static func entries(for snapshot: ClaudeCodeQuotaSnapshot?, from start: Date) -> [Date] {
         guard let snapshot, !snapshot.orderedReports.isEmpty else { return [start] }
         let epsilon: TimeInterval = 0.01
+        if snapshot.source == .usageQuery {
+            return ([start] + ([snapshot.lastCallbackAt.addingTimeInterval(ClaudeCodeQuotaReport.displayLifetime)]
+                + snapshot.orderedReports.map(\.resetsAt)).map { $0.addingTimeInterval(epsilon) }.filter { $0 > start }).sorted()
+        }
         let horizon = start.addingTimeInterval(ClaudeCodeQuotaReport.displayLifetime + epsilon)
         var dates = (0...60).map { start.addingTimeInterval(Double($0) * 30) }
         for report in snapshot.orderedReports {
@@ -53,7 +57,8 @@ public struct MenuBarPresentation: Equatable, Sendable {
         staleAfter: [QuotaProvider: TimeInterval] = [:],
         claudeCodeSnapshot: ClaudeCodeQuotaSnapshot? = nil,
         claudeCodeEnabled: Bool = false,
-        claudeCodeAvailable: Bool = false
+        claudeCodeAvailable: Bool = false,
+        claudeCodeHistorical: Bool = false
     ) {
         let effectiveProvider = provider.effectiveProvider(
             antigravityEnabled: antigravityEnabled,
@@ -88,12 +93,14 @@ public struct MenuBarPresentation: Equatable, Sendable {
         case .claudeCode:
             groupID = nil
             icon = .claudeCode
-            // Claude reports have no official sampling time. Apply their own
-            // per-window display budget even when a caller supplies no clock.
+            // Claude results have no official sampling time. Hide each window
+            // at reset and identify historical queries separately below.
             let reference = now ?? Date()
             lines = claudeCodeSnapshot?.menuBarLines(for: mode, now: reference) ?? ["--"]
             detail = [effectiveProvider.displayName,
-                      L10n.text("claude.report.title", fallback: "Local report"),
+                      claudeCodeSnapshot?.source == .usageQuery
+                        ? L10n.text("claude.query.title", fallback: "Claude usage")
+                        : L10n.text("claude.report.title", fallback: "Local report"),
                       lines.joined(separator: " · "),
                       L10n.text("claude.report.source_unknown", fallback: "Source sampling time not provided")]
                 .joined(separator: " · ")
@@ -102,8 +109,9 @@ public struct MenuBarPresentation: Equatable, Sendable {
 
         if effectiveProvider == .claudeCode, let snapshot = claudeCodeSnapshot {
             let reference = now ?? Date()
-            isStale = snapshot.lastCallbackAt > reference
-                || snapshot.orderedReports.contains { !($0.isDisplayable(at: reference)) }
+            isStale = snapshot.source == .usageQuery
+                ? claudeCodeHistorical || snapshot.isHistorical(at: reference) || snapshot.orderedReports.contains { $0.isExpired(at: reference) }
+                : snapshot.lastCallbackAt > reference || snapshot.orderedReports.contains { !($0.isDisplayable(at: reference)) }
         } else if let now, let fetchedAt, let limit = staleAfter[effectiveProvider],
            lines != ["--"] {
             isStale = now.timeIntervalSince(fetchedAt) > limit

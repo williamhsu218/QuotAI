@@ -284,14 +284,16 @@ struct MenuBarPanelView: View {
                 refreshSelectedProvider()
             } label: {
                 Label(
-                    L10n.text("action.refresh", fallback: "Refresh"),
-                    systemImage: "arrow.clockwise"
+                    effectiveQuotaProvider == .claudeCode && claudeCodeStore.isLoading
+                        ? L10n.text("action.cancel", fallback: "Cancel") : L10n.text("action.refresh", fallback: "Refresh"),
+                    systemImage: effectiveQuotaProvider == .claudeCode && claudeCodeStore.isLoading ? "xmark" : "arrow.clockwise"
                 )
                 .frame(width: 28, height: 22)
             }
-            .disabled(isSelectedProviderLoading)
+            .disabled(isSelectedProviderLoading && effectiveQuotaProvider != .claudeCode)
             .help(effectiveQuotaProvider == .claudeCode
-                ? L10n.text("claude.report.reread_help", fallback: "Load local report JSON; does not query limits")
+                ? claudeCodeStore.isLoading ? L10n.text("action.cancel", fallback: "Cancel")
+                    : L10n.text("claude.query.refresh_help", fallback: "Query Claude usage once; no model response")
                 : L10n.text("action.refresh", fallback: "Refresh"))
 
             Button {
@@ -355,14 +357,14 @@ struct MenuBarPanelView: View {
     }
 
     private var statusIcon: String {
-        if effectiveQuotaProvider == .claudeCode, !hasDisplayableClaudeReport {
+        if effectiveQuotaProvider == .claudeCode, selectedStore.phase == .ready, (!hasDisplayableClaudeReport || claudeCodeStore.isHistorical(at: Date())) {
             return "clock"
         }
         return selectedStore.phase.statusSymbolName
     }
 
     private var statusColor: Color {
-        if effectiveQuotaProvider == .claudeCode, !hasDisplayableClaudeReport {
+        if effectiveQuotaProvider == .claudeCode, selectedStore.phase == .ready, (!hasDisplayableClaudeReport || claudeCodeStore.isHistorical(at: Date())) {
             return AppTheme.secondaryText
         }
         return switch selectedStore.phase {
@@ -385,6 +387,7 @@ struct MenuBarPanelView: View {
     }
 
     private func refreshSelectedProvider() {
+        if effectiveQuotaProvider == .claudeCode, claudeCodeStore.isLoading { claudeCodeStore.cancelRefresh(); return }
         let target = selectedStore
         Task { await target.userRefresh() }
     }

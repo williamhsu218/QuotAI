@@ -60,7 +60,8 @@ struct DesignPreviewView: View {
             isStayAwakeActive: stayAwakeStore.isActive,
             claudeCodeSnapshot: claudeCodeStore.snapshot,
             claudeCodeEnabled: claudeCodeStore.isEnabled,
-            claudeCodeAvailable: claudeCodeStore.isInstalled
+            claudeCodeAvailable: claudeCodeStore.isInstalled,
+            claudeCodeHistorical: claudeCodeStore.isHistorical(at: Date())
         )
     }
 

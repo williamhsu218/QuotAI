@@ -497,7 +497,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
             staleAfter: menuBarStaleAfter,
             claudeCodeSnapshot: claudeCodeStore.snapshot,
             claudeCodeEnabled: claudeCodeStore.isEnabled,
-            claudeCodeAvailable: claudeCodeStore.isInstalled
+            claudeCodeAvailable: claudeCodeStore.isInstalled,
+            claudeCodeHistorical: claudeCodeStore.isHistorical(at: Date())
         )
     }
 }
