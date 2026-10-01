@@ -96,6 +96,9 @@ build/claude-usage-query-probe --live
 
 ## 打包与发布
 
+应用图标母版为 `Design/AppIcon-master.png`，界面标识沿用同一图形。
+修改母版后运行 `./script/generate_app_icons.sh`，将母版及生成的全部 asset 资源一同提交，再打包。
+
 ```bash
 ./script/build_and_run.sh --package-release
 ```
@@ -109,7 +112,7 @@ build/claude-usage-query-probe --live
 正式发布前需要审查工作区差异、版本说明和发布动作。
 脚本依赖 `Design/release-notes-<版本>.md`。本地修复、构建或文档整理均不等于发布授权。
 
-当前版本的测试、构建和安装状态以[版本说明](../Design/release-notes-2.1.1.md)为准，
+当前版本的测试、构建和安装状态以[版本说明](../Design/release-notes-2.1.2.md)为准，
 不能沿用旧版本的验收结果。
 
 ad-hoc 签名没有 Apple Developer ID 或公证。可信安装包经浏览器等途径传输后可能带隔离标记。

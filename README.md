@@ -54,7 +54,7 @@ QuotAI 不读取 Antigravity 本机会话 Token。
 | [开发与验证](docs/development.md) | 源码结构、构建、测试、预览、打包及本地文件保留规则 |
 | [数据来源与隐私](docs/data-sources.md) | 三个来源的读取链路、统计口径、缓存与数据缺失处理 |
 | [界面设计规范](docs/design.md) | 材质、控件、颜色、图标和界面验收边界 |
-| [2.1.1 版本说明](Design/release-notes-2.1.1.md) | 当前版本变更与验收状态 |
+| [2.1.2 版本说明](Design/release-notes-2.1.2.md) | 当前版本变更与验收状态 |
 
 `Design/` 保留有效图标主稿和当前版本说明；旧设计过程、旧 QA 及旧版本说明由 Git 历史保存。
 生成的构建、截图和本机验收证据位于被 Git 忽略的 `build/`，不作为项目使用文档。
