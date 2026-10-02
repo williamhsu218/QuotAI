@@ -64,6 +64,7 @@ final class ClaudeCodeUsageStore: QuotaProviderStore {
         case .idle, .ready: break
         }
         guard let snapshot else { return L10n.text("claude.query.waiting", fallback: "Click Refresh to query Claude usage") }
+        if snapshot.orderedReports.isEmpty { return L10n.text("claude.query.no_active_quota", fallback: "Claude returned no active quota with a reset time") }
         if snapshot.displayableQuotas(at: now).isEmpty { return L10n.text("claude.query.reset_passed", fallback: "Reset time passed · refresh usage") }
         return isHistorical(at: now)
             ? L10n.text("claude.query.historical", fallback: "Previous query · refresh to update")
@@ -155,9 +156,13 @@ final class ClaudeCodeUsageStore: QuotaProviderStore {
         isInstalled = true; isEnabled = true; phase = .ready
         guard scenario != "waiting" else { phase = .idle; return }
         let now = Date(), received = scenario == "stale" ? Date().addingTimeInterval(-1_801) : Date().addingTimeInterval(-60)
+        if scenario == "inactive" {
+            snapshot = ClaudeCodeQuotaSnapshot(fiveHour: nil, sevenDay: nil, sessionFingerprint: "usage-query", lastCallbackAt: received, source: .usageQuery)
+            return
+        }
         let five = ClaudeCodeQuotaReport(kind: .fiveHour, usedPercentage: 15, resetsAt: scenario == "expired" ? now.addingTimeInterval(-60) : now.addingTimeInterval(3_600), firstObservedAt: received)
         let seven = ClaudeCodeQuotaReport(kind: .sevenDay, usedPercentage: 9, resetsAt: scenario == "expired" ? now.addingTimeInterval(-60) : now.addingTimeInterval(3 * 86_400), firstObservedAt: received)
-        snapshot = ClaudeCodeQuotaSnapshot(fiveHour: five, sevenDay: scenario == "single" ? nil : seven, sessionFingerprint: "usage-query", lastCallbackAt: received, source: .usageQuery)
+        snapshot = ClaudeCodeQuotaSnapshot(fiveHour: scenario == "weekly" ? nil : five, sevenDay: scenario == "single" ? nil : seven, sessionFingerprint: "usage-query", lastCallbackAt: received, source: .usageQuery)
         if scenario == "conflict" { phase = .failed(ClaudeUsageQueryError.timeout.localizedDescription) }
     }
 }

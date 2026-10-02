@@ -36,6 +36,12 @@ actor QueryCounter {
         let valid = try fixture("valid", body: "assert sys.argv[1:3] == ['-p', '/usage']\nassert '--no-session-persistence' in sys.argv and '--strict-mcp-config' in sys.argv\nsys.stdout.buffer.write(base64.b64decode('\(data.base64EncodedString())'))\n")
         let actual = try await ClaudeUsageQueryClient.fetch(executable: valid)
         precondition(actual.fiveHour?.quota.remainingPercent == 85 && actual.sevenDay?.quota.remainingPercent == 91)
+        var inactiveEnvelope = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        inactiveEnvelope["result"] = "Current session: 0% used\nCurrent week (all models): 0% used"
+        let inactiveData = try JSONSerialization.data(withJSONObject: inactiveEnvelope)
+        let inactiveCLI = try fixture("inactive", body: "sys.stdout.buffer.write(base64.b64decode('\(inactiveData.base64EncodedString())'))\n")
+        let inactive = try await ClaudeUsageQueryClient.fetch(executable: inactiveCLI)
+        precondition(inactive.orderedReports.isEmpty && inactive.menuBarLines(for: .both) == ["--"])
         let pidFile = directory.appendingPathComponent("child-pid")
         let slow = try fixture("slow", body: "import os\nopen('\(pidFile.path)', 'w').write(str(os.getpid()))\ntime.sleep(10)\n")
         do { _ = try await ClaudeUsageQueryClient.fetch(executable: slow, timeout: 0.5); fatalError("Expected timeout") }
@@ -57,6 +63,19 @@ actor QueryCounter {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         defaults.set(true, forKey: ClaudeCodeUsageStore.enabledDefaultsKey)
+        let inactiveCache = directory.appendingPathComponent("inactive-cache.json")
+        try ClaudeUsageQueryCache.write(snapshot, to: inactiveCache)
+        let inactiveStore = ClaudeCodeUsageStore(defaults: defaults, cacheURL: inactiveCache, migrateBridge: false,
+            query: { try await ClaudeUsageQueryClient.fetch(executable: inactiveCLI) })
+        inactiveStore.start()
+        precondition(inactiveStore.snapshot?.fiveHour != nil && inactiveStore.isCached)
+        await inactiveStore.userRefresh()
+        precondition(inactiveStore.phase == .ready && inactiveStore.snapshot?.orderedReports.isEmpty == true && !inactiveStore.isCached)
+        let persistedInactive = try ClaudeUsageQueryCache.read(from: inactiveCache)
+        precondition(persistedInactive?.orderedReports.isEmpty == true)
+        inactiveStore.stop(); inactiveStore.start()
+        precondition(inactiveStore.snapshot?.orderedReports.isEmpty == true && inactiveStore.isCached)
+        inactiveStore.stop()
         let counter = QueryCounter(), cache = directory.appendingPathComponent("cache.json")
         let store = ClaudeCodeUsageStore(defaults: defaults, cacheURL: cache, migrateBridge: false, query: { await counter.fetch(snapshot) })
         store.start()
@@ -80,6 +99,6 @@ actor QueryCounter {
         precondition(store.hasQueryCache)
         try store.clearReports()
         precondition(!store.hasQueryCache)
-        print("PASS: actual child stdout, timeout, size limit, synchronous child cancellation, startup without query, coalesced refresh, late-result rejection after clear/disable, clear while disabled")
+        print("PASS: actual child stdout, inactive windows clear old values and persist across restart, timeout, size limit, synchronous child cancellation, startup without query, coalesced refresh, late-result rejection after clear/disable, clear while disabled")
     }
 }

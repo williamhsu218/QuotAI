@@ -79,7 +79,7 @@ build/codex-binary-locator-probe
 
 Antigravity 仅保留实时额度链路，不再提供本机 Token 扫描、专用 Probe 或 Token 预览模式。
 Claude Code 当前使用官方 CLI `/usage` 查询；保留旧状态栏辅助程序用于安全退役和配置恢复。
-查询探针用隔离子进程覆盖超时、取消、输出上限和迟到结果；不会修改真实用户配置。
+查询探针用隔离子进程覆盖空窗口清除旧缓存、重启读回、超时、取消、输出上限和迟到结果；不会修改真实用户配置。
 `--live` 则明确执行一次真实 `/usage`，只输出解析后的额度，不保存原始结果。
 
 ```bash
@@ -91,6 +91,8 @@ build/claude-usage-query-probe
 build/claude-usage-query-probe --live
 ./script/build_and_run.sh --render-preview zh-Hans dark claude recent
 ./script/build_and_run.sh --preview panel general dark claude recent
+./script/build_and_run.sh --render-preview en light claude weekly
+./script/build_and_run.sh --render-preview zh-Hans dark claude inactive
 ```
 数据与迁移边界见[数据来源与隐私](data-sources.md)。
 

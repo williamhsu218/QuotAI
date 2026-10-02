@@ -2,13 +2,15 @@ import Foundation
 import CoreFoundation
 
 public enum ClaudeUsageQueryError: Error, LocalizedError, Equatable {
-    case cliMissing, launchFailed, timeout, oversizedOutput, invalidOutput, modelResponse, loginRequired, noQuota, commandFailed
+    case cliMissing, launchFailed, timeout, oversizedOutput, invalidOutput, invalidResetTime, modelResponse, loginRequired, noQuota, commandFailed
     public var errorDescription: String? {
         switch self {
         case .cliMissing: L10n.text("claude.query.error.cli_missing", fallback: "Claude CLI not found. Install Claude Code, then refresh.")
         case .launchFailed: L10n.text("claude.query.error.launch", fallback: "Claude CLI could not start.")
         case .timeout: L10n.text("claude.query.error.timeout", fallback: "Claude usage query timed out after 20 seconds. Try again.")
-        case .oversizedOutput, .invalidOutput: L10n.text("claude.query.error.output", fallback: "Claude /usage output was not recognized. Update Claude CLI and try again.")
+        case .oversizedOutput: L10n.text("claude.query.error.output_limit", fallback: "Claude /usage output exceeded the size limit.")
+        case .invalidOutput: L10n.text("claude.query.error.output", fallback: "Claude /usage returned an unsupported format. Try refreshing again.")
+        case .invalidResetTime: L10n.text("claude.query.error.reset_time", fallback: "Claude /usage returned a reset time that could not be verified. Try refreshing again.")
         case .modelResponse: L10n.text("claude.query.error.model", fallback: "Claude did not return a local /usage result. This response was discarded.")
         case .loginRequired: L10n.text("claude.query.error.login", fallback: "Sign in to Claude CLI with your subscription, then refresh.")
         case .noQuota: L10n.text("claude.query.error.no_quota", fallback: "Claude /usage returned no subscription limits. Check your CLI login and plan.")
@@ -43,19 +45,26 @@ public enum ClaudeUsageQueryParser {
         }
         guard now.timeIntervalSince1970.isFinite else { throw ClaudeUsageQueryError.invalidOutput }
         var windows: [QuotaKind: ClaudeCodeQuotaReport] = [:]
+        var seenKinds: Set<QuotaKind> = []
         for line in text.components(separatedBy: .newlines) {
             let kind: QuotaKind
             let prefix: String
             if line.hasPrefix("Current session:") { kind = .fiveHour; prefix = "Current session:" }
             else if line.hasPrefix("Current week (all models):") { kind = .sevenDay; prefix = "Current week (all models):" }
             else { continue }
-            guard windows[kind] == nil,
-                  let parts = match(#"^\s*(\d+(?:\.\d+)?)% used · resets (.+)$"#, String(line.dropFirst(prefix.count))),
+            guard seenKinds.insert(kind).inserted,
+                  let parts = match(#"^\s*(\d+(?:\.\d+)?)% used(?: · resets (.+))?$"#, String(line.dropFirst(prefix.count))),
                   let used = Double(parts[0]), used.isFinite, (0...100).contains(used) else { throw ClaudeUsageQueryError.invalidOutput }
+            // A window without a reset time cannot be shown safely. It must
+            // not prevent an independent, valid window from being returned.
+            guard !parts[1].isEmpty else { continue }
             let reset = try resetDate(parts[1], kind: kind, at: now)
+            guard reset > now else { continue }
             windows[kind] = ClaudeCodeQuotaReport(kind: kind, usedPercentage: used, resetsAt: reset, firstObservedAt: now)
         }
-        guard !windows.isEmpty else { throw ClaudeUsageQueryError.noQuota }
+        // A recognized built-in result may have no active windows. Returning
+        // that state clears previous numbers rather than retaining a false error.
+        guard !seenKinds.isEmpty else { throw ClaudeUsageQueryError.noQuota }
         return ClaudeCodeQuotaSnapshot(fiveHour: windows[.fiveHour], sevenDay: windows[.sevenDay],
             sessionFingerprint: "usage-query", lastCallbackAt: now, source: .usageQuery)
     }
@@ -78,7 +87,7 @@ public enum ClaudeUsageQueryParser {
         guard let parts = match(#"^(.+) at (\d{1,2})(?::(\d{2}))?\s*(am|pm) \(([^()]+)\)$"#, text),
               let hour12 = Int(parts[1]), (1...12).contains(hour12),
               let minute = Int(parts[2].isEmpty ? "0" : parts[2]), (0...59).contains(minute),
-              let zone = TimeZone(identifier: parts[4]) else { throw ClaudeUsageQueryError.invalidOutput }
+              let zone = TimeZone(identifier: parts[4]) else { throw ClaudeUsageQueryError.invalidResetTime }
         var calendar = Calendar(identifier: .gregorian); calendar.timeZone = zone
         let hour = hour12 % 12 + (parts[3] == "pm" ? 12 : 0)
         let maximum = kind == .fiveHour ? 5 * 3_600.0 + 600 : 7 * 86_400.0 + 3_600
@@ -86,15 +95,15 @@ public enum ClaudeUsageQueryParser {
         var candidates: [Date] = []
         if parts[0] == "Today" || parts[0] == "Tomorrow" {
             guard let day = calendar.date(byAdding: .day, value: parts[0] == "Tomorrow" ? 1 : 0, to: now),
-                  let date = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) else { throw ClaudeUsageQueryError.invalidOutput }
+                  let date = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) else { throw ClaudeUsageQueryError.invalidResetTime }
             candidates = [date]
             let actual = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
             let expected = calendar.dateComponents([.year, .month, .day], from: day)
-            guard actual.year == expected.year && actual.month == expected.month && actual.day == expected.day && actual.hour == hour && actual.minute == minute else { throw ClaudeUsageQueryError.invalidOutput }
+            guard actual.year == expected.year && actual.month == expected.month && actual.day == expected.day && actual.hour == hour && actual.minute == minute else { throw ClaudeUsageQueryError.invalidResetTime }
         } else {
             guard let dateParts = match(#"^([A-Za-z]+) (\d{1,2})(?:, (\d{4}))?$"#, parts[0]),
                   let monthIndex = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].firstIndex(of: dateParts[0]),
-                  let day = Int(dateParts[1]), (1...31).contains(day), let currentYear = reference.year else { throw ClaudeUsageQueryError.invalidOutput }
+                  let day = Int(dateParts[1]), (1...31).contains(day), let currentYear = reference.year else { throw ClaudeUsageQueryError.invalidResetTime }
             let years = dateParts[2].isEmpty ? [currentYear - 1, currentYear, currentYear + 1] : [Int(dateParts[2]) ?? 0]
             for year in years {
                 let components = DateComponents(year: year, month: monthIndex + 1, day: day, hour: hour, minute: minute, second: 0)
@@ -104,15 +113,17 @@ public enum ClaudeUsageQueryParser {
                 }
             }
         }
-        // Printed reset times have minute precision. A just-passed reset stays
-        // expired; never infer a replenished percentage or a new window.
-        guard let date = candidates.filter({ (-60...maximum).contains($0.timeIntervalSince(now)) }).min() else { throw ClaudeUsageQueryError.invalidOutput }
+        // Resolve an omitted year to the closest calendar date. A passed reset
+        // is omitted above, even after a long idle period. Never roll it to a
+        // future day or accept a future reset outside this window's horizon.
+        guard let date = candidates.min(by: { abs($0.timeIntervalSince(now)) < abs($1.timeIntervalSince(now)) }),
+              date.timeIntervalSince(now) <= maximum else { throw ClaudeUsageQueryError.invalidResetTime }
         let offsetChange = zone.secondsFromGMT(for: date.addingTimeInterval(86_400)) - zone.secondsFromGMT(for: date.addingTimeInterval(-86_400))
         if offsetChange < 0 {
             let fields: Set<Calendar.Component> = [.year, .month, .day, .hour, .minute]
             let components = calendar.dateComponents(fields, from: date)
             for delta in [Double(offsetChange), -Double(offsetChange)] {
-                if calendar.dateComponents(fields, from: date.addingTimeInterval(delta)) == components { throw ClaudeUsageQueryError.invalidOutput }
+                if calendar.dateComponents(fields, from: date.addingTimeInterval(delta)) == components { throw ClaudeUsageQueryError.invalidResetTime }
             }
         }
         return date
@@ -135,7 +146,7 @@ public enum ClaudeUsageQueryCache {
     }
     private static func validate(_ snapshot: ClaudeCodeQuotaSnapshot) throws {
         guard snapshot.source == .usageQuery, snapshot.sessionFingerprint == "usage-query",
-              snapshot.lastCallbackAt.timeIntervalSince1970.isFinite, !snapshot.orderedReports.isEmpty,
+              snapshot.lastCallbackAt.timeIntervalSince1970.isFinite,
               snapshot.fiveHour == nil || snapshot.fiveHour?.kind == .fiveHour,
               snapshot.sevenDay == nil || snapshot.sevenDay?.kind == .sevenDay,
               snapshot.orderedReports.allSatisfy({

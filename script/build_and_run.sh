@@ -218,7 +218,7 @@ render_preview() {
   esac
 
   case "$scenario" in
-    standard|recent|waiting|stale|single|expired)
+    standard|recent|waiting|stale|single|weekly|inactive|expired)
       if [[ "$scenario" != "standard" && "$provider" != "claude" ]]; then
         echo "report scenarios require Claude" >&2
         exit 2
@@ -232,7 +232,7 @@ render_preview() {
       output="$qa_root/implementation-$language-$appearance-codex-sparse.png"
       ;;
     *)
-      echo "scenario must be standard, sparse, recent, waiting, stale, single or expired" >&2
+      echo "scenario must be standard, sparse, recent, waiting, stale, single, weekly, inactive or expired" >&2
       exit 2
       ;;
   esac
@@ -377,7 +377,7 @@ case "$MODE" in
     package_release
     ;;
   *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--preview [panel|settings] [general|menuBar|providers|about] [system|light|dark]|--render-preview [en|zh-Hans] [light|dark] [codex|antigravity|claude] [standard|sparse|recent|waiting|stale|single|expired]|--render-settings [en|zh-Hans] [light|dark] [codex|antigravity|claude] [general|menuBar|providers|about]|--package-release]" >&2
+    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--preview [panel|settings] [general|menuBar|providers|about] [system|light|dark]|--render-preview [en|zh-Hans] [light|dark] [codex|antigravity|claude] [standard|sparse|recent|waiting|stale|single|weekly|inactive|expired]|--render-settings [en|zh-Hans] [light|dark] [codex|antigravity|claude] [general|menuBar|providers|about]|--package-release]" >&2
     exit 2
     ;;
 esac

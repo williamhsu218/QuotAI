@@ -242,7 +242,11 @@
 "claude.query.error.cli_missing" = "Claude CLI not found. Install Claude Code, then refresh.";
 "claude.query.error.launch" = "Claude CLI could not start.";
 "claude.query.error.timeout" = "Claude usage query timed out after 20 seconds. Try again.";
-"claude.query.error.output" = "Claude /usage output was not recognized. Update Claude CLI and try again.";
+"claude.query.error.output" = "Claude /usage returned an unsupported format. Try refreshing again.";
+"claude.query.error.output_limit" = "Claude /usage output exceeded the size limit.";
+"claude.query.error.reset_time" = "Claude /usage returned a reset time that could not be verified. Try refreshing again.";
+"claude.query.no_active_quota" = "Claude returned no active quota with a reset time";
+"claude.query.window_unavailable_format" = "%@ · no active reset time returned";
 "claude.query.error.model" = "Claude did not return a local /usage result. This response was discarded.";
 "claude.query.error.login" = "Sign in to Claude CLI with your subscription, then refresh.";
 "claude.query.error.no_quota" = "Claude /usage returned no subscription limits. Check your CLI login and plan.";

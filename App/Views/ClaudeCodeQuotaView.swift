@@ -13,16 +13,22 @@ struct ClaudeCodeQuotaView: View {
                     Text(L10n.text("claude.report.beijing", fallback: "Beijing time"))
                         .font(.system(size: AppTheme.TypeSize.small)).foregroundStyle(AppTheme.secondaryText)
                 }
-                if let snapshot = store.snapshot, !snapshot.orderedReports.isEmpty {
+                if let snapshot = store.snapshot {
                     let historical = store.isHistorical(at: Date())
-                    ForEach(snapshot.orderedReports) { report in
-                        if snapshot.displayableQuotas(at: Date()).contains(where: { $0.kind == report.kind }) {
-                            QuotaRowView(quota: report.quota, compact: true)
-                                .saturation(historical ? 0 : 1).opacity(historical ? 0.65 : 1)
+                    ForEach([QuotaKind.fiveHour, .sevenDay], id: \.self) { kind in
+                        if let report = snapshot.orderedReports.first(where: { $0.kind == kind }) {
+                            if snapshot.displayableQuotas(at: Date()).contains(where: { $0.kind == report.kind }) {
+                                QuotaRowView(quota: report.quota, compact: true)
+                                    .saturation(historical ? 0 : 1).opacity(historical ? 0.65 : 1)
+                            } else {
+                                Text(Date() < snapshot.lastCallbackAt
+                                    ? L10n.text("claude.query.clock_changed", fallback: "System time changed; refresh usage")
+                                    : L10n.format("claude.query.window_reset_format", fallback: "%@ · reset time passed, refresh usage", report.kind.displayName))
+                                    .font(.system(size: AppTheme.TypeSize.small)).foregroundStyle(AppTheme.secondaryText)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         } else {
-                            Text(Date() < snapshot.lastCallbackAt
-                                ? L10n.text("claude.query.clock_changed", fallback: "System time changed; refresh usage")
-                                : L10n.format("claude.query.window_reset_format", fallback: "%@ · reset time passed, refresh usage", report.kind.displayName))
+                            Text(L10n.format("claude.query.window_unavailable_format", fallback: "%@ · no active reset time returned", kind.displayName))
                                 .font(.system(size: AppTheme.TypeSize.small)).foregroundStyle(AppTheme.secondaryText)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
