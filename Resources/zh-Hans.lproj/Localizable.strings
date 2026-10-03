@@ -251,3 +251,5 @@
 "claude.query.error.login" = "请使用订阅账号登录 Claude CLI 后刷新。";
 "claude.query.error.no_quota" = "Claude /usage 未返回订阅额度，请检查 CLI 登录与套餐。";
 "claude.query.error.failed" = "Claude /usage 查询失败，请检查 CLI 登录与网络后重试。";
+"claude.subscription.cached" = "已缓存的 Claude 套餐 · 刷新以更新";
+"claude.subscription.reported" = "Claude CLI 报告的订阅套餐";

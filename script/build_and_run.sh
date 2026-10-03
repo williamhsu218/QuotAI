@@ -109,6 +109,7 @@ build_preview() {
   cp -R "$ROOT_DIR/Resources/zh-Hans.lproj" "$preview_resources/"
   cp "$ROOT_DIR/Design/AppMark-master.png" "$preview_resources/"
   cp "$ROOT_DIR/Design/CodexMark-master.png" "$preview_resources/"
+  cp "$ROOT_DIR/Design/ClaudeMark-master.png" "$preview_resources/"
 
   xcrun swiftc \
     -parse-as-library \
@@ -243,6 +244,7 @@ render_preview() {
   cp -R "$ROOT_DIR/Resources/zh-Hans.lproj" "$renderer_resources/"
   cp "$ROOT_DIR/Design/AppMark-master.png" "$renderer_resources/"
   cp "$ROOT_DIR/Design/CodexMark-master.png" "$renderer_resources/"
+  cp "$ROOT_DIR/Design/ClaudeMark-master.png" "$renderer_resources/"
   xcrun swiftc \
     -parse-as-library \
     -target arm64-apple-macosx14.0 \

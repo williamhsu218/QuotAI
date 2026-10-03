@@ -251,3 +251,5 @@
 "claude.query.error.login" = "Sign in to Claude CLI with your subscription, then refresh.";
 "claude.query.error.no_quota" = "Claude /usage returned no subscription limits. Check your CLI login and plan.";
 "claude.query.error.failed" = "Claude /usage failed. Check your CLI login and network, then refresh.";
+"claude.subscription.cached" = "Cached Claude subscription · refresh to update";
+"claude.subscription.reported" = "Subscription reported by Claude CLI";

@@ -9,12 +9,7 @@ enum MenuBarProviderIcon {
         switch icon {
         case .codex: return openAISpiralImage(size: size)
         case .gemini: return geminiSymbolImage(size: size)
-        case .thirdParty: return claudeSymbolImage(size: size)
-        case .claudeCode:
-            let image = NSImage(systemSymbolName: "c.circle",
-                                accessibilityDescription: "Claude Code recent report") ?? NSImage()
-            image.isTemplate = true
-            return image
+        case .thirdParty, .claudeCode: return claudeSymbolImage(size: size)
         case .antigravity:
             let image = NSImage(systemSymbolName: "circle.dashed",
                                 accessibilityDescription: "Antigravity") ?? NSImage()
@@ -63,24 +58,19 @@ enum MenuBarProviderIcon {
     }
 
     static func claudeSymbolImage(size: CGFloat = 13) -> NSImage {
-        let image = NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
-            let cx = rect.midX
-            let cy = rect.midY
-            let r: CGFloat = 5.2
-            let w: CGFloat = 1.35
-            NSColor.black.setStroke()
-            for i in 0..<4 {
-                let angle = CGFloat(i) * (CGFloat.pi / 4.0)
-                let p = NSBezierPath()
-                p.move(to: NSPoint(x: cx - cos(angle)*r, y: cy - sin(angle)*r))
-                p.line(to: NSPoint(x: cx + cos(angle)*r, y: cy + sin(angle)*r))
-                p.lineWidth = w
-                p.lineCapStyle = .round
-                p.stroke()
-            }
-            return true
+        // Classic Claude Spark from Anthropic's official press kit. The asset
+        // catalog preserves the vector; previews use the matching PNG master.
+        let image: NSImage
+        if let asset = NSImage(named: "ClaudeMark") {
+            image = asset
+        } else if let url = Bundle.main.url(forResource: "ClaudeMark-master", withExtension: "png"),
+                  let master = NSImage(contentsOf: url) {
+            image = master
+        } else {
+            return NSImage()
         }
         image.isTemplate = true
+        image.accessibilityDescription = "Claude"
         return image
     }
 }

@@ -17,20 +17,29 @@ final class ClaudeCodeUsageStore: QuotaProviderStore {
     private(set) var executable: URL?
     private(set) var migrationWarning = ""
     private(set) var isCached = false
+    private(set) var subscriptionPlan: ClaudeCodeSubscriptionPlan?
+    private(set) var isSubscriptionCached = false
     @ObservationIgnored private let previewMode: Bool
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let cacheURL: URL
+    @ObservationIgnored private let subscriptionCacheURL: URL
     @ObservationIgnored private let query: @Sendable () async throws -> ClaudeCodeQuotaSnapshot
+    @ObservationIgnored private let subscriptionQuery: @Sendable () async throws -> ClaudeCodeSubscriptionPlan?
     @ObservationIgnored private var didStart = false
     @ObservationIgnored private var queryTask: Task<ClaudeCodeQuotaSnapshot, Error>?
     @ObservationIgnored private var requestID = UUID()
     @ObservationIgnored private var displayDeadlineTask: Task<Void, Never>?
+    @ObservationIgnored private var subscriptionTask: Task<ClaudeCodeSubscriptionPlan?, Error>?
+    @ObservationIgnored private var subscriptionRequestID = UUID()
 
     init(previewMode: Bool = false, previewScenario: String? = nil, defaults: UserDefaults = .standard,
          cacheURL: URL = ClaudeUsageQueryCache.url, migrateBridge: Bool = true,
+         subscriptionCacheURL: URL = ClaudeCodeSubscriptionCache.url,
+         subscriptionQuery: @escaping @Sendable () async throws -> ClaudeCodeSubscriptionPlan? = { try await ClaudeUsageQueryClient.fetchSubscription() },
          query: @escaping @Sendable () async throws -> ClaudeCodeQuotaSnapshot = { try await ClaudeUsageQueryClient.fetch() }) {
         self.previewMode = previewMode
         self.defaults = defaults; self.cacheURL = cacheURL; self.query = query
+        self.subscriptionCacheURL = subscriptionCacheURL; self.subscriptionQuery = subscriptionQuery
         if previewMode { configurePreview(previewScenario ?? "recent"); return }
         if defaults.object(forKey: Self.enabledDefaultsKey) == nil {
             defaults.set(defaults.bool(forKey: ClaudeCodeStatusLineConfiguration.enabledDefaultsKey), forKey: Self.enabledDefaultsKey)
@@ -47,7 +56,15 @@ final class ClaudeCodeUsageStore: QuotaProviderStore {
 
     var isConnected: Bool { isEnabled && isInstalled }
     var isLoading: Bool { phase == .loading }
-    var hasQueryCache: Bool { previewMode ? snapshot != nil : FileManager.default.fileExists(atPath: cacheURL.path) }
+    var hasQueryCache: Bool {
+        previewMode ? snapshot != nil : FileManager.default.fileExists(atPath: cacheURL.path)
+            || FileManager.default.fileExists(atPath: subscriptionCacheURL.path)
+    }
+    var subscriptionStatusMessage: String {
+        isSubscriptionCached
+            ? L10n.text("claude.subscription.cached", fallback: "Cached Claude subscription · refresh to update")
+            : L10n.text("claude.subscription.reported", fallback: "Subscription reported by Claude CLI")
+    }
     var expiryReferenceDate: Date? { Date() }
     var configurationStatusMessage: String {
         if !isInstalled { return ClaudeUsageQueryError.cliMissing.localizedDescription }
@@ -83,6 +100,11 @@ final class ClaudeCodeUsageStore: QuotaProviderStore {
         reloadInstallation()
         do { snapshot = try ClaudeUsageQueryCache.read(from: cacheURL); isCached = snapshot != nil; phase = snapshot == nil ? .idle : .ready }
         catch { phase = .failed(L10n.text("claude.query.cache_unreadable", fallback: "Local query cache could not be read. Refresh to query again.")) }
+        if isEnabled {
+            subscriptionPlan = try? ClaudeCodeSubscriptionCache.read(from: subscriptionCacheURL)
+            isSubscriptionCached = subscriptionPlan != nil
+            scheduleSubscriptionRefresh()
+        }
         scheduleDisplayDeadline(); notify()
     }
     func stop() {
@@ -90,6 +112,7 @@ final class ClaudeCodeUsageStore: QuotaProviderStore {
         didStart = false
         displayDeadlineTask?.cancel(); displayDeadlineTask = nil
         snapshot = nil; phase = .idle; isCached = false
+        subscriptionPlan = nil; isSubscriptionCached = false
         notify()
     }
     func userRefresh() async {
@@ -100,7 +123,11 @@ final class ClaudeCodeUsageStore: QuotaProviderStore {
         guard executable != nil else { phase = .failed(ClaudeUsageQueryError.cliMissing.localizedDescription); notify(); return }
         let id = UUID(); requestID = id
         phase = .loading; notify()
-        let task = Task { try await query() }
+        let task = Task {
+            await refreshSubscription()
+            try Task.checkCancellation()
+            return try await query()
+        }
         queryTask = task
         do {
             let result = try await task.value
@@ -118,6 +145,7 @@ final class ClaudeCodeUsageStore: QuotaProviderStore {
         scheduleDisplayDeadline(); notify()
     }
     func cancelRefresh() {
+        cancelSubscriptionRefresh()
         guard queryTask != nil else { return }
         requestID = UUID(); queryTask?.cancel(); queryTask = nil
         phase = snapshot == nil ? .idle : .ready
@@ -126,7 +154,8 @@ final class ClaudeCodeUsageStore: QuotaProviderStore {
     func enable() throws {
         guard !previewMode else { return }
         defaults.set(true, forKey: Self.enabledDefaultsKey)
-        reloadInstallation(); start()
+        reloadInstallation()
+        if didStart { scheduleSubscriptionRefresh() } else { start() }
     }
     func disable() throws {
         guard !previewMode else { return }
@@ -137,8 +166,46 @@ final class ClaudeCodeUsageStore: QuotaProviderStore {
         guard !previewMode else { return }
         cancelRefresh()
         try ClaudeUsageQueryCache.clear(at: cacheURL)
+        try ClaudeCodeSubscriptionCache.clear(at: subscriptionCacheURL)
         snapshot = nil; isCached = false; phase = .idle
+        subscriptionPlan = nil; isSubscriptionCached = false
         scheduleDisplayDeadline(); notify()
+    }
+    private func scheduleSubscriptionRefresh() {
+        let generation = subscriptionRequestID
+        Task { [weak self] in
+            guard let self, self.subscriptionRequestID == generation else { return }
+            await self.refreshSubscription()
+        }
+    }
+    private func refreshSubscription() async {
+        guard isConnected else { return }
+        let id: UUID
+        let task: Task<ClaudeCodeSubscriptionPlan?, Error>
+        if let existing = subscriptionTask {
+            id = subscriptionRequestID; task = existing
+        } else {
+            id = UUID(); subscriptionRequestID = id
+            task = Task { try await subscriptionQuery() }
+            subscriptionTask = task
+        }
+        do {
+            let plan = try await task.value
+            guard subscriptionRequestID == id, isConnected else { return }
+            subscriptionPlan = plan; isSubscriptionCached = false
+            // A missing, unknown or non-subscription login replaces the old
+            // plan. Auth-command failures retain the explicitly cached name.
+            try? ClaudeCodeSubscriptionCache.write(plan, to: subscriptionCacheURL)
+        } catch {
+            guard subscriptionRequestID == id, isConnected else { return }
+            isSubscriptionCached = subscriptionPlan != nil
+        }
+        guard subscriptionRequestID == id else { return }
+        subscriptionTask = nil; subscriptionRequestID = UUID(); notify()
+    }
+    private func cancelSubscriptionRefresh() {
+        subscriptionRequestID = UUID()
+        subscriptionTask?.cancel(); subscriptionTask = nil
     }
     private func scheduleDisplayDeadline() {
         displayDeadlineTask?.cancel(); displayDeadlineTask = nil
@@ -154,6 +221,7 @@ final class ClaudeCodeUsageStore: QuotaProviderStore {
     private func notify() { NotificationCenter.default.post(name: .claudeCodeUsageSnapshotDidChange, object: self) }
     private func configurePreview(_ scenario: String) {
         isInstalled = true; isEnabled = true; phase = .ready
+        subscriptionPlan = .pro
         guard scenario != "waiting" else { phase = .idle; return }
         let now = Date(), received = scenario == "stale" ? Date().addingTimeInterval(-1_801) : Date().addingTimeInterval(-60)
         if scenario == "inactive" {

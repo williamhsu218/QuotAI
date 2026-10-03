@@ -117,9 +117,13 @@ struct MenuBarPanelView: View {
             Spacer(minLength: AppTheme.Spacing.small)
 
             if effectiveQuotaProvider == .codex, let plan = store.snapshot?.subscriptionPlan {
-                SubscriptionPlanBadge(plan: plan)
+                SubscriptionPlanBadge(displayName: plan.displayName)
             } else if effectiveQuotaProvider == .antigravity, let plan = antigravityStore.snapshot?.subscriptionPlan {
-                SubscriptionPlanBadge(plan: plan)
+                SubscriptionPlanBadge(displayName: plan.displayName)
+            } else if effectiveQuotaProvider == .claudeCode, claudeCodeStore.isConnected,
+                      let plan = claudeCodeStore.subscriptionPlan {
+                SubscriptionPlanBadge(displayName: plan.displayName)
+                    .help(claudeCodeStore.subscriptionStatusMessage)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -451,10 +455,10 @@ struct QuotaEmptyState: View {
 }
 
 private struct SubscriptionPlanBadge: View {
-    let plan: SubscriptionPlan
+    let displayName: String
 
     var body: some View {
-        Text(plan.displayName)
+        Text(displayName)
             .font(.system(size: AppTheme.TypeSize.small, weight: .semibold, design: .rounded))
             .foregroundStyle(AppTheme.planBadgeText)
             .lineLimit(1)
@@ -470,7 +474,7 @@ private struct SubscriptionPlanBadge: View {
                 L10n.format(
                     "subscription.plan_accessibility_format",
                     fallback: "%@ plan",
-                    plan.displayName
+                    displayName
                 )
             )
     }

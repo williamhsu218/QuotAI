@@ -228,8 +228,8 @@ func readsPlanFromAccountFallback() throws {
 
 @Test("Normalizes known plan variants and hides unknown plan values")
 func formatsSubscriptionPlans() {
-    #expect(SubscriptionPlan(identifier: "pro")?.displayName == "Pro20x")
-    #expect(SubscriptionPlan(identifier: "prolite")?.displayName == "Pro 5x")
+    #expect(SubscriptionPlan(identifier: "pro")?.displayName == "Pro 200")
+    #expect(SubscriptionPlan(identifier: "prolite")?.displayName == "Pro 100")
     #expect(SubscriptionPlan(identifier: "self_serve_business_usage_based")?.displayName == "Business")
     #expect(SubscriptionPlan(identifier: "enterprise_cbp_usage_based")?.displayName == "Enterprise")
     #expect(SubscriptionPlan(identifier: "unknown") == nil)

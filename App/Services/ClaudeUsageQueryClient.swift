@@ -39,15 +39,36 @@ private final class ClaudeUsageProcessControl: @unchecked Sendable {
 
 enum ClaudeUsageQueryClient {
     static func fetch(executable: URL? = nil, timeout: TimeInterval = 20) async throws -> ClaudeCodeQuotaSnapshot {
+        let data = try await execute(executable: executable, timeout: timeout,
+            arguments: ["-p", "/usage", "--output-format", "json", "--no-session-persistence", "--setting-sources", "",
+                "--settings", "{\"disableAllHooks\":true,\"promptSuggestionEnabled\":false}",
+                "--strict-mcp-config", "--mcp-config", "{\"mcpServers\":{}}", "--tools", ""],
+            outputLimit: ClaudeUsageQueryParser.outputLimit)
+        return try ClaudeUsageQueryParser.parse(data, at: Date())
+    }
+
+    static func fetchSubscription(executable: URL? = nil, timeout: TimeInterval = 5) async throws -> ClaudeCodeSubscriptionPlan? {
+        let data = try await execute(executable: executable, timeout: timeout,
+            arguments: ["auth", "status", "--json"], outputLimit: ClaudeCodeSubscriptionParser.outputLimit,
+            acceptedExitCodes: [0, 1]) // auth status exits 1 when logged out.
+        return try ClaudeCodeSubscriptionParser.parse(data)
+    }
+
+    private static func execute(executable: URL?, timeout: TimeInterval, arguments: [String],
+                                outputLimit: Int, acceptedExitCodes: [Int32] = [0]) async throws -> Data {
         let control = ClaudeUsageProcessControl()
-        let worker = Task.detached(priority: .utility) { try run(executable: executable, timeout: timeout, control: control) }
+        let worker = Task.detached(priority: .utility) {
+            try run(executable: executable, timeout: timeout, arguments: arguments,
+                    outputLimit: outputLimit, acceptedExitCodes: acceptedExitCodes, control: control)
+        }
         return try await withTaskCancellationHandler(operation: { try await worker.value }, onCancel: {
             worker.cancel()
             control.cancel()
         })
     }
 
-    private static func run(executable: URL?, timeout: TimeInterval, control: ClaudeUsageProcessControl) throws -> ClaudeCodeQuotaSnapshot {
+    private static func run(executable: URL?, timeout: TimeInterval, arguments: [String],
+                            outputLimit: Int, acceptedExitCodes: [Int32], control: ClaudeUsageProcessControl) throws -> Data {
         guard let executable = executable ?? ClaudeUsageBinaryLocator.locate() else { throw ClaudeUsageQueryError.cliMissing }
         try Task.checkCancellation()
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("quotai-usage-" + UUID().uuidString, isDirectory: true)
@@ -56,9 +77,7 @@ enum ClaudeUsageQueryClient {
         let process = Process(), output = Pipe()
         process.executableURL = executable
         process.currentDirectoryURL = directory
-        process.arguments = ["-p", "/usage", "--output-format", "json", "--no-session-persistence", "--setting-sources", "",
-            "--settings", "{\"disableAllHooks\":true,\"promptSuggestionEnabled\":false}",
-            "--strict-mcp-config", "--mcp-config", "{\"mcpServers\":{}}", "--tools", ""]
+        process.arguments = arguments
         process.standardInput = FileHandle.nullDevice
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
@@ -89,7 +108,7 @@ enum ClaudeUsageQueryClient {
                 if count == 0 { eof = true }
                 else {
                     data.append(contentsOf: bytes.prefix(count))
-                    guard data.count <= ClaudeUsageQueryParser.outputLimit else { throw ClaudeUsageQueryError.oversizedOutput }
+                    guard data.count <= outputLimit else { throw ClaudeUsageQueryError.oversizedOutput }
                 }
             }
         }
@@ -99,7 +118,7 @@ enum ClaudeUsageQueryClient {
             usleep(10_000)
         }
         try Task.checkCancellation()
-        guard process.terminationStatus == 0 else { throw ClaudeUsageQueryError.commandFailed }
-        return try ClaudeUsageQueryParser.parse(data, at: Date())
+        guard acceptedExitCodes.contains(process.terminationStatus) else { throw ClaudeUsageQueryError.commandFailed }
+        return data
     }
 }
