@@ -7,12 +7,14 @@ private final class NativeSettingsPreviewWindow {
 
     private var window: NSWindow?
 
-    func show(tab: SettingsTab, claudeScenario: String = "recent") {
+    func show(tab: SettingsTab, claudeScenario: String = "recent", antigravityScenario: String = "available") {
         guard window == nil else { return }
 
         let content = SettingsView(
             store: UsageStore(previewMode: true),
-            antigravityStore: AntigravityUsageStore(previewMode: true),
+            antigravityStore: AntigravityUsageStore(previewMode: true,
+                previewSnapshot: AntigravityQuotaFixtures.snapshot(antigravityScenario),
+                previewFailure: AntigravityQuotaFixtures.failure(antigravityScenario)),
             stayAwakeStore: StayAwakeStore(previewMode: true),
             initialTab: tab,
             claudeCodeStore: ClaudeCodeUsageStore(previewMode: true, previewScenario: claudeScenario)
@@ -57,6 +59,19 @@ struct DesignPreviewApp: App {
 
     init() {
         let arguments = CommandLine.arguments
+        let agScenario = arguments.first { $0.hasPrefix("--ag-state=") }
+            .map { String($0.dropFirst("--ag-state=".count)) } ?? "available"
+        if arguments.contains("--antigravity") {
+            for key in [QuotaProvider.panelDefaultsKey, QuotaProvider.menuBarDefaultsKey] {
+                UserDefaults.standard.set(QuotaProvider.antigravity.rawValue, forKey: key)
+            }
+            for key in [AntigravityQuotaGroup.panelGroupDefaultsKey, AntigravityQuotaGroup.menuBarGroupDefaultsKey] {
+                UserDefaults.standard.set("3p", forKey: key)
+            }
+        }
+        _antigravityStore = State(initialValue: AntigravityUsageStore(previewMode: true,
+            previewSnapshot: AntigravityQuotaFixtures.snapshot(agScenario),
+            previewFailure: AntigravityQuotaFixtures.failure(agScenario)))
         let claudeScenario = arguments.first { $0.hasPrefix("--claude-state=") }
             .map { String($0.dropFirst("--claude-state=".count)) } ?? "recent"
         _claudeCodeStore = State(initialValue: ClaudeCodeUsageStore(
@@ -90,7 +105,8 @@ struct DesignPreviewApp: App {
             }
             NSApplication.shared.activate(ignoringOtherApps: true)
             if shouldRenderSettings {
-                NativeSettingsPreviewWindow.shared.show(tab: tab, claudeScenario: claudeScenario)
+                NativeSettingsPreviewWindow.shared.show(tab: tab, claudeScenario: claudeScenario,
+                                                       antigravityScenario: agScenario)
             }
         }
     }

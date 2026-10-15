@@ -8,7 +8,8 @@ PREV_LEGACY_APP_NAME="CodexIndicator"
 SCHEME_NAME="QuotAI"
 BUNDLE_ID="com.willhsu.QuotAI"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DERIVED_DATA="$ROOT_DIR/build/DerivedData"
+BUILD_ROOT="${QUOTAI_BUILD_ROOT:-$ROOT_DIR/build}"
+DERIVED_DATA="$BUILD_ROOT/DerivedData"
 APP_BUNDLE="$DERIVED_DATA/Build/Products/Debug/$APP_NAME.app"
 APP_BINARY="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
@@ -24,8 +25,8 @@ build_app() {
 }
 
 package_release() {
-  local distribution_root="$ROOT_DIR/build/Distribution"
-  local release_derived_data="$ROOT_DIR/build/ReleaseDerivedData"
+  local distribution_root="$BUILD_ROOT/Distribution"
+  local release_derived_data="$BUILD_ROOT/ReleaseDerivedData"
   local built_app="$release_derived_data/Build/Products/Release/$APP_NAME.app"
 
   rm -rf "$release_derived_data"
@@ -72,7 +73,7 @@ build_preview() {
   local appearance="${3:-system}"
   local preview_provider="${4:-codex}"
   local preview_scenario="${5:-recent}"
-  local preview_root="$ROOT_DIR/build/DesignPreview"
+  local preview_root="$BUILD_ROOT/DesignPreview"
   local preview_bundle="$preview_root/QuotAIPreview.app"
   local preview_contents="$preview_bundle/Contents"
   local preview_macos="$preview_contents/MacOS"
@@ -121,6 +122,7 @@ build_preview() {
     "$ROOT_DIR"/App/Support/*.swift \
     "$ROOT_DIR"/App/Views/*.swift \
     "$ROOT_DIR"/Preview/*.swift \
+    "$ROOT_DIR"/Tools/AntigravityQuotaFixtures.swift \
     -framework SwiftUI \
     -framework AppKit
 
@@ -158,8 +160,10 @@ PLIST
   local preview_arguments=()
   if [[ "$preview_provider" == "claude" ]]; then
     preview_arguments+=(--claude "--claude-state=$preview_scenario")
+  elif [[ "$preview_provider" == "antigravity" ]]; then
+    preview_arguments+=(--antigravity "--ag-state=$preview_scenario")
   elif [[ "$preview_provider" != "codex" ]]; then
-    echo "native preview provider must be codex or claude" >&2
+    echo "native preview provider must be codex, antigravity or claude" >&2
     exit 2
   fi
   if [[ "$preview_mode" == "settings" ]]; then
@@ -175,7 +179,7 @@ PLIST
 }
 
 render_preview() {
-  local qa_root="$ROOT_DIR/build/qa"
+  local qa_root="$BUILD_ROOT/qa"
   local language="${1:-en}"
   local appearance="${2:-light}"
   local provider="${3:-codex}"
@@ -255,6 +259,7 @@ render_preview() {
     "$ROOT_DIR"/App/Support/*.swift \
     "$ROOT_DIR"/App/Views/*.swift \
     "$ROOT_DIR"/Tools/RenderDesignPreview.swift \
+    "$ROOT_DIR"/Tools/AntigravityQuotaFixtures.swift \
     -framework SwiftUI \
     -framework AppKit
 
@@ -283,7 +288,7 @@ render_preview() {
 PLIST
 
   local renderer_arguments=("$output")
-  [[ "$provider" == "antigravity" ]] && renderer_arguments+=(--antigravity)
+  [[ "$provider" == "antigravity" ]] && renderer_arguments+=(--antigravity "--ag-state=${scenario/standard/available}")
   [[ "$provider" == "claude" ]] && renderer_arguments+=(--claude "--claude-state=${scenario/standard/recent}")
   [[ "$appearance" == "dark" ]] && renderer_arguments+=(--dark)
   [[ "$scenario" == "sparse" ]] && renderer_arguments+=(--sparse)
@@ -297,7 +302,7 @@ render_settings() {
   local appearance="${2:-light}"
   local provider="${3:-codex}"
   local settings_tab="${4:-general}"
-  local qa_root="$ROOT_DIR/build/qa"
+  local qa_root="$BUILD_ROOT/qa"
   local renderer="$qa_root/RenderDesignPreview.app/Contents/MacOS/RenderDesignPreview"
   local output="$qa_root/settings-$language-$appearance.png"
 

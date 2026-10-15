@@ -169,6 +169,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         logger.info("Installed AppKit status item")
     }
 
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        // Reopening a running menu-bar app should reveal its existing panel.
+        // This does not run during login startup and never toggles an open panel closed.
+        if !popover.isShown {
+            togglePopover()
+        }
+        return true
+    }
+
     private func configurePopover() {
         let hostingController = NSHostingController(
             rootView: MenuBarPanelView(

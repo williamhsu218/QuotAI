@@ -26,7 +26,8 @@ final class AntigravityUsageStore: QuotaProviderStore {
     private(set) var isEnabled = false
     private(set) var isInstalled: Bool
 
-    @ObservationIgnored private let client = AntigravityQuotaClient()
+    @ObservationIgnored private let fetchSnapshot: @Sendable () async throws -> AntigravityQuotaSnapshot
+    @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private var refreshLoop: Task<Void, Never>?
     @ObservationIgnored private var generation: UInt64 = 0
     @ObservationIgnored private let previewMode: Bool
@@ -38,14 +39,23 @@ final class AntigravityUsageStore: QuotaProviderStore {
 
     init(
         previewMode: Bool = false,
+        previewSnapshot: AntigravityQuotaSnapshot? = nil,
+        previewFailure: String? = nil,
+        defaults: UserDefaults = .standard,
+        fetchSnapshot: @escaping @Sendable () async throws -> AntigravityQuotaSnapshot = {
+            try await AntigravityQuotaClient().fetch()
+        },
         installationDetector: @escaping @Sendable () -> Bool = { ProviderInstallationDetector.antigravity() }
     ) {
         self.previewMode = previewMode
+        self.defaults = defaults
+        self.fetchSnapshot = fetchSnapshot
         self.detectInstallation = installationDetector
         self.isInstalled = previewMode || installationDetector()
         if previewMode {
-            snapshot = .preview
-            phase = .ready
+            snapshot = previewFailure == nil ? previewSnapshot ?? .preview : nil
+            phase = previewFailure.map(Phase.failed) ?? .ready
+            snapshot?.reconcileUnavailableSelections(in: defaults)
             isEnabled = true
         }
     }
@@ -78,6 +88,7 @@ final class AntigravityUsageStore: QuotaProviderStore {
 
     func statusMessage(at now: Date) -> String {
         if previewMode {
+            if case let .failed(message) = phase { return message }
             return L10n.text("date.updated_just_now", fallback: "Updated just now")
         }
         switch phase {
@@ -104,7 +115,7 @@ final class AntigravityUsageStore: QuotaProviderStore {
             guard let self else { return }
             await refresh()
             while !Task.isCancelled {
-                let configured = UserDefaults.standard.double(forKey: "refreshIntervalSeconds")
+                let configured = defaults.double(forKey: "refreshIntervalSeconds")
                 let interval = configured > 0 ? configured : 300
                 try? await Task.sleep(for: .seconds(interval))
                 guard !Task.isCancelled else { return }
@@ -139,10 +150,11 @@ final class AntigravityUsageStore: QuotaProviderStore {
         phase = .loading
         let expectedGeneration = generation
         do {
-            let refreshedSnapshot = try await client.fetch()
+            let refreshedSnapshot = try await fetchSnapshot()
             reloadInstallation()
             guard isEnabled, isInstalled, generation == expectedGeneration else { return }
             snapshot = refreshedSnapshot
+            refreshedSnapshot.reconcileUnavailableSelections(in: defaults)
             phase = .ready
             NotificationCenter.default.post(
                 name: .antigravityUsageSnapshotDidChange,

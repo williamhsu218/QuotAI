@@ -77,7 +77,22 @@ swiftc -parse-as-library Core/*.swift App/Services/CodexBinaryLocator.swift \
 build/codex-binary-locator-probe
 ```
 
-Antigravity 仅保留实时额度链路，不再提供本机 Token 扫描、专用 Probe 或 Token 预览模式。
+Antigravity 仅保留实时额度与账号模型权限链路，不再扫描本机 Token。
+权限回归探针使用隔离偏好和注入响应，覆盖失败清除、权限未知、无权限回退、额度耗尽、恢复和迟到结果：
+
+```bash
+xcrun swiftc -swift-version 6 -strict-concurrency=complete -parse-as-library Core/*.swift \
+  App/Stores/QuotaProviderStore.swift App/Stores/AntigravityUsageStore.swift \
+  App/Services/AntigravityQuotaClient.swift App/Support/DateFormatting.swift \
+  Tools/AntigravityQuotaFixtures.swift Tools/AntigravityQuotaProbe.swift -o /tmp/quotai-antigravity-probe
+/tmp/quotai-antigravity-probe
+```
+
+加 `--live` 只读实际账号额度与权限分类，不输出认证或模型配置原文。
+原生预览支持 `antigravity` 来源及 `available`、`denied`、`exhausted`、`unknown`、`missing`、`failed` 场景，
+例如 `QUOTAI_BUILD_ROOT=/tmp/quotai-qa ./script/build_and_run.sh --preview panel general dark antigravity denied`。
+`QUOTAI_BUILD_ROOT` 可将构建、预览和打包产物放在项目外；未设置时保持原有 `build/` 路径。
+
 Claude Code 当前使用官方 CLI `/usage` 查询；保留旧状态栏辅助程序用于安全退役和配置恢复。
 查询探针用隔离子进程覆盖套餐首次读取、重启读回、换套餐/退出登录、空窗口清除旧缓存、超时、取消、输出上限和迟到结果；不会修改真实用户配置。
 `--live` 则明确执行一次真实 `/usage` 与 `auth status`，只输出解析后的额度和套餐，不保存原始结果。
@@ -116,7 +131,7 @@ build/claude-usage-query-probe --live-subscription
 正式发布前需要审查工作区差异、版本说明和发布动作。
 脚本依赖 `Design/release-notes-<版本>.md`。本地修复、构建或文档整理均不等于发布授权。
 
-当前版本的测试、构建和安装状态以[版本说明](../Design/release-notes-2.1.4.md)为准，
+当前版本的测试、构建和安装状态以[版本说明](../Design/release-notes-2.1.5.md)为准，
 不能沿用旧版本的验收结果。
 
 ad-hoc 签名没有 Apple Developer ID 或公证。可信安装包经浏览器等途径传输后可能带隔离标记。

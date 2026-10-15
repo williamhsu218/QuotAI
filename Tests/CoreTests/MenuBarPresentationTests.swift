@@ -40,7 +40,7 @@ func menuBarSelectedGroup() {
 func menuBarMissingSelection() {
     let snapshot = AntigravityQuotaSnapshot.preview
     for group in snapshot.groups {
-        let onlyGroup = AntigravityQuotaSnapshot(fetchedAt: snapshot.fetchedAt, groups: [group])
+        let onlyGroup = AntigravityQuotaSnapshot(fetchedAt: snapshot.fetchedAt, groups: [group], thirdPartyAvailability: group.id == "gemini" ? .unavailable : .available)
         for savedID: String? in [nil, "", "removed", group.id == "gemini" ? "3p" : "gemini"] {
             let value = presentation(groupID: savedID, antigravity: onlyGroup)
             #expect(value.groupID == group.id)
@@ -98,7 +98,7 @@ func menuBarSparseWindows() {
     let codex = UsageSnapshot(fetchedAt: Date(), fiveHour: nil, sevenDay: weekly,
                              availableResetCount: 0, resetCredits: [])
     let group = AntigravityQuotaGroup(id: "3p", displayName: "Claude", fiveHour: nil, sevenDay: weekly)
-    let ag = AntigravityQuotaSnapshot(fetchedAt: Date(), groups: [group])
+    let ag = AntigravityQuotaSnapshot(fetchedAt: Date(), groups: [group], thirdPartyAvailability: .available)
     for provider in QuotaProvider.allCases {
         #expect(presentation(provider: provider, codex: codex, antigravity: ag).lines == ["7d 100%"])
         #expect(presentation(provider: provider, mode: .fiveHour, codex: codex, antigravity: ag).lines == ["5h --"])

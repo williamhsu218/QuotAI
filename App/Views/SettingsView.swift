@@ -296,6 +296,9 @@ struct SettingsView: View {
                                 if antigravityGroups.isEmpty {
                                     Text(L10n.text("settings.antigravity_unavailable", fallback: "Unavailable"))
                                         .tag(menuBarAntigravityGroupID)
+                                } else if antigravityGroups.count == 1, let group = antigravityGroups.first {
+                                    Text(AntigravityQuotaTab(rawValue: group.id)?.title ?? group.localizedDisplayName)
+                                        .tag(group.id)
                                 } else {
                                     ForEach(antigravityGroups) { group in
                                         Text(AntigravityQuotaTab(rawValue: group.id)?.title ?? group.localizedDisplayName)
@@ -306,7 +309,7 @@ struct SettingsView: View {
                             .labelsHidden()
                             .accessibilityLabel(L10n.text("settings.antigravity_group", fallback: "Antigravity group"))
                             .frame(width: 160)
-                            .disabled(antigravityGroups.isEmpty)
+                            .disabled(antigravityGroups.count < 2)
                             .onChange(of: menuBarAntigravityGroupID) {
                                 postMenuBarPreferenceChange()
                             }
@@ -427,6 +430,13 @@ struct SettingsView: View {
                                         .foregroundStyle(AppTheme.secondaryText)
                                 }
                             }
+                        }
+                        if let message = antigravityStore.snapshot?.thirdPartyStatusMessage {
+                            Text(message)
+                                .font(.system(size: AppTheme.TypeSize.small))
+                                .foregroundStyle(AppTheme.secondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("antigravity.modelAccessStatus")
                         }
                     } else {
                         HStack(spacing: 6) {
@@ -670,7 +680,7 @@ struct SettingsView: View {
     }
 
     private var antigravityGroups: [AntigravityQuotaGroup] {
-        antigravityStore.snapshot?.groups ?? []
+        antigravityStore.snapshot?.displayGroups ?? []
     }
 
     private var antigravityGroupIDs: [String] {

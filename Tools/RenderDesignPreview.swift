@@ -42,7 +42,11 @@ struct RenderDesignPreview {
                 ? sparseCodexSnapshot
                 : nil
         )
-        let antigravityStore = AntigravityUsageStore(previewMode: true)
+        let agScenario = CommandLine.arguments.first { $0.hasPrefix("--ag-state=") }
+            .map { String($0.dropFirst("--ag-state=".count)) } ?? "available"
+        let antigravityStore = AntigravityUsageStore(previewMode: true,
+            previewSnapshot: AntigravityQuotaFixtures.snapshot(agScenario),
+            previewFailure: AntigravityQuotaFixtures.failure(agScenario))
         let claudeScenario = CommandLine.arguments.first { $0.hasPrefix("--claude-state=") }
             .map { String($0.dropFirst("--claude-state=".count)) } ?? "recent"
         let claudeCodeStore = ClaudeCodeUsageStore(previewMode: true, previewScenario: claudeScenario)
@@ -157,7 +161,7 @@ struct RenderDesignPreview {
     /// Synthetic states only; uses the production renderer, never live provider reads.
     private static func menuBarMatrix(colorScheme: ColorScheme) -> some View {
         let ag = AntigravityQuotaSnapshot.preview
-        let onlyGemini = AntigravityQuotaSnapshot(fetchedAt: ag.fetchedAt, groups: [ag.groups[0]])
+        let onlyGemini = AntigravityQuotaSnapshot(fetchedAt: ag.fetchedAt, groups: [ag.groups[0]], thirdPartyAvailability: .unavailable)
         let unknown = AntigravityQuotaSnapshot(fetchedAt: ag.fetchedAt, groups: [
             .init(id: "future", displayName: "Future pool",
                   fiveHour: .init(kind: .fiveHour, remainingPercent: 100, resetsAt: nil),

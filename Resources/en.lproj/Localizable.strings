@@ -253,3 +253,10 @@
 "claude.query.error.failed" = "Claude /usage failed. Check your CLI login and network, then refresh.";
 "claude.subscription.cached" = "Cached Claude subscription · refresh to update";
 "claude.subscription.reported" = "Subscription reported by Claude CLI";
+
+"antigravity.group.quota_title" = "%@ quota";
+"antigravity.models.unavailable" = "No third-party models are available for this account.";
+"antigravity.models.unknown" = "Third-party model access could not be read. Try refreshing.";
+"antigravity.models.read_failed" = "Model access unavailable";
+"antigravity.quota.missing" = "No quota was returned for this group. Try refreshing.";
+"antigravity.quota.exhausted" = "Quota exhausted · waiting for reset";

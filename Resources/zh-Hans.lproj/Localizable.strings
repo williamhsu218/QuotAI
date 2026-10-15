@@ -253,3 +253,10 @@
 "claude.query.error.failed" = "Claude /usage 查询失败，请检查 CLI 登录与网络后重试。";
 "claude.subscription.cached" = "已缓存的 Claude 套餐 · 刷新以更新";
 "claude.subscription.reported" = "Claude CLI 报告的订阅套餐";
+
+"antigravity.group.quota_title" = "%@ 额度";
+"antigravity.models.unavailable" = "当前账号暂无可用第三方模型。";
+"antigravity.models.unknown" = "暂时无法读取第三方模型权限，请刷新重试。";
+"antigravity.models.read_failed" = "暂时无法获取模型权限";
+"antigravity.quota.missing" = "未能获取此组额度，请刷新重试。";
+"antigravity.quota.exhausted" = "额度已耗尽 · 等待重置";

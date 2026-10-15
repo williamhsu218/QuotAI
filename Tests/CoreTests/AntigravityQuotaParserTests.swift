@@ -84,7 +84,7 @@ func antigravityQuotaTabSelection() {
     #expect(snapshot.panelGroup(id: "removed")?.id == "gemini")
     #expect(snapshot.panelGroup(id: nil)?.id == "gemini")
     #expect(snapshot.panelGroup(id: "")?.id == "gemini")
-    let single = AntigravityQuotaSnapshot(fetchedAt: snapshot.fetchedAt, groups: [snapshot.groups[1]])
+    let single = AntigravityQuotaSnapshot(fetchedAt: snapshot.fetchedAt, groups: [snapshot.groups[1]], thirdPartyAvailability: .available)
     #expect(single.panelGroup(id: "gemini")?.id == "3p")
     let empty = AntigravityQuotaSnapshot(fetchedAt: snapshot.fetchedAt, groups: [])
     #expect(empty.panelGroup(id: "gemini") == nil)
@@ -109,7 +109,7 @@ func antigravityQuotaTabRejectsUnknownPool() {
                                        fiveHour: .init(kind: .fiveHour, remainingPercent: 99, resetsAt: nil), sevenDay: nil)
     let known = AntigravityQuotaSnapshot.preview
     let reordered = AntigravityQuotaSnapshot(fetchedAt: known.fetchedAt,
-                                            groups: [future, known.groups[1], known.groups[0]])
+                                            groups: [future, known.groups[1], known.groups[0]], thirdPartyAvailability: .available)
     #expect(reordered.panelGroup(id: "future")?.id == "gemini")
     #expect(reordered.panelGroup(id: "3p")?.fiveHour?.remainingPercent == 44)
     let unknownOnly = AntigravityQuotaSnapshot(fetchedAt: known.fetchedAt, groups: [future])

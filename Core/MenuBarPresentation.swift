@@ -87,7 +87,8 @@ public struct MenuBarPresentation: Equatable, Sendable {
             }
             lines = group?.menuBarLines(for: mode, now: now) ?? ["--"]
             detail = [effectiveProvider.displayName, group?.localizedDisplayName,
-                      lines.joined(separator: " · ")]
+                      lines.joined(separator: " · "),
+                      group?.id == "3p" ? antigravitySnapshot?.thirdPartyStatusMessage : nil]
                 .compactMap { $0 }.joined(separator: " · ")
             fetchedAt = antigravitySnapshot?.fetchedAt
         case .claudeCode:

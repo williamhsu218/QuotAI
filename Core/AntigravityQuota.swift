@@ -78,19 +78,22 @@ public struct AntigravityQuotaGroup: Codable, Equatable, Identifiable, Sendable 
     public let description: String?
     public let fiveHour: QuotaWindow?
     public let sevenDay: QuotaWindow?
+    public let isExhausted: Bool
 
     public init(
         id: String,
         displayName: String,
         description: String? = nil,
         fiveHour: QuotaWindow?,
-        sevenDay: QuotaWindow?
+        sevenDay: QuotaWindow?,
+        isExhausted: Bool = false
     ) {
         self.id = id
         self.displayName = displayName
         self.description = description
         self.fiveHour = fiveHour
         self.sevenDay = sevenDay
+        self.isExhausted = isExhausted
     }
 
     public var localizedDisplayName: String {
@@ -143,32 +146,81 @@ public struct AntigravityQuotaSnapshot: Codable, Equatable, Sendable {
     public let fetchedAt: Date
     public let groups: [AntigravityQuotaGroup]
     public let subscriptionPlan: SubscriptionPlan?
+    public let thirdPartyAvailability: AntigravityModelAvailability
 
     public init(
         fetchedAt: Date,
         groups: [AntigravityQuotaGroup],
-        subscriptionPlan: SubscriptionPlan? = nil
+        subscriptionPlan: SubscriptionPlan? = nil,
+        thirdPartyAvailability: AntigravityModelAvailability = .unknown
     ) {
         self.fetchedAt = fetchedAt
         self.groups = groups
         self.subscriptionPlan = subscriptionPlan
+        self.thirdPartyAvailability = thirdPartyAvailability
+    }
+
+    /// Only presentation-safe values may reach the panel, settings or menu bar.
+    /// Unknown entitlement keeps the selection, but suppresses third-party numbers.
+    public var displayGroups: [AntigravityQuotaGroup] {
+        var result = groups.compactMap { group -> AntigravityQuotaGroup? in
+            guard group.id == "3p" else { return group }
+            switch thirdPartyAvailability {
+            case .unavailable: return nil
+            case .available: return group
+            case .unknown: return Self.thirdPartyPlaceholder
+            }
+        }
+        if thirdPartyAvailability != .unavailable,
+           !result.contains(where: { $0.id == "3p" }),
+           thirdPartyAvailability == .available || groups.contains(where: { $0.id == "gemini" }) {
+            result.append(Self.thirdPartyPlaceholder)
+        }
+        return result
+    }
+
+    public var panelGroups: [AntigravityQuotaGroup] {
+        let displayed = displayGroups
+        return AntigravityQuotaTab.allCases.compactMap { tab in
+            displayed.first { $0.id == tab.rawValue }
+        }
+    }
+
+    public var thirdPartyStatusMessage: String? {
+        switch thirdPartyAvailability {
+        case .available: nil
+        case .unavailable:
+            L10n.text("antigravity.models.unavailable", fallback: "No third-party models are available for this account.")
+        case .unknown:
+            L10n.text("antigravity.models.unknown", fallback: "Third-party model access could not be read. Try refreshing.")
+        }
     }
 
     public func group(id: String?) -> AntigravityQuotaGroup? {
-        guard let id, !id.isEmpty else { return groups.first }
-        return groups.first { $0.id == id } ?? groups.first
+        let displayed = displayGroups
+        return displayed.first { $0.id == id }
+            ?? displayed.first { $0.id == "gemini" }
+            ?? displayed.first
     }
 
-    /// The compact panel has exactly two tabs. Never label an unknown pool as
-    /// Gemini or Claude, even when a saved selection is no longer available.
+    /// Never label an unknown pool as Gemini or Claude.
     public func panelGroup(id: String?) -> AntigravityQuotaGroup? {
-        if let id, AntigravityQuotaTab(rawValue: id) != nil,
-           let selected = groups.first(where: { $0.id == id }) {
-            return selected
+        panelGroups.first { $0.id == id } ?? panelGroups.first
+    }
+
+    /// Persist a fallback only after a successful, explicit entitlement denial.
+    /// Temporary read failures must not overwrite either independent selection.
+    public func reconcileUnavailableSelections(in defaults: UserDefaults) {
+        guard thirdPartyAvailability == .unavailable,
+              displayGroups.contains(where: { $0.id == "gemini" }) else { return }
+        for key in [AntigravityQuotaGroup.panelGroupDefaultsKey, AntigravityQuotaGroup.menuBarGroupDefaultsKey]
+            where defaults.string(forKey: key) == "3p" {
+            defaults.set("gemini", forKey: key)
         }
-        return AntigravityQuotaTab.allCases.lazy.compactMap { tab in
-            groups.first { $0.id == tab.rawValue }
-        }.first
+    }
+
+    private static var thirdPartyPlaceholder: AntigravityQuotaGroup {
+        .init(id: "3p", displayName: "Claude and GPT Models", fiveHour: nil, sevenDay: nil)
     }
 }
 
@@ -257,7 +309,11 @@ public enum AntigravityQuotaParser {
                 displayName: displayName.flatMap { $0.isEmpty ? nil : $0 } ?? identifier,
                 description: rawGroup.description,
                 fiveHour: windows[.fiveHour],
-                sevenDay: windows[.sevenDay]
+                sevenDay: windows[.sevenDay],
+                isExhausted: (rawGroup.buckets ?? []).contains {
+                    quotaKind(window: $0.window, bucketID: $0.bucketId) != nil
+                        && ($0.remainingFraction.map { $0.isFinite && $0 <= 0 } ?? false)
+                }
             )
         }
 
@@ -279,7 +335,8 @@ public enum AntigravityQuotaParser {
         return AntigravityQuotaSnapshot(
             fetchedAt: fetchedAt,
             groups: groups,
-            subscriptionPlan: plan
+            subscriptionPlan: plan,
+            thirdPartyAvailability: AntigravityModelAccessParser.thirdPartyAvailability(data: userStatusData)
         )
     }
 
@@ -472,7 +529,8 @@ public extension AntigravityQuotaSnapshot {
                     )
                 )
             ],
-            subscriptionPlan: SubscriptionPlan(identifier: "g1-pro-tier")
+            subscriptionPlan: SubscriptionPlan(identifier: "g1-pro-tier"),
+            thirdPartyAvailability: .available
         )
     }()
 }
