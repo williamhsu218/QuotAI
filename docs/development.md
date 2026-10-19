@@ -141,7 +141,21 @@ build/claude-usage-query-probe --live-subscription
 正式发布前需要审查工作区差异、版本说明和发布动作。
 脚本依赖 `Design/release-notes-<版本>.md`。本地修复、构建或文档整理均不等于发布授权。
 
-当前版本的测试、构建和安装状态以[版本说明](../Design/release-notes-2.1.7.md)为准，
+滑块连续性探针（需要已解锁的 macOS 图形会话；使用独立小窗口，不访问真实偏好或业务数据）：
+
+```bash
+mkdir -p /tmp/quotai-picker-motion
+xcrun swiftc -parse-as-library -target arm64-apple-macosx14.0 \
+  App/Support/AppTheme.swift App/Views/PickerSelectionBackground.swift \
+  Tools/PickerContinuityProbe.swift -o /tmp/quotai-picker-motion/probe \
+  -framework AppKit -framework SwiftUI -framework QuartzCore
+/tmp/quotai-picker-motion/probe /tmp/quotai-picker-motion/result.json
+```
+
+探针检查呈现图层在连续布局、高度变化和中途反向切换时的运动连续性，以及减少动态效果下即时到位。
+它不代替正式弹窗的交互与观感验收。
+
+当前版本的测试、构建和安装状态以[版本说明](../Design/release-notes-2.1.8.md)为准，
 不能沿用旧版本的验收结果。
 
 ad-hoc 签名没有 Apple Developer ID 或公证。可信安装包经浏览器等途径传输后可能带隔离标记。

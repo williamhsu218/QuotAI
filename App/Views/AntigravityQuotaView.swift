@@ -16,21 +16,20 @@ struct AntigravityQuotaView: View {
     private func quotaGroup(_ group: AntigravityQuotaGroup, in snapshot: AntigravityQuotaSnapshot) -> some View {
         return VStack(alignment: .leading, spacing: AppTheme.Spacing.small) {
             if snapshot.panelGroups.count > 1 {
-                Picker(
-                    L10n.text("antigravity.quota_group", fallback: "Quota group"),
+                SlidingSegmentedPicker(
+                    options: snapshot.panelGroups.map(\.id),
                     selection: Binding(
                         get: { group.id },
                         set: { selectedGroupID = $0 }
                     )
-                ) {
-                    ForEach(snapshot.panelGroups) { option in
-                        Text(AntigravityQuotaTab(rawValue: option.id)?.title ?? option.localizedDisplayName)
-                            .tag(option.id)
-                    }
+                ) { id, _ in
+                    Text(AntigravityQuotaTab(rawValue: id)?.title
+                         ?? snapshot.panelGroups.first(where: { $0.id == id })?.localizedDisplayName
+                         ?? id)
+                        .font(.system(size: AppTheme.TypeSize.caption, weight: .medium))
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(maxWidth: .infinity)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel(L10n.text("antigravity.quota_group", fallback: "Quota group"))
                 .accessibilityIdentifier("antigravity.quotaGroupPicker")
             } else {
                 Text(L10n.format("antigravity.group.quota_title", fallback: "%@ quota",

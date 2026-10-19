@@ -160,47 +160,18 @@ struct SettingsView: View {
     }
 
     private var tabSelector: some View {
-        HStack(spacing: AppTheme.Spacing.small) {
-            ForEach(Array(SettingsTab.allCases.enumerated()), id: \.element.id) { index, tab in
-                Button {
-                    selectedTab = tab
-                } label: {
-                    VStack(spacing: AppTheme.Spacing.xSmall) {
-                        Image(systemName: tab.icon)
-                            .font(.system(size: 15, weight: selectedTab == tab ? .semibold : .regular))
-                        Text(tab.title)
-                            .font(.system(size: AppTheme.TypeSize.small, weight: selectedTab == tab ? .medium : .regular))
-                    }
-                    .foregroundStyle(selectedTab == tab ? AppTheme.primaryText : AppTheme.secondaryText)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, AppTheme.Spacing.small)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(selectedTab == tab ? .isSelected : [])
-                .keyboardShortcut(
-                    KeyEquivalent(Character(String(index + 1))),
-                    modifiers: .command
-                )
-                .transaction { transaction in
-                    transaction.animation = nil
-                    transaction.disablesAnimations = true
-                }
+        SlidingSegmentedPicker(
+            options: SettingsTab.allCases,
+            selection: $selectedTab,
+            keyboardShortcuts: true
+        ) { tab, isSelected in
+            VStack(spacing: AppTheme.Spacing.xSmall) {
+                Image(systemName: tab.icon)
+                    .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
+                Text(tab.title)
+                    .font(.system(size: AppTheme.TypeSize.small, weight: isSelected ? .medium : .regular))
             }
         }
-        .background {
-            PickerSelectionBackground(
-                selectedIndex: SettingsTab.allCases.firstIndex(of: selectedTab) ?? 0,
-                count: SettingsTab.allCases.count,
-                spacing: AppTheme.Spacing.small,
-                cornerRadius: 7
-            )
-        }
-        .padding(AppTheme.Spacing.xSmall)
-        .background(
-            AppTheme.pickerTrack,
-            in: RoundedRectangle(cornerRadius: 9, style: .continuous)
-        )
     }
 
     // MARK: - Panes

@@ -156,21 +156,18 @@ struct MenuBarPanelView: View {
     }
 
     private var quotaProviderPicker: some View {
-        Picker(
-            L10n.text("quota.provider", fallback: "Quota provider"),
+        SlidingSegmentedPicker(
+            options: visibleProviders,
             selection: Binding(
                 get: { effectiveQuotaProvider },
                 set: { quotaProvider = $0 }
             )
-        ) {
-            ForEach(visibleProviders, id: \.self) { provider in
-                Text(provider.displayName).tag(provider)
-            }
+        ) { provider, _ in
+            Text(provider.displayName)
+                .font(.system(size: AppTheme.TypeSize.caption, weight: .medium))
         }
-        .pickerStyle(.segmented)
-        .controlSize(.large)
-        .labelsHidden()
-        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(L10n.text("quota.provider", fallback: "Quota provider"))
         .accessibilityIdentifier("quota.providerPicker")
     }
 
