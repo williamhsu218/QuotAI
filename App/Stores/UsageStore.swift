@@ -19,7 +19,10 @@ final class UsageStore: QuotaProviderStore {
     private(set) var phase: Phase = .idle
 
     @ObservationIgnored private let client = CodexAppServerClient()
-    @ObservationIgnored private var refreshLoop: Task<Void, Never>?
+    @ObservationIgnored private lazy var refreshScheduler = QuotaRefreshScheduler(
+        interval: { UserDefaults.standard.double(forKey: "refreshIntervalSeconds") },
+        tick: { [weak self] in Task { await self?.refresh() } }
+    )
     @ObservationIgnored private let previewMode: Bool
     @ObservationIgnored private let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "com.willhsu.QuotAI",
@@ -78,19 +81,15 @@ final class UsageStore: QuotaProviderStore {
     }
 
     func start() {
-        guard !previewMode, refreshLoop == nil else { return }
+        guard !previewMode, !refreshScheduler.isRunning else { return }
         logger.info("Starting quota refresh loop")
-        refreshLoop = Task { [weak self] in
-            guard let self else { return }
-            await refresh()
-            while !Task.isCancelled {
-                let configured = UserDefaults.standard.double(forKey: "refreshIntervalSeconds")
-                let interval = configured > 0 ? configured : 300
-                try? await Task.sleep(for: .seconds(interval))
-                guard !Task.isCancelled else { return }
-                await refresh()
-            }
-        }
+        Task { [weak self] in await self?.refresh() }
+        refreshScheduler.start()
+    }
+
+    func rescheduleRefresh() {
+        guard !previewMode else { return }
+        refreshScheduler.reschedule()
     }
 
     func refresh() async {

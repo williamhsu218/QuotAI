@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import OSLog
 
@@ -34,6 +35,7 @@ enum AntigravityQuotaClientError: LocalizedError {
 }
 
 actor AntigravityQuotaClient {
+    static let shared = AntigravityQuotaClient()
     private nonisolated static let languageServerPattern =
         #"[/]Antigravity( IDE)?\.app/Contents/Resources/bin/language_server( |$)"#
     private nonisolated static let quotaPath =
@@ -45,70 +47,100 @@ actor AntigravityQuotaClient {
         category: "AntigravityQuota"
     )
 
-    func fetch() async throws -> AntigravityQuotaSnapshot {
-        try await Task.detached(priority: .utility) {
-            try Self.fetchSynchronously()
-        }.value
+    struct Runtime: Sendable, Hashable {
+        let processID: Int32
+        let host: String
+        let port: Int
+        let scheme: String
+        let csrfToken: String
     }
 
-    private nonisolated static func fetchSynchronously() throws -> AntigravityQuotaSnapshot {
-        let processIDs = try languageServerProcessIDs()
-        guard !processIDs.isEmpty else {
-            throw AntigravityQuotaClientError.notRunning
+    private nonisolated static let discoveryQueue = DispatchQueue(label: "com.willhsu.QuotAI.antigravity-discovery", qos: .utility)
+    private let discover: @Sendable () async throws -> [Runtime]
+    private let isAlive: @Sendable (Int32) -> Bool
+    private let rpc: @Sendable (Runtime, String, String) async throws -> Data
+    private var cachedRuntime: Runtime?
+
+    init(
+        discover: @escaping @Sendable () async throws -> [Runtime] = {
+            try await ProcessIO.run(on: AntigravityQuotaClient.discoveryQueue) {
+                try AntigravityQuotaClient.discoverRuntimes()
+            }
+        },
+        isAlive: @escaping @Sendable (Int32) -> Bool = { kill($0, 0) == 0 },
+        rpc: (@Sendable (Runtime, String, String) async throws -> Data)? = nil
+    ) {
+        self.discover = discover
+        self.isAlive = isAlive
+        if let rpc {
+            self.rpc = rpc
+        } else {
+            let configuration = URLSessionConfiguration.ephemeral
+            configuration.connectionProxyDictionary = [:]
+            configuration.timeoutIntervalForRequest = 15
+            configuration.timeoutIntervalForResource = 15
+            configuration.urlCache = nil
+            configuration.httpCookieStorage = nil
+            configuration.urlCredentialStorage = nil
+            let session = URLSession(configuration: configuration, delegate: LoopbackSessionDelegate(), delegateQueue: nil)
+            self.rpc = { runtime, path, body in
+                try await Self.requestRPC(session: session, path: path, body: body, runtime: runtime)
+            }
+        }
+    }
+
+    func fetch() async throws -> AntigravityQuotaSnapshot {
+        try Task.checkCancellation()
+        if let runtime = cachedRuntime, isAlive(runtime.processID) {
+            do { return try await read(runtime) }
+            catch is CancellationError { throw CancellationError() }
+            catch { try Task.checkCancellation(); cachedRuntime = nil }
+        } else {
+            cachedRuntime = nil
         }
 
-        var foundRuntimeMetadata = false
+        let runtimes = try await discover()
         var receivedUnrecognizedResponse = false
+        for runtime in runtimes {
+            try Task.checkCancellation()
+            do {
+                let snapshot = try await read(runtime)
+                cachedRuntime = runtime // Memory only, including the selected scheme.
+                Self.logger.info("Antigravity quota refresh succeeded; groupCount=\(snapshot.groups.count, privacy: .public)")
+                return snapshot
+            } catch is CancellationError { throw CancellationError() }
+            catch is AntigravityQuotaParserError { receivedUnrecognizedResponse = true }
+            catch AntigravityQuotaClientError.protocolChanged { receivedUnrecognizedResponse = true }
+            catch { try Task.checkCancellation(); continue }
+        }
+        if receivedUnrecognizedResponse { throw AntigravityQuotaClientError.protocolChanged }
+        throw runtimes.isEmpty ? AntigravityQuotaClientError.runtimeUnavailable : AntigravityQuotaClientError.quotaUnavailable
+    }
 
+    private func read(_ runtime: Runtime) async throws -> AntigravityQuotaSnapshot {
+        let data = try await rpc(runtime, Self.quotaPath, #"{"forceRefresh":true}"#)
+        let status = try? await rpc(runtime, Self.userStatusPath, "{}")
+        try Task.checkCancellation()
+        return try AntigravityQuotaParser.parse(data: data, userStatusData: status)
+    }
+
+    private nonisolated static func discoverRuntimes() throws -> [Runtime] {
+        let processIDs = try languageServerProcessIDs()
+        guard !processIDs.isEmpty else { throw AntigravityQuotaClientError.notRunning }
+        var runtimes: [Runtime] = []
         for processID in processIDs {
             guard let commandLine = try? commandLine(processID: processID),
-                  let csrfToken = argumentValue(named: "--csrf_token", in: commandLine)
+                  let token = argumentValue(named: "--csrf_token", in: commandLine)
                     ?? argumentValue(named: "--csrf-token", in: commandLine),
-                  !csrfToken.isEmpty,
-                  !csrfToken.contains(where: \.isNewline),
-                  let endpoints = try? listeningEndpoints(processID: processID),
-                  !endpoints.isEmpty else {
-                continue
-            }
-            foundRuntimeMetadata = true
-
+                  !token.isEmpty, !token.contains(where: \.isNewline),
+                  let endpoints = try? listeningEndpoints(processID: processID) else { continue }
             for endpoint in endpoints {
-                guard let data = try? requestRPC(
-                    path: quotaPath,
-                    body: #"{"forceRefresh":true}"#,
-                    endpoint: endpoint,
-                    csrfToken: csrfToken
-                ) else {
-                    continue
-                }
-                let userStatusData = try? requestRPC(
-                    path: userStatusPath,
-                    body: "{}",
-                    endpoint: endpoint,
-                    csrfToken: csrfToken
-                )
-                do {
-                    let snapshot = try AntigravityQuotaParser.parse(
-                        data: data,
-                        userStatusData: userStatusData
-                    )
-                    logger.info(
-                        "Antigravity quota refresh succeeded; groupCount=\(snapshot.groups.count, privacy: .public)"
-                    )
-                    return snapshot
-                } catch {
-                    receivedUnrecognizedResponse = true
+                for scheme in ["http", "https"] {
+                    runtimes.append(Runtime(processID: processID, host: endpoint.host, port: endpoint.port, scheme: scheme, csrfToken: token))
                 }
             }
         }
-
-        if receivedUnrecognizedResponse {
-            throw AntigravityQuotaClientError.protocolChanged
-        }
-        if foundRuntimeMetadata {
-            throw AntigravityQuotaClientError.quotaUnavailable
-        }
-        throw AntigravityQuotaClientError.runtimeUnavailable
+        return runtimes
     }
 
     private nonisolated static func languageServerProcessIDs() throws -> [Int32] {
@@ -177,35 +209,29 @@ actor AntigravityQuotaClient {
     }
 
     private nonisolated static func requestRPC(
-        path: String,
-        body: String,
-        endpoint: LoopbackEndpoint,
-        csrfToken: String
-    ) throws -> Data {
-        let headerData = Data(
-            "x-codeium-csrf-token: \(csrfToken)\nContent-Type: application/json\n".utf8
-        )
-        for scheme in ["http", "https"] {
-            if let result = try? run(
-                executable: URL(fileURLWithPath: "/usr/bin/curl"),
-                arguments: [
-                    "--silent",
-                    "--insecure",
-                    "--fail",
-                    "--noproxy", "*",
-                    "--connect-timeout", "2",
-                    "--max-time", "15",
-                    "--request", "POST",
-                    "--header", "@-",
-                    "--data", body,
-                    "\(scheme)://\(endpoint.host):\(endpoint.port)\(path)"
-                ],
-                standardInput: headerData
-            ), result.status == 0, !result.output.isEmpty {
-                return result.output
-            }
+        session: URLSession, path: String, body: String, runtime: Runtime
+    ) async throws -> Data {
+        guard ["127.0.0.1", "[::1]"].contains(runtime.host),
+              (1...65535).contains(runtime.port), ["http", "https"].contains(runtime.scheme),
+              let url = URL(string: "\(runtime.scheme)://\(runtime.host):\(runtime.port)\(path)") else {
+            throw AntigravityQuotaClientError.runtimeUnavailable
         }
-        throw AntigravityQuotaClientError.quotaUnavailable
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue(runtime.csrfToken, forHTTPHeaderField: "x-codeium-csrf-token")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = Data(body.utf8)
+        let (bytes, response) = try await session.bytes(for: request, delegate: session.delegate as? LoopbackSessionDelegate)
+        guard let response = response as? HTTPURLResponse, (200..<300).contains(response.statusCode) else {
+            throw AntigravityQuotaClientError.quotaUnavailable
+        }
+        var data = Data()
+        for try await byte in bytes {
+            guard data.count < 1_048_576 else { throw AntigravityQuotaClientError.protocolChanged }
+            data.append(byte)
+        }
+        guard !data.isEmpty else { throw AntigravityQuotaClientError.quotaUnavailable }
+        return data
     }
 
     private nonisolated static func run(
@@ -247,4 +273,28 @@ private struct LoopbackEndpoint: Hashable, Sendable {
 private struct CommandResult: Sendable {
     let status: Int32
     let output: Data
+}
+
+/// Antigravity's existing local TLS service uses a self-signed certificate.
+/// This exception cannot follow a redirect or authenticate any remote host.
+private final class LoopbackSessionDelegate: NSObject, URLSessionDelegate, URLSessionTaskDelegate {
+    func urlSession(_ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge,
+                    completionHandler: @escaping @Sendable (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        urlSession(session, didReceive: challenge, completionHandler: completionHandler)
+    }
+    func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge,
+                    completionHandler: @escaping @Sendable (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        let space = challenge.protectionSpace
+        if space.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+           ["127.0.0.1", "::1", "[::1]"].contains(space.host), let trust = space.serverTrust {
+            completionHandler(.useCredential, URLCredential(trust: trust))
+        } else {
+            completionHandler(.performDefaultHandling, nil)
+        }
+    }
+    func urlSession(_ session: URLSession, task: URLSessionTask,
+                    willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest,
+                    completionHandler: @escaping @Sendable (URLRequest?) -> Void) {
+        completionHandler(nil)
+    }
 }

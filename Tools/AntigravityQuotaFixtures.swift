@@ -9,9 +9,9 @@ enum AntigravityQuotaFixtures {
             if scenario == "missing", group.id == "3p" { return nil }
             let exhausted = scenario == "exhausted" && group.id == "3p"
             return AntigravityQuotaGroup(id: group.id, displayName: group.displayName,
-                fiveHour: .init(kind: .fiveHour, remainingPercent: exhausted ? 0 : group.fiveHour!.remainingPercent,
+                fiveHour: .init(kind: .fiveHour, remainingPercent: exhausted ? 0 : scenario == "low" ? 1 : group.fiveHour!.remainingPercent,
                                  resetsAt: now.addingTimeInterval(3_600)),
-                sevenDay: .init(kind: .sevenDay, remainingPercent: exhausted ? 0 : group.sevenDay!.remainingPercent,
+                sevenDay: .init(kind: .sevenDay, remainingPercent: exhausted ? 0 : scenario == "low" ? 4 : group.sevenDay!.remainingPercent,
                                  resetsAt: now.addingTimeInterval(86_400 * 3)),
                 isExhausted: exhausted)
         }

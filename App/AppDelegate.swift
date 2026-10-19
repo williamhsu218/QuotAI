@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
     private lazy var claudeCodeStore = ClaudeCodeUsageStore.shared
     private lazy var stayAwakeStore = StayAwakeStore.shared
     private let popover = NSPopover()
+    private let panelVisibility = QuotaPanelVisibility()
     private var statusItem: NSStatusItem?
     private var outsideClickMonitor: Any?
     /// Re-renders the status item so reset windows and stale snapshots are
@@ -180,12 +181,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
 
     private func configurePopover() {
         let hostingController = NSHostingController(
-            rootView: MenuBarPanelView(
+            rootView: QuotaPopoverContent(visibility: panelVisibility, panel: MenuBarPanelView(
                 store: store,
                 antigravityStore: antigravityStore,
                 stayAwakeStore: stayAwakeStore,
                 claudeCodeStore: claudeCodeStore
-            )
+            ))
                 .environment(\.usesSystemPopoverSurface, true)
         )
         hostingController.sizingOptions = [.preferredContentSize]
@@ -197,11 +198,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         popover.contentViewController = hostingController
     }
 
+    func popoverWillShow(_ notification: Notification) {
+        panelVisibility.isVisible = true
+    }
+
     func popoverDidShow(_ notification: Notification) {
         startOutsideClickMonitor()
     }
 
     func popoverDidClose(_ notification: Notification) {
+        panelVisibility.isVisible = false
         stopOutsideClickMonitor()
     }
 

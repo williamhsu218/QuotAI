@@ -1,4 +1,5 @@
 import AppKit
+import CoreText
 import SwiftUI
 
 @MainActor
@@ -145,7 +146,7 @@ enum MenuBarStatusRenderer {
             var xOffset: CGFloat = 0.0
 
             if let coffee = coffeeImage {
-                let coffeeY = floor((barHeight - coffeeHeight) / 2.0)
+                let coffeeY = ((barHeight - coffeeHeight) / 2.0 * 2).rounded() / 2
                 coffee.draw(
                     in: NSRect(x: xOffset, y: coffeeY, width: coffeeWidth, height: coffeeHeight),
                     from: .zero,
@@ -156,7 +157,7 @@ enum MenuBarStatusRenderer {
             }
 
             if let icon = providerIcon {
-                let iconY = floor((barHeight - providerIconSize) / 2.0)
+                let iconY = (barHeight - providerIconSize) / 2.0
                 icon.draw(
                     in: NSRect(x: xOffset, y: iconY, width: providerIconSize, height: providerIconSize),
                     from: .zero,
@@ -166,15 +167,19 @@ enum MenuBarStatusRenderer {
                 xOffset += providerIconSize + spacing
             }
 
-            if isTwoLines {
-                let line1 = lines[0]
-                let line2 = lines[1]
-                (line1 as NSString).draw(at: NSPoint(x: xOffset, y: 11.5), withAttributes: attrs)
-                (line2 as NSString).draw(at: NSPoint(x: xOffset, y: 1.8), withAttributes: attrs)
-            } else if let line = lines.first {
-                let size = (line as NSString).size(withAttributes: attrs)
-                let y = floor((barHeight - size.height) / 2.0)
-                (line as NSString).draw(at: NSPoint(x: xOffset, y: y), withAttributes: attrs)
+            if let context = NSGraphicsContext.current?.cgContext {
+                // Core Text uses an explicit baseline; center the visible caps
+                // instead of NSString's line box (which includes descenders).
+                let gap: CGFloat = 2
+                let blockHeight = isTwoLines ? 2 * font.capHeight + gap : font.capHeight
+                let bottomBaseline = ((barHeight - blockHeight) / 2 * 2).rounded() / 2
+                for (index, text) in lines.prefix(2).enumerated() {
+                    let baseline = isTwoLines && index == 0 ? bottomBaseline + font.capHeight + gap : bottomBaseline
+                    let line = CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: attrs))
+                    context.textMatrix = .identity
+                    context.textPosition = CGPoint(x: xOffset, y: (baseline * 2).rounded() / 2)
+                    CTLineDraw(line, context)
+                }
             }
             return true
         }

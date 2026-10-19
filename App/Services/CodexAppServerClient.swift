@@ -49,7 +49,7 @@ enum CodexAppServerClientError: LocalizedError {
 }
 
 actor CodexAppServerClient {
-    private nonisolated static let resetCreditConfirmationDelay: TimeInterval = 2
+    private nonisolated static let processQueue = DispatchQueue(label: "com.willhsu.QuotAI.codex-io", qos: .utility)
 
     private nonisolated static let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "com.willhsu.QuotAI",
@@ -57,41 +57,44 @@ actor CodexAppServerClient {
     )
 
     func fetch(customPath: String?) async throws -> UsageSnapshot {
-        try await Task.detached(priority: .utility) {
-            try Self.fetchSynchronously(customPath: customPath)
-        }.value
-    }
-
-    private nonisolated static func fetchSynchronously(customPath: String?) throws -> UsageSnapshot {
         let executables = try CodexBinaryLocator.candidates(customPath: customPath)
         var failures: [CodexAppServerClientError] = []
 
         for executable in executables {
+            try Task.checkCancellation()
             do {
-                let snapshot = try fetchSynchronously(executable: executable)
+                let snapshot = try await ProcessIO.run(on: Self.processQueue) {
+                    try Self.fetchSynchronously(executable: executable)
+                }
+                try Task.checkCancellation()
                 guard snapshot.hasCurrentResetCreditData,
                       snapshot.availableResetCount == 0,
                       snapshot.resetCredits.isEmpty else {
                     return snapshot
                 }
 
-                logger.info(
+                Self.logger.info(
                     "Reset credits were empty in the initial response; confirming once"
                 )
-                Thread.sleep(forTimeInterval: resetCreditConfirmationDelay)
+                try await Task.sleep(for: .seconds(2))
                 do {
-                    let confirmed = try fetchSynchronously(executable: executable)
-                    logger.info(
+                    let confirmed = try await ProcessIO.run(on: Self.processQueue) {
+                        try Self.fetchSynchronously(executable: executable)
+                    }
+                    try Task.checkCancellation()
+                    Self.logger.info(
                         "Reset credit confirmation completed; resetCount=\(confirmed.availableResetCount, privacy: .public), current=\(confirmed.hasCurrentResetCreditData, privacy: .public)"
                     )
                     return confirmed.hasCurrentResetCreditData ? confirmed.preservingResetCredits(from: snapshot) : snapshot
-                } catch {
-                    logger.info(
+                } catch is CancellationError { throw CancellationError() }
+                catch {
+                    Self.logger.info(
                         "Reset credit confirmation failed; retaining the initial quota snapshot"
                     )
                     return snapshot
                 }
-            } catch let error as CodexAppServerClientError {
+            } catch is CancellationError { throw CancellationError() }
+            catch let error as CodexAppServerClientError {
                 failures.append(error)
             } catch {
                 failures.append(.protocolMismatch(error.localizedDescription))

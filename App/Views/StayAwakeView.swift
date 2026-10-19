@@ -18,22 +18,31 @@ struct StayAwakeView: View {
                         in: RoundedRectangle(cornerRadius: 7, style: .continuous)
                     )
 
-                Text(L10n.text("awake.title", fallback: "Stay Awake"))
-                    .font(.system(size: AppTheme.TypeSize.cardTitle, weight: .semibold))
-                    .foregroundStyle(AppTheme.primaryText)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.text("awake.title", fallback: "Stay Awake"))
+                        .font(.system(size: AppTheme.TypeSize.cardTitle, weight: .semibold))
+                        .foregroundStyle(AppTheme.primaryText)
+                    if !store.isActive {
+                        Text(statusText)
+                            .font(.system(size: AppTheme.TypeSize.small))
+                            .foregroundStyle(AppTheme.secondaryText)
+                    }
+                }
 
                 Spacer(minLength: AppTheme.Spacing.small)
 
                 toggleControl
             }
 
-            HStack(spacing: AppTheme.Spacing.small) {
+            if store.isActive {
+                HStack(spacing: AppTheme.Spacing.small) {
                 Label(statusText, systemImage: store.isActive ? "bolt.fill" : "moon.zzz")
                     .font(.system(size: AppTheme.TypeSize.small, weight: .medium))
                     .foregroundStyle(store.isActive ? AppTheme.awakeAccent : AppTheme.secondaryText)
                     .lineLimit(1)
 
                 Spacer(minLength: AppTheme.Spacing.small)
+                }
             }
 
             HStack(spacing: AppTheme.Spacing.small) {

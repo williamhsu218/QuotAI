@@ -52,6 +52,8 @@ struct SettingsView: View {
     let stayAwakeStore: StayAwakeStore
     var initialTab: SettingsTab = .general
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var tabNamespace
     @State private var selectedTab: SettingsTab
 
     init(
@@ -150,6 +152,10 @@ struct SettingsView: View {
             normalizeAntigravityGroupSelection()
             refreshLaunchAtLogin()
         }
+        .onChange(of: refreshInterval) {
+            store.rescheduleRefresh()
+            antigravityStore.rescheduleRefresh()
+        }
         .onChange(of: antigravityGroupIDs) {
             normalizeAntigravityGroupSelection()
         }
@@ -159,9 +165,7 @@ struct SettingsView: View {
         HStack(spacing: AppTheme.Spacing.small) {
             ForEach(Array(SettingsTab.allCases.enumerated()), id: \.element.id) { index, tab in
                 Button {
-                    withAnimation(.easeInOut(duration: AppTheme.Motion.quick)) {
-                        selectedTab = tab
-                    }
+                    selectedTab = tab
                 } label: {
                     VStack(spacing: AppTheme.Spacing.xSmall) {
                         Image(systemName: tab.icon)
@@ -175,6 +179,7 @@ struct SettingsView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityAddTraits(selectedTab == tab ? .isSelected : [])
                 .keyboardShortcut(
                     KeyEquivalent(Character(String(index + 1))),
                     modifiers: .command
@@ -188,10 +193,12 @@ struct SettingsView: View {
                                     .strokeBorder(AppTheme.pickerSelectedBorder, lineWidth: 0.5)
                             }
                             .shadow(color: AppTheme.pickerSelectedShadow, radius: 2, y: 1)
+                            .matchedGeometryEffect(id: "settingsTab", in: tabNamespace)
                     }
                 }
             }
         }
+        .animation(reduceMotion ? nil : .snappy(duration: 0.18), value: selectedTab)
         .padding(AppTheme.Spacing.xSmall)
         .background(
             AppTheme.pickerTrack,

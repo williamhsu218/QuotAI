@@ -1,7 +1,35 @@
 import AppKit
 import SwiftUI
+import Observation
+
+private struct QuotaPanelVisibleKey: EnvironmentKey {
+    static let defaultValue = true // Standalone preview windows are visible.
+}
+
+extension EnvironmentValues {
+    var quotaPanelVisible: Bool {
+        get { self[QuotaPanelVisibleKey.self] }
+        set { self[QuotaPanelVisibleKey.self] = newValue }
+    }
+}
+
+@MainActor @Observable
+final class QuotaPanelVisibility {
+    var isVisible = false
+}
+
+struct QuotaPopoverContent: View {
+    let visibility: QuotaPanelVisibility
+    let panel: MenuBarPanelView
+    var body: some View {
+        panel.environment(\.quotaPanelVisible, visibility.isVisible)
+    }
+}
 
 struct MenuBarPanelView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.quotaPanelVisible) private var panelVisible
+    @Namespace private var providerNamespace
     @Environment(\.openSettings) private var openSettings
     @Environment(\.designPreviewRendering) private var designPreviewRendering
     @AppStorage(QuotaProvider.panelDefaultsKey)
@@ -156,6 +184,7 @@ struct MenuBarPanelView: View {
                                     .strokeBorder(AppTheme.pickerSelectedBorder, lineWidth: 0.5)
                             }
                             .shadow(color: AppTheme.pickerSelectedShadow, radius: 2, y: 1)
+                            .matchedGeometryEffect(id: "provider", in: providerNamespace)
                     }
                 }
                 .accessibilityLabel(provider.displayName)
@@ -164,6 +193,7 @@ struct MenuBarPanelView: View {
                 )
             }
         }
+        .animation(reduceMotion ? nil : .snappy(duration: 0.18), value: effectiveQuotaProvider)
         .padding(3)
         .background(
             AppTheme.pickerTrack,
@@ -254,7 +284,7 @@ struct MenuBarPanelView: View {
 
     private var footer: some View {
         HStack(spacing: AppTheme.Spacing.medium) {
-            TimelineView(.periodic(from: .now, by: 60)) { context in
+            TimelineView(.animation(minimumInterval: 60, paused: !panelVisible)) { context in
                 Label {
                     Text(statusMessage(at: context.date))
                         .foregroundStyle(AppTheme.secondaryText)
@@ -287,12 +317,19 @@ struct MenuBarPanelView: View {
             Button {
                 refreshSelectedProvider()
             } label: {
-                Label(
-                    effectiveQuotaProvider == .claudeCode && claudeCodeStore.isLoading
-                        ? L10n.text("action.cancel", fallback: "Cancel") : L10n.text("action.refresh", fallback: "Refresh"),
-                    systemImage: effectiveQuotaProvider == .claudeCode && claudeCodeStore.isLoading ? "xmark" : "arrow.clockwise"
-                )
+                if isSelectedProviderLoading && effectiveQuotaProvider != .claudeCode {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityLabel(L10n.text("status.refreshing", fallback: "Refreshing"))
+                        .frame(width: 28, height: 22)
+                } else {
+                    Label(
+                        effectiveQuotaProvider == .claudeCode && claudeCodeStore.isLoading
+                            ? L10n.text("action.cancel", fallback: "Cancel") : L10n.text("action.refresh", fallback: "Refresh"),
+                        systemImage: effectiveQuotaProvider == .claudeCode && claudeCodeStore.isLoading ? "xmark" : "arrow.clockwise"
+                    )
                 .frame(width: 28, height: 22)
+                }
             }
             .disabled(isSelectedProviderLoading && effectiveQuotaProvider != .claudeCode)
             .help(effectiveQuotaProvider == .claudeCode

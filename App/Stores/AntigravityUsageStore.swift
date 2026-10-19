@@ -28,7 +28,10 @@ final class AntigravityUsageStore: QuotaProviderStore {
 
     @ObservationIgnored private let fetchSnapshot: @Sendable () async throws -> AntigravityQuotaSnapshot
     @ObservationIgnored private let defaults: UserDefaults
-    @ObservationIgnored private var refreshLoop: Task<Void, Never>?
+    @ObservationIgnored private lazy var refreshScheduler = QuotaRefreshScheduler(
+        interval: { [defaults] in defaults.double(forKey: "refreshIntervalSeconds") },
+        tick: { [weak self] in Task { await self?.refresh() } }
+    )
     @ObservationIgnored private var generation: UInt64 = 0
     @ObservationIgnored private let previewMode: Bool
     @ObservationIgnored private let detectInstallation: @Sendable () -> Bool
@@ -43,7 +46,7 @@ final class AntigravityUsageStore: QuotaProviderStore {
         previewFailure: String? = nil,
         defaults: UserDefaults = .standard,
         fetchSnapshot: @escaping @Sendable () async throws -> AntigravityQuotaSnapshot = {
-            try await AntigravityQuotaClient().fetch()
+            try await AntigravityQuotaClient.shared.fetch()
         },
         installationDetector: @escaping @Sendable () -> Bool = { ProviderInstallationDetector.antigravity() }
     ) {
@@ -109,19 +112,15 @@ final class AntigravityUsageStore: QuotaProviderStore {
         guard !previewMode else { return }
         reloadInstallation()
         isEnabled = true
-        guard refreshLoop == nil else { return }
+        guard !refreshScheduler.isRunning else { return }
         logger.info("Starting Antigravity quota refresh loop")
-        refreshLoop = Task { [weak self] in
-            guard let self else { return }
-            await refresh()
-            while !Task.isCancelled {
-                let configured = defaults.double(forKey: "refreshIntervalSeconds")
-                let interval = configured > 0 ? configured : 300
-                try? await Task.sleep(for: .seconds(interval))
-                guard !Task.isCancelled else { return }
-                await refresh()
-            }
-        }
+        Task { [weak self] in await self?.refresh() }
+        refreshScheduler.start()
+    }
+
+    func rescheduleRefresh() {
+        guard !previewMode, isEnabled else { return }
+        refreshScheduler.reschedule()
     }
 
     func stop() {
@@ -129,8 +128,7 @@ final class AntigravityUsageStore: QuotaProviderStore {
         let shouldNotify = snapshot != nil || phase != .idle
         generation &+= 1
         isEnabled = false
-        refreshLoop?.cancel()
-        refreshLoop = nil
+        refreshScheduler.stop()
         snapshot = nil
         phase = .idle
         if shouldNotify {

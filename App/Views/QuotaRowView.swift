@@ -107,17 +107,20 @@ struct QuotaProgressBar: View {
         GeometryReader { proxy in
             let totalWidth = proxy.size.width
             let totalHeight = proxy.size.height
-            let fillWidth = max(0, totalWidth * CGFloat(value) / 100)
+            let fillWidth = totalWidth * CGFloat(min(100, max(0, value))) / 100
 
             ZStack(alignment: .leading) {
                 Capsule()
                     .fill(AppTheme.track)
 
-                Capsule()
+                Rectangle()
                     .fill(AppTheme.quotaFillGradient(for: value))
                     .mask(alignment: .leading) {
                         Capsule()
-                            .frame(width: fillWidth)
+                            .frame(width: max(totalHeight, fillWidth))
+                            .mask(alignment: .leading) {
+                                Rectangle().frame(width: fillWidth)
+                            }
                     }
 
                 ForEach(AppTheme.quotaScaleThresholds, id: \.self) { threshold in
@@ -125,16 +128,18 @@ struct QuotaProgressBar: View {
                     ZStack {
                         Rectangle()
                             .fill(AppTheme.quotaThresholdMarkerEdge)
-                            .frame(width: 1.5, height: totalHeight)
+                            .frame(width: 1, height: totalHeight - 2)
 
                         Rectangle()
                             .fill(AppTheme.quotaThresholdMarkerHighlight)
-                            .frame(width: 0.75, height: totalHeight)
+                            .frame(width: 0.5, height: totalHeight - 2)
                             .offset(x: 0.4)
                     }
+                    .opacity(0.6)
                     .position(x: xPos, y: totalHeight / 2)
                 }
             }
+            .clipShape(Capsule())
             .animation(refreshAnimation, value: value)
         }
         .frame(height: 8)

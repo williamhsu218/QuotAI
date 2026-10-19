@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct AntigravityQuotaView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var groupNamespace
     @AppStorage(AntigravityQuotaGroup.panelGroupDefaultsKey)
     private var selectedGroupID = "gemini"
     let store: AntigravityUsageStore
@@ -14,23 +16,35 @@ struct AntigravityQuotaView: View {
     }
 
     private func quotaGroup(_ group: AntigravityQuotaGroup, in snapshot: AntigravityQuotaSnapshot) -> some View {
-        let accent = groupAccent(for: group.id)
         return VStack(alignment: .leading, spacing: AppTheme.Spacing.small) {
             if snapshot.panelGroups.count > 1 {
-                Picker(L10n.text("antigravity.quota_group", fallback: "Quota group"), selection: Binding(
-                    get: { snapshot.panelGroup(id: selectedGroupID)?.id ?? group.id },
-                    set: { selectedGroupID = $0 }
-                )) {
+                HStack(spacing: 2) {
                     ForEach(snapshot.panelGroups) { option in
-                        Text(AntigravityQuotaTab(rawValue: option.id)?.title ?? option.localizedDisplayName)
-                            .tag(option.id)
+                        Button { selectedGroupID = option.id } label: {
+                            Text(AntigravityQuotaTab(rawValue: option.id)?.title ?? option.localizedDisplayName)
+                                .font(.system(size: AppTheme.TypeSize.caption, weight: group.id == option.id ? .semibold : .medium))
+                                .foregroundStyle(group.id == option.id ? AppTheme.primaryText : AppTheme.secondaryText)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, AppTheme.Spacing.xSmall)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .background {
+                            if group.id == option.id {
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(AppTheme.pickerSelectedBackground)
+                                    .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(AppTheme.pickerSelectedBorder, lineWidth: 0.5) }
+                                    .matchedGeometryEffect(id: "group", in: groupNamespace)
+                            }
+                        }
+                        .accessibilityAddTraits(group.id == option.id ? .isSelected : [])
                     }
                 }
-                .pickerStyle(.segmented)
-                .controlSize(.small)
-                .labelsHidden()
-                .fixedSize(horizontal: true, vertical: false)
-                .frame(maxWidth: .infinity, alignment: .center)
+                .animation(reduceMotion ? nil : .snappy(duration: 0.18), value: group.id)
+                .padding(3)
+                .background(AppTheme.pickerTrack, in: RoundedRectangle(cornerRadius: 8))
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel(L10n.text("antigravity.quota_group", fallback: "Quota group"))
                 .accessibilityIdentifier("antigravity.quotaGroupPicker")
             } else {
                 Text(L10n.format("antigravity.group.quota_title", fallback: "%@ quota",
@@ -76,24 +90,8 @@ struct AntigravityQuotaView: View {
         }
         .padding(AppTheme.Spacing.compact)
         .appCardSurface(cornerRadius: 10)
-        .overlay(alignment: .leading) {
-            Capsule()
-                .fill(accent)
-                .frame(width: 2)
-                .padding(.vertical, AppTheme.Spacing.compact)
-                .padding(.leading, 1)
-        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("antigravity.quotaGroup.\(group.id)")
-    }
-
-    private func groupAccent(for groupID: String) -> Color {
-        switch groupID {
-        case "gemini":
-            return AppTheme.cyan
-        default:
-            return AppTheme.lime
-        }
     }
 
     private var emptyState: some View {

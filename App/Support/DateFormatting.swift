@@ -1,6 +1,33 @@
 import Foundation
 
+@MainActor
 enum DisplayDateFormatter {
+    private static let activityFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = L10n.locale
+        formatter.timeZone = .autoupdatingCurrent
+        formatter.dateFormat = L10n.isSimplifiedChinese ? "M月d日 EEE" : "EEE, MMM d"
+        return formatter
+    }()
+    private static let monthFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = L10n.locale
+        formatter.timeZone = .autoupdatingCurrent
+        formatter.dateFormat = L10n.isSimplifiedChinese ? "M月" : "MMM"
+        return formatter
+    }()
+    private static let tokenFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.locale = L10n.locale
+        formatter.numberStyle = .decimal
+        return formatter
+    }()
+    static func activityDate(_ date: Date) -> String { activityFormatter.string(from: date) }
+    static func activityMonth(_ date: Date) -> String { monthFormatter.string(from: date) }
+    static func exactTokens(_ count: Int64) -> String { tokenFormatter.string(from: NSNumber(value: count)) ?? "\(count)" }
+
     private static let beijingCalendar: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!

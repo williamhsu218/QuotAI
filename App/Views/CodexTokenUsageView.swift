@@ -7,11 +7,12 @@ struct CodexTokenUsageView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var contrast
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hoveredDay: ActivityDay? = nil
 
     private let weeksCount = 18
-    private let cellSize: CGFloat = 11
-    private let cellGap: CGFloat = 2.8
+    private let cellSize: CGFloat = 12
+    private let cellGap: CGFloat = 3.2
     private let cornerRadius: CGFloat = 2.2
 
     private var palette: TokenActivityPalette {
@@ -23,14 +24,14 @@ struct CodexTokenUsageView: View {
         snapshot.tokenUsageSummary
     }
 
-    private var weeks: [ActivityWeek] {
-        snapshot.activityWeeks(count: weeksCount)
-    }
+    private let weeks: [ActivityWeek]
+    private let maxTokens: Int64
 
-    private var maxTokens: Int64 {
-        let bucketMax = snapshot.dailyUsageBuckets.map(\.tokens).max() ?? 0
-        let summaryPeak = summary?.peakDailyTokens ?? 0
-        return max(1, max(bucketMax, summaryPeak))
+    init(snapshot: UsageSnapshot) {
+        self.snapshot = snapshot
+        weeks = snapshot.activityWeeks(count: 18)
+        maxTokens = max(1, snapshot.dailyUsageBuckets.map(\.tokens).max() ?? 0,
+                        snapshot.tokenUsageSummary?.peakDailyTokens ?? 0)
     }
 
     var body: some View {
@@ -39,6 +40,8 @@ struct CodexTokenUsageView: View {
                 headerView
 
                 infoRow
+
+                monthLabels
 
                 matrixView
 
@@ -130,6 +133,25 @@ struct CodexTokenUsageView: View {
         .frame(height: 16)
     }
 
+    private var monthLabels: some View {
+        HStack(spacing: 0) {
+            Color.clear.frame(width: 17, height: 12)
+            ZStack(alignment: .leading) {
+                ForEach(Array(weeks.enumerated()), id: \.element.id) { index, week in
+                    if let day = week.days.first(where: { Calendar(identifier: .gregorian).component(.day, from: $0.date) == 1 }),
+                       index <= weeksCount - 3 {
+                        Text(DisplayDateFormatter.activityMonth(day.date))
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(AppTheme.secondaryText)
+                            .offset(x: CGFloat(index) * (cellSize + cellGap))
+                    }
+                }
+            }
+            .frame(width: CGFloat(weeksCount) * cellSize + CGFloat(weeksCount - 1) * cellGap, height: 12, alignment: .leading)
+        }
+        .accessibilityHidden(true)
+    }
+
     private var matrixView: some View {
         HStack(alignment: .top, spacing: 5) {
             weekdayLabelsColumn
@@ -144,7 +166,7 @@ struct CodexTokenUsageView: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .center)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(L10n.text("usage.accessibility_grid", fallback: "Token 历史活跃度方框图"))
     }
@@ -194,7 +216,7 @@ struct CodexTokenUsageView: View {
                 .frame(width: cellSize, height: cellSize)
                 .scaleEffect(isHovered ? 1.25 : 1.0)
                 .zIndex(isHovered ? 10 : 0)
-                .animation(.easeInOut(duration: 0.10), value: isHovered)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.10), value: isHovered)
                 .contentShape(Rectangle())
                 .onHover { hovering in
                     if hovering {
@@ -240,21 +262,11 @@ struct CodexTokenUsageView: View {
     }
 
     private func formattedDate(_ day: ActivityDay) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = L10n.locale
-        if L10n.isSimplifiedChinese {
-            formatter.dateFormat = "M月d日 EEE"
-        } else {
-            formatter.dateFormat = "EEE, MMM d"
-        }
-        return formatter.string(from: day.date)
+        DisplayDateFormatter.activityDate(day.date)
     }
 
     private func formattedExactTokens(_ count: Int64) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        return formatter.string(from: NSNumber(value: count)) ?? "\(count)"
+        DisplayDateFormatter.exactTokens(count)
     }
 
     private func formattedTokenText(_ count: Int64) -> String {

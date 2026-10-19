@@ -69,7 +69,7 @@ actor SubscriptionCounter {
         let inactive = try await ClaudeUsageQueryClient.fetch(executable: inactiveCLI)
         precondition(inactive.orderedReports.isEmpty && inactive.menuBarLines(for: .both) == ["--"])
         let pidFile = directory.appendingPathComponent("child-pid")
-        let slow = try fixture("slow", body: "import os\nopen('\(pidFile.path)', 'w').write(str(os.getpid()))\ntime.sleep(10)\n")
+        let slow = try fixture("slow", body: "import os, signal\nsignal.signal(signal.SIGTERM, signal.SIG_IGN)\nopen('\(pidFile.path)', 'w').write(str(os.getpid()))\ntime.sleep(10)\n")
         do { _ = try await ClaudeUsageQueryClient.fetch(executable: slow, timeout: 0.5); fatalError("Expected timeout") }
         catch ClaudeUsageQueryError.timeout { }
         let oversized = try fixture("oversized", body: "sys.stdout.buffer.write(b'A' * 2000000)\n")
@@ -82,9 +82,11 @@ actor SubscriptionCounter {
             try await Task.sleep(for: .milliseconds(20))
         }
         let childPID = Int32(try String(contentsOf: pidFile, encoding: .utf8))!
+        let cancelStart = ProcessInfo.processInfo.systemUptime
         cancelled.cancel()
-        precondition(kill(childPID, 0) == -1 && errno == ESRCH, "Cancellation must stop the child synchronously, including on app exit")
+        precondition(ProcessInfo.processInfo.systemUptime - cancelStart < 0.1, "Cancellation blocked its caller")
         do { _ = try await cancelled.value; fatalError("Expected cancellation") } catch is CancellationError { }
+        precondition(kill(childPID, 0) == -1 && errno == ESRCH, "Completion must reap the cancelled child")
         let suite = "QuotAIUsageProbe-" + UUID().uuidString
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }

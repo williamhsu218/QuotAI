@@ -2,7 +2,7 @@ import Darwin
 import Foundation
 
 /// Serializes launch and teardown so cancellation (including app shutdown)
-/// finishes this query's child before the store can start another one.
+/// signals this query's child immediately; the I/O worker reaps it before completion.
 private final class ClaudeUsageProcessControl: @unchecked Sendable {
     private let lock = NSLock()
     private var process: Process?
@@ -16,24 +16,25 @@ private final class ClaudeUsageProcessControl: @unchecked Sendable {
         }
     }
     func cancel() {
-        lock.withLock { cancelled = true; stopLocked() }
+        lock.withLock {
+            cancelled = true
+            // No grace-period sleep or wait on the cancelling (often main) thread.
+            if let process, process.isRunning { kill(process.processIdentifier, SIGKILL) }
+        }
+    }
+    func checkCancellation() throws {
+        try lock.withLock { if cancelled { throw CancellationError() } }
     }
     func stop() {
-        lock.withLock { stopLocked() }
-    }
-    private func stopLocked() {
-        guard let child = process else { return }
-        if child.isRunning {
-            child.terminate()
-            let deadline = ProcessInfo.processInfo.systemUptime + 0.3
-            while child.isRunning && ProcessInfo.processInfo.systemUptime < deadline { usleep(10_000) }
+        let child = lock.withLock { () -> Process? in
+            guard let child = process else { return nil }
             if child.isRunning { kill(child.processIdentifier, SIGKILL) }
+            process = nil
+            return child
         }
-        // Avoid waitUntilExit pumping the main run loop while cancellation
-        // holds this lock; Foundation observes child termination separately.
-        while child.isRunning { usleep(1_000) }
-        child.waitUntilExit()
-        process = nil
+        // Only the Dispatch I/O worker calls stop(). Never wait while holding
+        // the lock shared with the main-thread cancellation path.
+        child?.waitUntilExit()
     }
 }
 
@@ -57,12 +58,13 @@ enum ClaudeUsageQueryClient {
     private static func execute(executable: URL?, timeout: TimeInterval, arguments: [String],
                                 outputLimit: Int, acceptedExitCodes: [Int32] = [0]) async throws -> Data {
         let control = ClaudeUsageProcessControl()
-        let worker = Task.detached(priority: .utility) {
-            try run(executable: executable, timeout: timeout, arguments: arguments,
-                    outputLimit: outputLimit, acceptedExitCodes: acceptedExitCodes, control: control)
-        }
-        return try await withTaskCancellationHandler(operation: { try await worker.value }, onCancel: {
-            worker.cancel()
+        let queue = DispatchQueue(label: "com.willhsu.QuotAI.claude-io", qos: .utility)
+        return try await withTaskCancellationHandler(operation: {
+            try await ProcessIO.run(on: queue) {
+                try run(executable: executable, timeout: timeout, arguments: arguments,
+                        outputLimit: outputLimit, acceptedExitCodes: acceptedExitCodes, control: control)
+            }
+        }, onCancel: {
             control.cancel()
         })
     }
@@ -70,7 +72,7 @@ enum ClaudeUsageQueryClient {
     private static func run(executable: URL?, timeout: TimeInterval, arguments: [String],
                             outputLimit: Int, acceptedExitCodes: [Int32], control: ClaudeUsageProcessControl) throws -> Data {
         guard let executable = executable ?? ClaudeUsageBinaryLocator.locate() else { throw ClaudeUsageQueryError.cliMissing }
-        try Task.checkCancellation()
+        try control.checkCancellation()
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("quotai-usage-" + UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -96,7 +98,7 @@ enum ClaudeUsageQueryClient {
         let deadline = ProcessInfo.processInfo.systemUptime + timeout
         var data = Data(), eof = false
         while !eof {
-            try Task.checkCancellation()
+            try control.checkCancellation()
             guard ProcessInfo.processInfo.systemUptime < deadline else { throw ClaudeUsageQueryError.timeout }
             var descriptor = pollfd(fd: output.fileHandleForReading.fileDescriptor, events: Int16(POLLIN | POLLHUP), revents: 0)
             let ready = Darwin.poll(&descriptor, 1, 100)
@@ -113,11 +115,11 @@ enum ClaudeUsageQueryClient {
             }
         }
         while process.isRunning {
-            try Task.checkCancellation()
+            try control.checkCancellation()
             guard ProcessInfo.processInfo.systemUptime < deadline else { throw ClaudeUsageQueryError.timeout }
             usleep(10_000)
         }
-        try Task.checkCancellation()
+        try control.checkCancellation()
         guard acceptedExitCodes.contains(process.terminationStatus) else { throw ClaudeUsageQueryError.commandFailed }
         return data
     }

@@ -1,9 +1,11 @@
 import SwiftUI
 
 struct ClaudeCodeQuotaView: View {
+    @Environment(\.quotaPanelVisible) private var panelVisible
+    @State private var showsSourceInfo = false
     let store: ClaudeCodeUsageStore
     var body: some View {
-        TimelineView(.explicit(ClaudeCodeReportDisplayTimeline.entries(for: store.snapshot, from: Date()))) { _ in
+        TimelineView(.explicit(panelVisible ? ClaudeCodeReportDisplayTimeline.entries(for: store.snapshot, from: Date()) : [])) { _ in
             VStack(alignment: .leading, spacing: AppTheme.Spacing.small) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(L10n.text("claude.query.title", fallback: "Claude usage"))
@@ -35,9 +37,22 @@ struct ClaudeCodeQuotaView: View {
                     }
                     Divider().overlay(AppTheme.separator.opacity(0.5))
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(L10n.format("claude.query.queried_format", fallback: "Queried %@ · local Claude /usage", receiptTime(snapshot.lastCallbackAt)))
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Text(L10n.format("claude.query.queried_format", fallback: "Queried %@ · local Claude /usage", DisplayDateFormatter.compactDateTime(snapshot.lastCallbackAt)))
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 0)
+                            Button { showsSourceInfo.toggle() } label: {
+                                Image(systemName: "info.circle")
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(L10n.text("claude.query.source_detail", fallback: "Query snapshot; source sampling time and account ID not provided"))
+                            .help(L10n.text("claude.query.source_detail", fallback: "Query snapshot; source sampling time and account ID not provided"))
+                            .popover(isPresented: $showsSourceInfo) {
+                                Text(L10n.text("claude.query.source_detail", fallback: "Query snapshot; source sampling time and account ID not provided"))
+                                    .font(.callout).padding().frame(width: 260)
+                            }
+                        }
                         if historical { Text(L10n.text("claude.query.historical_detail", fallback: "Previous query result · refresh to update")) }
-                        Text(L10n.text("claude.query.source_detail", fallback: "Query snapshot; source sampling time and account ID not provided"))
                     }
                     .font(.system(size: AppTheme.TypeSize.small)).foregroundStyle(AppTheme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -60,11 +75,5 @@ struct ClaudeCodeQuotaView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .appCardSurface(cornerRadius: 10)
         }
-    }
-    private func receiptTime(_ date: Date) -> String {
-        let formatter = DateFormatter(); formatter.locale = L10n.locale
-        formatter.timeZone = TimeZone(identifier: "Asia/Shanghai")
-        formatter.dateFormat = L10n.isSimplifiedChinese ? "M月d日 HH:mm" : "MMM d HH:mm"
-        return formatter.string(from: date)
     }
 }
