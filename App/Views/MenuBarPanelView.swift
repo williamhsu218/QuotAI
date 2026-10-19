@@ -27,9 +27,7 @@ struct QuotaPopoverContent: View {
 }
 
 struct MenuBarPanelView: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.quotaPanelVisible) private var panelVisible
-    @Namespace private var providerNamespace
     @Environment(\.openSettings) private var openSettings
     @Environment(\.designPreviewRendering) private var designPreviewRendering
     @AppStorage(QuotaProvider.panelDefaultsKey)
@@ -158,51 +156,22 @@ struct MenuBarPanelView: View {
     }
 
     private var quotaProviderPicker: some View {
-        HStack(spacing: 2) {
+        Picker(
+            L10n.text("quota.provider", fallback: "Quota provider"),
+            selection: Binding(
+                get: { effectiveQuotaProvider },
+                set: { quotaProvider = $0 }
+            )
+        ) {
             ForEach(visibleProviders, id: \.self) { provider in
-                Button {
-                    quotaProvider = provider
-                } label: {
-                    Text(provider.displayName)
-                        .font(.system(size: AppTheme.TypeSize.caption, weight: effectiveQuotaProvider == provider ? .semibold : .medium))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, AppTheme.Spacing.xSmall)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(
-                    effectiveQuotaProvider == provider
-                        ? AppTheme.primaryText
-                        : AppTheme.secondaryText
-                )
-                .background {
-                    if effectiveQuotaProvider == provider {
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(AppTheme.pickerSelectedBackground)
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                    .strokeBorder(AppTheme.pickerSelectedBorder, lineWidth: 0.5)
-                            }
-                            .shadow(color: AppTheme.pickerSelectedShadow, radius: 2, y: 1)
-                            .matchedGeometryEffect(id: "provider", in: providerNamespace)
-                    }
-                }
-                .accessibilityLabel(provider.displayName)
-                .accessibilityAddTraits(
-                    effectiveQuotaProvider == provider ? .isSelected : []
-                )
+                Text(provider.displayName).tag(provider)
             }
         }
-        .animation(reduceMotion ? nil : .snappy(duration: 0.18), value: effectiveQuotaProvider)
-        .padding(3)
-        .background(
-            AppTheme.pickerTrack,
-            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-        )
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(
-            L10n.text("quota.provider", fallback: "Quota provider")
-        )
+        .pickerStyle(.segmented)
+        .controlSize(.large)
+        .labelsHidden()
+        .frame(maxWidth: .infinity)
+        .accessibilityIdentifier("quota.providerPicker")
     }
 
     private var quotaContent: some View {

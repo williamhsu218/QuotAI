@@ -1,8 +1,6 @@
 import SwiftUI
 
 struct AntigravityQuotaView: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Namespace private var groupNamespace
     @AppStorage(AntigravityQuotaGroup.panelGroupDefaultsKey)
     private var selectedGroupID = "gemini"
     let store: AntigravityUsageStore
@@ -18,33 +16,21 @@ struct AntigravityQuotaView: View {
     private func quotaGroup(_ group: AntigravityQuotaGroup, in snapshot: AntigravityQuotaSnapshot) -> some View {
         return VStack(alignment: .leading, spacing: AppTheme.Spacing.small) {
             if snapshot.panelGroups.count > 1 {
-                HStack(spacing: 2) {
+                Picker(
+                    L10n.text("antigravity.quota_group", fallback: "Quota group"),
+                    selection: Binding(
+                        get: { group.id },
+                        set: { selectedGroupID = $0 }
+                    )
+                ) {
                     ForEach(snapshot.panelGroups) { option in
-                        Button { selectedGroupID = option.id } label: {
-                            Text(AntigravityQuotaTab(rawValue: option.id)?.title ?? option.localizedDisplayName)
-                                .font(.system(size: AppTheme.TypeSize.caption, weight: group.id == option.id ? .semibold : .medium))
-                                .foregroundStyle(group.id == option.id ? AppTheme.primaryText : AppTheme.secondaryText)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, AppTheme.Spacing.xSmall)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .background {
-                            if group.id == option.id {
-                                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                    .fill(AppTheme.pickerSelectedBackground)
-                                    .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(AppTheme.pickerSelectedBorder, lineWidth: 0.5) }
-                                    .matchedGeometryEffect(id: "group", in: groupNamespace)
-                            }
-                        }
-                        .accessibilityAddTraits(group.id == option.id ? .isSelected : [])
+                        Text(AntigravityQuotaTab(rawValue: option.id)?.title ?? option.localizedDisplayName)
+                            .tag(option.id)
                     }
                 }
-                .animation(reduceMotion ? nil : .snappy(duration: 0.18), value: group.id)
-                .padding(3)
-                .background(AppTheme.pickerTrack, in: RoundedRectangle(cornerRadius: 8))
-                .accessibilityElement(children: .contain)
-                .accessibilityLabel(L10n.text("antigravity.quota_group", fallback: "Quota group"))
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(maxWidth: .infinity)
                 .accessibilityIdentifier("antigravity.quotaGroupPicker")
             } else {
                 Text(L10n.format("antigravity.group.quota_title", fallback: "%@ quota",

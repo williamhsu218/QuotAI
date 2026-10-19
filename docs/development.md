@@ -141,7 +141,7 @@ build/claude-usage-query-probe --live-subscription
 正式发布前需要审查工作区差异、版本说明和发布动作。
 脚本依赖 `Design/release-notes-<版本>.md`。本地修复、构建或文档整理均不等于发布授权。
 
-当前版本的测试、构建和安装状态以[版本说明](../Design/release-notes-2.1.6.md)为准，
+当前版本的测试、构建和安装状态以[版本说明](../Design/release-notes-2.1.7.md)为准，
 不能沿用旧版本的验收结果。
 
 ad-hoc 签名没有 Apple Developer ID 或公证。可信安装包经浏览器等途径传输后可能带隔离标记。

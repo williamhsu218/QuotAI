@@ -131,6 +131,8 @@ struct DesignPreviewApp: App {
                     )
                 }
             }
+            .environment(\.pickerAnimationDuration, CommandLine.arguments.contains("--slow-picker") ? 2 : AppTheme.Motion.quick)
+            .environment(\.pickerReduceMotionOverride, CommandLine.arguments.contains("--reduce-motion"))
         }
         .windowResizability(.contentSize)
 

@@ -52,8 +52,6 @@ struct SettingsView: View {
     let stayAwakeStore: StayAwakeStore
     var initialTab: SettingsTab = .general
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Namespace private var tabNamespace
     @State private var selectedTab: SettingsTab
 
     init(
@@ -184,21 +182,20 @@ struct SettingsView: View {
                     KeyEquivalent(Character(String(index + 1))),
                     modifiers: .command
                 )
-                .background {
-                    if selectedTab == tab {
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .fill(AppTheme.pickerSelectedBackground)
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                    .strokeBorder(AppTheme.pickerSelectedBorder, lineWidth: 0.5)
-                            }
-                            .shadow(color: AppTheme.pickerSelectedShadow, radius: 2, y: 1)
-                            .matchedGeometryEffect(id: "settingsTab", in: tabNamespace)
-                    }
+                .transaction { transaction in
+                    transaction.animation = nil
+                    transaction.disablesAnimations = true
                 }
             }
         }
-        .animation(reduceMotion ? nil : .snappy(duration: 0.18), value: selectedTab)
+        .background {
+            PickerSelectionBackground(
+                selectedIndex: SettingsTab.allCases.firstIndex(of: selectedTab) ?? 0,
+                count: SettingsTab.allCases.count,
+                spacing: AppTheme.Spacing.small,
+                cornerRadius: 7
+            )
+        }
         .padding(AppTheme.Spacing.xSmall)
         .background(
             AppTheme.pickerTrack,
