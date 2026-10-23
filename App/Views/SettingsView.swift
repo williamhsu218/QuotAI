@@ -267,7 +267,10 @@ struct SettingsView: View {
                         HStack {
                             Text(L10n.text("settings.antigravity_group", fallback: "Antigravity group"))
                             Spacer()
-                            Picker("", selection: $menuBarAntigravityGroupID) {
+                            Picker("", selection: Binding(
+                                get: { antigravityStore.snapshot?.group(id: menuBarAntigravityGroupID)?.id ?? menuBarAntigravityGroupID },
+                                set: { menuBarAntigravityGroupID = $0 }
+                            )) {
                                 if antigravityGroups.isEmpty {
                                     Text(L10n.text("settings.antigravity_unavailable", fallback: "Unavailable"))
                                         .tag(menuBarAntigravityGroupID)
@@ -664,7 +667,7 @@ struct SettingsView: View {
 
     private func normalizeAntigravityGroupSelection() {
         guard let firstID = antigravityGroupIDs.first,
-              !antigravityGroupIDs.contains(menuBarAntigravityGroupID) else {
+              menuBarAntigravityGroupID.isEmpty else {
             return
         }
         menuBarAntigravityGroupID = firstID

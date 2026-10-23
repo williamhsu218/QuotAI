@@ -29,8 +29,12 @@ struct AntigravityQuotaProbe {
             let snapshot = try await AntigravityQuotaClient().fetch()
             let summary: [String: Any] = [
                 "thirdPartyAvailability": snapshot.thirdPartyAvailability.rawValue,
+                "argonAvailability": snapshot.argonAvailability.rawValue,
                 "displayGroups": snapshot.displayGroups.map { group in
-                    ["id": group.id, "remaining": group.orderedQuotas.map(\.remainingPercent)] as [String: Any]
+                    ["id": group.id, "windows": group.orderedQuotas.map {
+                        ["kind": $0.kind.rawValue, "remaining": $0.remainingPercent,
+                         "resetsAt": $0.resetsAt.map { ISO8601DateFormatter().string(from: $0) } ?? ""] as [String: Any]
+                    }] as [String: Any]
                 }
             ]
             print(String(decoding: try JSONSerialization.data(withJSONObject: summary, options: [.sortedKeys]), as: UTF8.self))
@@ -87,6 +91,37 @@ struct AntigravityQuotaProbe {
         try await Task.sleep(for: .milliseconds(30))
         try require(stopped.snapshot == nil && stopped.phase == .idle, "Late result escaped stop generation")
         try require(keys.allSatisfy { defaults.string(forKey: $0) == "3p" }, "Late denial overwrote preferences")
+
+        let argonResponses = Responses([
+            .success(AntigravityQuotaFixtures.snapshot("argon")), .failure(.unavailable),
+            .success(AntigravityQuotaFixtures.snapshot("argon-unknown")),
+            .success(AntigravityQuotaFixtures.snapshot("argon-exhausted")),
+            .success(AntigravityQuotaFixtures.snapshot("argon-shared")),
+            .success(AntigravityQuotaFixtures.snapshot("argon-denied")),
+            .success(AntigravityQuotaFixtures.snapshot("argon"))
+        ])
+        for key in keys { defaults.set(AntigravityQuotaTab.argon.rawValue, forKey: key) }
+        let argon = AntigravityUsageStore(defaults: defaults, fetchSnapshot: { try await argonResponses.next() }, installationDetector: { true })
+        argon.start()
+        for _ in 0..<100 where argon.phase == .idle || argon.phase == .loading {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try require(argon.snapshot?.panelGroup(id: AntigravityQuotaTab.argon.rawValue)?.orderedQuotas.map(\.kind) == [.sevenDay], "Argon lost its weekly-only quota")
+        await argon.refresh()
+        try require(argon.snapshot == nil && keys.allSatisfy { defaults.string(forKey: $0) == AntigravityQuotaTab.argon.rawValue }, "Argon failure retained data or changed preferences")
+        await argon.refresh()
+        try require(argon.snapshot?.panelGroup(id: AntigravityQuotaTab.argon.rawValue)?.orderedQuotas.isEmpty == true, "Unknown Argon access exposed quota")
+        await argon.refresh()
+        try require(argon.snapshot?.panelGroup(id: AntigravityQuotaTab.argon.rawValue)?.isExhausted == true, "Exhaustion hid Argon")
+        await argon.refresh()
+        try require(argon.snapshot?.panelGroups.contains { $0.id == AntigravityQuotaTab.argon.rawValue } == false, "Shared quota fabricated an Argon pool")
+        try require(keys.allSatisfy { defaults.string(forKey: $0) == AntigravityQuotaTab.argon.rawValue }, "Shared or unknown quota rewrote Argon preferences")
+        await argon.refresh()
+        try require(keys.allSatisfy { defaults.string(forKey: $0) == "gemini" }, "Argon denial did not reconcile both selections")
+        await argon.refresh()
+        try require(argon.snapshot?.panelGroups.count == 3, "Argon access recovery did not restore all pools")
+        argon.stop()
         print("PASS: success, failure, unknown access, denial fallback, exhaustion, recovery, stop, late result; isolated defaults only")
+        print("PASS: Argon weekly-only, failure, unknown, exhaustion, shared-pool, denial and recovery; isolated defaults only")
     }
 }

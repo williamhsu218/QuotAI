@@ -24,7 +24,7 @@ QuotAI 是菜单栏 App，不显示 Dock 图标。安装后打开菜单栏图标
 | 来源 | 准备条件 |
 | --- | --- |
 | Codex | 本机 Codex / ChatGPT 已登录订阅账户；API Key 登录不提供订阅额度 |
-| Antigravity | 已安装、登录并正在运行；Gemini 与 Claude/GPT 额度分组显示 |
+| Antigravity | 已安装、登录并正在运行；Gemini、Argon 独立周额度与 Claude/GPT 按账号权限及实际额度池分组显示 |
 | Claude Code | 已安装并登录 Pro/Max 订阅的 Claude CLI，在设置中启用，然后点击刷新 |
 
 缺失数据不会显示成 0。Claude Code 的刷新按钮执行一次官方 CLI `/usage`，无需等待进行中的会话回调；
@@ -57,7 +57,7 @@ QuotAI 不读取 Antigravity 本机会话 Token。
 | [开发与验证](docs/development.md) | 源码结构、构建、测试、预览、打包及本地文件保留规则 |
 | [数据来源与隐私](docs/data-sources.md) | 三个来源的读取链路、统计口径、缓存与数据缺失处理 |
 | [界面设计规范](docs/design.md) | 材质、控件、颜色、图标和界面验收边界 |
-| [2.1.8 版本说明](Design/release-notes-2.1.8.md) | 当前版本变更与验收状态 |
+| [2.1.9 版本说明](Design/release-notes-2.1.9.md) | 当前版本变更与验收状态 |
 
 `Design/` 保留有效图标主稿和当前版本说明；旧设计过程、旧 QA 及旧版本说明由 Git 历史保存。
 生成的构建、截图和本机验收证据位于被 Git 忽略的 `build/`，不作为项目使用文档。

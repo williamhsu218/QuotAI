@@ -223,6 +223,13 @@ render_preview() {
   esac
 
   case "$scenario" in
+    argon|argon-denied|argon-unknown|argon-exhausted|argon-shared)
+      if [[ "$provider" != "antigravity" ]]; then
+        echo "Argon scenarios require Antigravity" >&2
+        exit 2
+      fi
+      output="$qa_root/implementation-$language-$appearance-antigravity-$scenario.png"
+      ;;
     standard|recent|waiting|stale|single|weekly|inactive|expired)
       if [[ "$scenario" != "standard" && "$provider" != "claude" ]]; then
         echo "report scenarios require Claude" >&2
@@ -237,7 +244,7 @@ render_preview() {
       output="$qa_root/implementation-$language-$appearance-codex-sparse.png"
       ;;
     *)
-      echo "scenario must be standard, sparse, recent, waiting, stale, single, weekly, inactive or expired" >&2
+      echo "scenario must be standard, sparse, a Claude report scenario or an Argon scenario" >&2
       exit 2
       ;;
   esac

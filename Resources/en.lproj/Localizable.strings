@@ -260,3 +260,6 @@
 "antigravity.models.read_failed" = "Model access unavailable";
 "antigravity.quota.missing" = "No quota was returned for this group. Try refreshing.";
 "antigravity.quota.exhausted" = "Quota exhausted · waiting for reset";
+"antigravity.argon.separate_weekly" = "Independent weekly quota";
+"antigravity.argon.unavailable" = "Gemini 4 Argon is not available for this account.";
+"antigravity.argon.unknown" = "Gemini 4 Argon access could not be read. Try refreshing.";

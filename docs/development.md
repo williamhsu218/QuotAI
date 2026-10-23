@@ -101,6 +101,8 @@ python3 Tools/antigravity_transport_probe.py /tmp/quotai-transport-probe
 加 `--live` 只读实际账号额度与权限分类，不输出认证或模型配置原文。
 原生预览支持 `antigravity` 来源及 `available`、`denied`、`exhausted`、`unknown`、`missing`、`failed` 场景，
 例如 `QUOTAI_BUILD_ROOT=/tmp/quotai-qa ./script/build_and_run.sh --preview panel general dark antigravity denied`。
+Argon 独立周额度场景为 `argon`、`argon-denied`、`argon-unknown`、`argon-exhausted`、`argon-shared`；
+可用于原生预览和 `--render-preview`。`argon-shared` 模拟没有独立池的账号，不新增 Argon 标签。
 `QUOTAI_BUILD_ROOT` 可将构建、预览和打包产物放在项目外；未设置时保持原有 `build/` 路径。
 
 Claude Code 当前使用官方 CLI `/usage` 查询；保留旧状态栏辅助程序用于安全退役和配置恢复。
@@ -155,7 +157,7 @@ xcrun swiftc -parse-as-library -target arm64-apple-macosx14.0 \
 探针检查呈现图层在连续布局、高度变化和中途反向切换时的运动连续性，以及减少动态效果下即时到位。
 它不代替正式弹窗的交互与观感验收。
 
-当前版本的测试、构建和安装状态以[版本说明](../Design/release-notes-2.1.8.md)为准，
+当前版本的测试、构建和安装状态以[版本说明](../Design/release-notes-2.1.9.md)为准，
 不能沿用旧版本的验收结果。
 
 ad-hoc 签名没有 Apple Developer ID 或公证。可信安装包经浏览器等途径传输后可能带隔离标记。

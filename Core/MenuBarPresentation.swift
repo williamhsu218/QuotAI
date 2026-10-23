@@ -81,14 +81,14 @@ public struct MenuBarPresentation: Equatable, Sendable {
             let group = antigravitySnapshot?.group(id: selectedGroupID)
             groupID = group?.id
             switch group?.id.lowercased() {
-            case "gemini": icon = .gemini
+            case "gemini", AntigravityQuotaTab.argon.rawValue: icon = .gemini
             case "3p": icon = .thirdParty
             default: icon = .antigravity
             }
             lines = group?.menuBarLines(for: mode, now: now) ?? ["--"]
             detail = [effectiveProvider.displayName, group?.localizedDisplayName,
                       lines.joined(separator: " · "),
-                      group?.id == "3p" ? antigravitySnapshot?.thirdPartyStatusMessage : nil]
+                      group.flatMap { antigravitySnapshot?.modelStatusMessage(for: $0.id) }]
                 .compactMap { $0 }.joined(separator: " · ")
             fetchedAt = antigravitySnapshot?.fetchedAt
         case .claudeCode:

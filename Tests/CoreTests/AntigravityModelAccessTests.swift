@@ -97,3 +97,67 @@ func exhaustedQuotaDoesNotHideTab() throws {
         #expect(snapshot.panelGroup(id: "3p")?.isExhausted == (fraction == 0))
     }
 }
+
+@Test("Argon access follows enabled account models and tiers, including exhausted models",
+      arguments: ["gemini-4-argon-low", "gemini-4-argon-medium", "gemini-4-argon-high"])
+func argonAccountAccess(model: String) {
+    let data = status(#"[{"modelId":"\#(model)","allowedTiers":["TEAMS_TIER_PRO"],"quotaInfo":{"remainingFraction":0}}]"#)
+    #expect(AntigravityModelAccessParser.argonAvailability(data: data) == .available)
+    #expect(AntigravityModelAccessParser.thirdPartyAvailability(data: data) == .unavailable)
+}
+
+@Test("Argon permission denial and read failures remain distinct")
+func argonPermissionStates() {
+    for models in ["[]", #"[{"modelId":"gemini-3.8-flash-high"},{"modelId":"claude-opus-5-5"}]"#,
+                   #"[{"modelId":"gemini-4-argon-high","disabled":true}]"#,
+                   #"[{"modelId":"gemini-4-argon-high","allowedTiers":["TEAMS_TIER_PRO_ULTIMATE"]}]"#] {
+        #expect(AntigravityModelAccessParser.argonAvailability(data: status(models)) == .unavailable)
+    }
+    for data: Data? in [nil, Data("invalid".utf8), status(#"[{"modelId":"future-family"}]"#),
+                       status(#"[{"modelId":"gemini-4-argon-high","allowedTiers":["TEAMS_TIER_PRO"]}]"#, tier: nil)] {
+        #expect(AntigravityModelAccessParser.argonAvailability(data: data) == .unknown)
+    }
+    let aliased = status(#"[{"label":"Gemini 4 Argon (High)","modelOrAlias":{"model":"MODEL_PLACEHOLDER_M417"}}]"#)
+    #expect(AntigravityModelAccessParser.argonAvailability(data: aliased) == .available)
+    // An Argon entry is a known Google model, not an unknown third-party family.
+    #expect(AntigravityModelAccessParser.thirdPartyAvailability(data: aliased) == .unavailable)
+}
+
+@Test("An Argon bucket never proves entitlement and transient failures preserve both selections")
+func argonSafePresentationAndFallback() throws {
+    let base = AntigravityQuotaSnapshot.preview
+    let argon = AntigravityQuotaGroup(id: AntigravityQuotaTab.argon.rawValue, displayName: "Gemini 4 Argon",
+        fiveHour: nil, sevenDay: .init(kind: .sevenDay, remainingPercent: 37, resetsAt: nil))
+    let suite = "QuotAI.argon-tests." + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let panelKey = AntigravityQuotaGroup.panelGroupDefaultsKey
+    let menuKey = AntigravityQuotaGroup.menuBarGroupDefaultsKey
+    for key in [panelKey, menuKey] { defaults.set(argon.id, forKey: key) }
+
+    let unknown = AntigravityQuotaSnapshot(fetchedAt: base.fetchedAt, groups: base.groups + [argon],
+        thirdPartyAvailability: .available)
+    unknown.reconcileUnavailableSelections(in: defaults)
+    #expect(unknown.panelGroup(id: argon.id)?.orderedQuotas.isEmpty == true)
+    #expect(unknown.panelGroups.map(\.id) == ["gemini", argon.id, "3p"])
+    let menu = MenuBarPresentation(provider: .antigravity, antigravityEnabled: true, antigravityAvailable: true,
+        selectedGroupID: argon.id, mode: .both, codexSnapshot: .preview, antigravitySnapshot: unknown, isStayAwakeActive: false)
+    #expect(menu.groupID == argon.id && menu.icon == .gemini && menu.lines == ["--"])
+    #expect(menu.detail.contains(try #require(unknown.modelStatusMessage(for: argon.id))))
+    #expect(!menu.detail.contains("37%"))
+    #expect([panelKey, menuKey].allSatisfy { defaults.string(forKey: $0) == argon.id })
+
+    let denied = AntigravityQuotaSnapshot(fetchedAt: base.fetchedAt, groups: base.groups + [argon],
+        thirdPartyAvailability: .available, argonAvailability: .unavailable)
+    #expect(denied.panelGroups.map(\.id) == ["gemini", "3p"])
+    // Reconcile only the denied selection; the other picker remains independent.
+    defaults.set("3p", forKey: menuKey)
+    denied.reconcileUnavailableSelections(in: defaults)
+    #expect(defaults.string(forKey: panelKey) == "gemini")
+    #expect(defaults.string(forKey: menuKey) == "3p")
+
+    // Ultra-style shared quota must not invent a second Argon pool.
+    let shared = AntigravityQuotaSnapshot(fetchedAt: base.fetchedAt, groups: base.groups,
+        thirdPartyAvailability: .available, argonAvailability: .available)
+    #expect(shared.panelGroups.map(\.id) == ["gemini", "3p"])
+}

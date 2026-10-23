@@ -9,6 +9,16 @@ public enum AntigravityModelAvailability: String, Codable, Equatable, Sendable {
 
 public enum AntigravityModelAccessParser {
     public static func thirdPartyAvailability(data: Data?) -> AntigravityModelAvailability {
+        availability(data: data, family: .thirdParty)
+    }
+
+    public static func argonAvailability(data: Data?) -> AntigravityModelAvailability {
+        availability(data: data, family: .argon)
+    }
+
+    private enum Family { case thirdParty, argon }
+
+    private static func availability(data: Data?, family: Family) -> AntigravityModelAvailability {
         guard let data,
               let envelope = try? JSONDecoder().decode(StatusEnvelope.self, from: data),
               let status = envelope.userStatus ?? envelope.response?.userStatus ?? envelope.response?.directStatus ?? envelope.directStatus,
@@ -24,9 +34,11 @@ public enum AntigravityModelAccessParser {
                 .compactMap { $0?.lowercased() }
             let isThirdParty = identifiers.contains { $0.hasPrefix("claude") || $0.hasPrefix("gpt") }
             let isGemini = identifiers.contains { $0.hasPrefix("gemini") }
-            guard isThirdParty else {
+            let isArgon = identifiers.contains { $0.hasPrefix("gemini") && $0.contains("argon") }
+            let matches = family == .thirdParty ? isThirdParty : isArgon
+            guard matches else {
                 // A future family must not be interpreted as a denial.
-                if !isGemini { hasUnknown = true }
+                if !isGemini && !isThirdParty { hasUnknown = true }
                 continue
             }
             if let allowedTiers = model.allowedTiers {

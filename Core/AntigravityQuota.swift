@@ -58,12 +58,14 @@ public enum QuotaProvider: String, Codable, CaseIterable, Sendable {
 
 public enum AntigravityQuotaTab: String, CaseIterable, Identifiable, Sendable {
     case gemini
+    case argon = "gemini-argon-wtu"
     case thirdParty = "3p"
 
     public var id: String { rawValue }
     public var title: String {
         switch self {
         case .gemini: "Gemini"
+        case .argon: "Argon"
         case .thirdParty: "Claude / GPT"
         }
     }
@@ -100,6 +102,8 @@ public struct AntigravityQuotaGroup: Codable, Equatable, Identifiable, Sendable 
         switch id.lowercased() {
         case "gemini":
             L10n.text("antigravity.group.gemini", fallback: "Gemini Models")
+        case AntigravityQuotaTab.argon.rawValue:
+            "Gemini 4 Argon"
         case "3p":
             L10n.text(
                 "antigravity.group.third_party",
@@ -136,6 +140,7 @@ public struct AntigravityQuotaGroup: Codable, Equatable, Identifiable, Sendable 
     private var menuBarPrefix: String {
         switch id.lowercased() {
         case "gemini": "✦"
+        case AntigravityQuotaTab.argon.rawValue: "✦"
         case "3p": "✳"
         default: "⟁"
         }
@@ -147,23 +152,34 @@ public struct AntigravityQuotaSnapshot: Codable, Equatable, Sendable {
     public let groups: [AntigravityQuotaGroup]
     public let subscriptionPlan: SubscriptionPlan?
     public let thirdPartyAvailability: AntigravityModelAvailability
+    public let argonAvailability: AntigravityModelAvailability
 
     public init(
         fetchedAt: Date,
         groups: [AntigravityQuotaGroup],
         subscriptionPlan: SubscriptionPlan? = nil,
-        thirdPartyAvailability: AntigravityModelAvailability = .unknown
+        thirdPartyAvailability: AntigravityModelAvailability = .unknown,
+        argonAvailability: AntigravityModelAvailability = .unknown
     ) {
         self.fetchedAt = fetchedAt
         self.groups = groups
         self.subscriptionPlan = subscriptionPlan
         self.thirdPartyAvailability = thirdPartyAvailability
+        self.argonAvailability = argonAvailability
     }
 
     /// Only presentation-safe values may reach the panel, settings or menu bar.
-    /// Unknown entitlement keeps the selection, but suppresses third-party numbers.
+    /// Unknown entitlement keeps the selection, but suppresses protected pool numbers.
     public var displayGroups: [AntigravityQuotaGroup] {
         var result = groups.compactMap { group -> AntigravityQuotaGroup? in
+            if group.id == AntigravityQuotaTab.argon.rawValue {
+                switch argonAvailability {
+                case .unavailable: return nil
+                case .available: return group
+                case .unknown:
+                    return .init(id: group.id, displayName: group.displayName, fiveHour: nil, sevenDay: nil)
+                }
+            }
             guard group.id == "3p" else { return group }
             switch thirdPartyAvailability {
             case .unavailable: return nil
@@ -196,6 +212,23 @@ public struct AntigravityQuotaSnapshot: Codable, Equatable, Sendable {
         }
     }
 
+    public func modelAccessIsUnknown(for groupID: String) -> Bool {
+        (groupID == "3p" && thirdPartyAvailability == .unknown)
+            || (groupID == AntigravityQuotaTab.argon.rawValue && argonAvailability == .unknown)
+    }
+
+    public func modelStatusMessage(for groupID: String) -> String? {
+        if groupID == "3p" { return thirdPartyStatusMessage }
+        guard groupID == AntigravityQuotaTab.argon.rawValue else { return nil }
+        switch argonAvailability {
+        case .available: return nil
+        case .unavailable:
+            return L10n.text("antigravity.argon.unavailable", fallback: "Gemini 4 Argon is not available for this account.")
+        case .unknown:
+            return L10n.text("antigravity.argon.unknown", fallback: "Gemini 4 Argon access could not be read. Try refreshing.")
+        }
+    }
+
     public func group(id: String?) -> AntigravityQuotaGroup? {
         let displayed = displayGroups
         return displayed.first { $0.id == id }
@@ -211,10 +244,13 @@ public struct AntigravityQuotaSnapshot: Codable, Equatable, Sendable {
     /// Persist a fallback only after a successful, explicit entitlement denial.
     /// Temporary read failures must not overwrite either independent selection.
     public func reconcileUnavailableSelections(in defaults: UserDefaults) {
-        guard thirdPartyAvailability == .unavailable,
-              displayGroups.contains(where: { $0.id == "gemini" }) else { return }
+        guard displayGroups.contains(where: { $0.id == "gemini" }) else { return }
+        let denied = [
+            thirdPartyAvailability == .unavailable ? "3p" : nil,
+            argonAvailability == .unavailable ? AntigravityQuotaTab.argon.rawValue : nil
+        ].compactMap { $0 }
         for key in [AntigravityQuotaGroup.panelGroupDefaultsKey, AntigravityQuotaGroup.menuBarGroupDefaultsKey]
-            where defaults.string(forKey: key) == "3p" {
+            where defaults.string(forKey: key).map(denied.contains) == true {
             defaults.set("gemini", forKey: key)
         }
     }
@@ -336,7 +372,8 @@ public enum AntigravityQuotaParser {
             fetchedAt: fetchedAt,
             groups: groups,
             subscriptionPlan: plan,
-            thirdPartyAvailability: AntigravityModelAccessParser.thirdPartyAvailability(data: userStatusData)
+            thirdPartyAvailability: AntigravityModelAccessParser.thirdPartyAvailability(data: userStatusData),
+            argonAvailability: AntigravityModelAccessParser.argonAvailability(data: userStatusData)
         )
     }
 

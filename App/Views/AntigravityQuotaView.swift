@@ -42,14 +42,19 @@ struct AntigravityQuotaView: View {
             if group.orderedQuotas.isEmpty {
                 QuotaEmptyState(
                     isLoading: store.isLoading,
-                    title: group.id == "3p" && snapshot.thirdPartyAvailability == .unknown
+                    title: snapshot.modelAccessIsUnknown(for: group.id)
                         ? L10n.text("antigravity.models.read_failed", fallback: "Model access unavailable")
                         : L10n.text("empty.antigravity_failed", fallback: "Antigravity quota unavailable"),
-                    detail: snapshot.thirdPartyStatusMessage
+                    detail: snapshot.modelStatusMessage(for: group.id)
                         ?? L10n.text("antigravity.quota.missing", fallback: "No quota was returned for this group. Try refreshing.")
                 ) { Task { await store.userRefresh() } }
                 .accessibilityIdentifier("antigravity.groupReadFailure")
             } else {
+                if group.id == AntigravityQuotaTab.argon.rawValue {
+                    Text(L10n.text("antigravity.argon.separate_weekly", fallback: "Independent weekly quota"))
+                        .font(.system(size: AppTheme.TypeSize.small))
+                        .foregroundStyle(AppTheme.secondaryText)
+                }
                 if group.isExhausted {
                     Label(L10n.text("antigravity.quota.exhausted", fallback: "Quota exhausted · waiting for reset"),
                           systemImage: "hourglass")

@@ -25,10 +25,12 @@ struct RenderDesignPreview {
         UserDefaults.standard.set(provider.rawValue, forKey: QuotaProvider.panelDefaultsKey)
         UserDefaults.standard.set(provider.rawValue, forKey: QuotaProvider.menuBarDefaultsKey)
         if provider == .antigravity {
-            UserDefaults.standard.set(CommandLine.arguments.contains("--ag-claude") ? "3p" : "gemini",
+            let argon = CommandLine.arguments.contains { $0.hasPrefix("--ag-state=argon") }
+            let groupID = argon ? AntigravityQuotaTab.argon.rawValue : CommandLine.arguments.contains("--ag-claude") ? "3p" : "gemini"
+            UserDefaults.standard.set(groupID,
                                       forKey: AntigravityQuotaGroup.panelGroupDefaultsKey)
             UserDefaults.standard.set(
-                CommandLine.arguments.contains("--ag-claude") ? "3p" : "gemini",
+                groupID,
                 forKey: AntigravityQuotaGroup.menuBarGroupDefaultsKey
             )
         }

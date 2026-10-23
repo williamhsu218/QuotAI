@@ -66,7 +66,7 @@ struct DesignPreviewApp: App {
                 UserDefaults.standard.set(QuotaProvider.antigravity.rawValue, forKey: key)
             }
             for key in [AntigravityQuotaGroup.panelGroupDefaultsKey, AntigravityQuotaGroup.menuBarGroupDefaultsKey] {
-                UserDefaults.standard.set("3p", forKey: key)
+                UserDefaults.standard.set(agScenario.hasPrefix("argon") ? AntigravityQuotaTab.argon.rawValue : "3p", forKey: key)
             }
         }
         _antigravityStore = State(initialValue: AntigravityUsageStore(previewMode: true,

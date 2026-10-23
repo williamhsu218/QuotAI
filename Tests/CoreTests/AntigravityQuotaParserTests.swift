@@ -99,8 +99,8 @@ func antigravityQuotaTabPreferences() throws {
     defaults.set("3p", forKey: AntigravityQuotaGroup.panelGroupDefaultsKey)
     #expect(defaults.string(forKey: AntigravityQuotaGroup.menuBarGroupDefaultsKey) == "gemini")
     #expect(defaults.string(forKey: AntigravityQuotaGroup.panelGroupDefaultsKey) == "3p")
-    #expect(AntigravityQuotaTab.allCases.map(\.title) == ["Gemini", "Claude / GPT"])
-    #expect(AntigravityQuotaTab.allCases.map(\.rawValue) == ["gemini", "3p"])
+    #expect(AntigravityQuotaTab.allCases.map(\.title) == ["Gemini", "Argon", "Claude / GPT"])
+    #expect(AntigravityQuotaTab.allCases.map(\.rawValue) == ["gemini", "gemini-argon-wtu", "3p"])
 }
 
 @Test("The two quota tabs never substitute an unknown pool for a known model family")
@@ -219,4 +219,40 @@ func parsesAntigravityUserStatusPayload() throws {
     )
 
     #expect(snapshot.subscriptionPlan?.displayName == "Pro")
+}
+
+@Test("Antigravity 2.25 Argon weekly quota stays separate from Gemini and third-party pools")
+func parsesDedicatedArgonWeeklyPool() throws {
+    // Vendor schema observed on 2026-10-23; percentages are synthetic and deliberately distinct.
+    let json = #"{"response":{"groups":[{"displayName":"Gemini Models","buckets":[{"bucketId":"gemini-weekly","window":"weekly","remainingFraction":0.94},{"bucketId":"gemini-5h","window":"5h","remainingFraction":1}]},{"displayName":"Claude and GPT models","buckets":[{"bucketId":"3p-weekly","window":"weekly","remainingFraction":0.82}]},{"displayName":"Gemini 4 Argon","buckets":[{"bucketId":"gemini-argon-wtu-weekly","window":"weekly","remainingFraction":0.37,"resetTime":"2026-10-30T02:58:21Z"}]}]}}"#
+    let status = #"{"userStatus":{"planStatus":{"planInfo":{"teamsTier":"TEAMS_TIER_PRO"}},"cascadeModelConfigData":{"clientModelConfigs":[{"modelId":"gemini-4-argon-high","allowedTiers":["TEAMS_TIER_PRO"]},{"modelId":"claude-opus-5-5-high"}]}}}"#
+    let snapshot = try AntigravityQuotaParser.parse(data: Data(json.utf8), userStatusData: Data(status.utf8))
+    let argonID = "gemini-argon-wtu"
+    #expect(snapshot.argonAvailability == .available)
+    #expect(snapshot.panelGroups.map(\.id) == ["gemini", argonID, "3p"])
+    let argon = try #require(snapshot.panelGroup(id: argonID))
+    #expect(argon.id == argonID)
+    #expect(argon.fiveHour == nil)
+    #expect(argon.sevenDay?.remainingPercent == 37)
+    #expect(argon.sevenDay?.resetsAt == ISO8601DateFormatter().date(from: "2026-10-30T02:58:21Z"))
+    #expect(snapshot.panelGroup(id: "gemini")?.sevenDay?.remainingPercent == 94)
+    #expect(snapshot.panelGroup(id: "3p")?.sevenDay?.remainingPercent == 82)
+    for mode in MenuBarQuotaDisplayMode.allCases {
+        let menu = MenuBarPresentation(provider: .antigravity, antigravityEnabled: true, antigravityAvailable: true,
+            selectedGroupID: argonID, mode: mode, codexSnapshot: .preview, antigravitySnapshot: snapshot, isStayAwakeActive: false)
+        #expect(menu.groupID == argonID && menu.icon == .gemini)
+        #expect(menu.lines == (mode == .fiveHour ? ["5h --"] : ["7d 37%"]))
+        #expect(menu.detail.contains("Gemini 4 Argon"))
+    }
+}
+
+@Test("Zero Argon quota remains visible with its reset time and access")
+func argonZeroQuota() throws {
+    let data = Data(#"{"groups":[{"displayName":"Gemini 4 Argon","buckets":[{"bucketId":"gemini-argon-wtu-weekly","window":"weekly","remainingFraction":0,"resetTime":"2026-10-30T02:58:21Z"}]}]}"#.utf8)
+    let status = Data(#"{"cascadeModelConfigData":{"clientModelConfigs":[{"modelId":"gemini-4-argon-medium","quotaInfo":{"remainingFraction":0}}]}}"#.utf8)
+    let snapshot = try AntigravityQuotaParser.parse(data: data, userStatusData: status)
+    let group = try #require(snapshot.panelGroup(id: "gemini-argon-wtu"))
+    #expect(group.id == "gemini-argon-wtu" && group.isExhausted)
+    #expect(group.sevenDay?.remainingPercent == 0 && group.sevenDay?.resetsAt != nil)
+    #expect(snapshot.argonAvailability == .available)
 }
