@@ -111,6 +111,27 @@ import Testing
         #expect(throws: ClaudeUsageQueryError.invalidOutput) { try ClaudeUsageQueryParser.parse(Data("not JSON".utf8), at: now) }
         #expect(throws: ClaudeUsageQueryError.oversizedOutput) { try ClaudeUsageQueryParser.parse(Data(repeating: 65, count: ClaudeUsageQueryParser.outputLimit + 1), at: now) }
     }
+    @Test func loggedInCLIWithOnlyLocalActivityIsNotSubscriptionQuota() throws {
+        // Claude Code 2.1.312 returns a successful zero-turn envelope even
+        // when its separate subscription-usage request times out.
+        let text = """
+        You are currently using your subscription to power your Claude Code usage
+
+        What's contributing to your usage?
+        Approximate · sessions on this machine only · shares overlap
+
+        Last 24h · 12 requests · 1 session
+          100%  Stop sessions you no longer need
+        Last 7d · 24 requests · 2 sessions
+          95%  Start fresh when you switch tasks
+        """
+        #expect(throws: ClaudeUsageQueryError.noQuota) {
+            try ClaudeUsageQueryParser.parse(input(text, changes: ["local_command": "usage"]), at: now)
+        }
+        let partial = try ClaudeUsageQueryParser.parse(input(text + "\n" + lines.components(separatedBy: .newlines)[1]), at: now)
+        #expect(partial.fiveHour == nil)
+        #expect(partial.sevenDay?.quota.remainingPercent == 91)
+    }
     @Test func yearRolloverAndAmbiguousDST() throws {
         let december = ISO8601DateFormatter().date(from: "2026-12-31T15:40:00Z")!
         let next = try ClaudeUsageQueryParser.parse(input("Current session: 15% used · resets Jan 1 at 12:05am (Asia/Shanghai)"), at: december)

@@ -249,7 +249,7 @@
 "claude.query.window_unavailable_format" = "%@ · 暂无有效重置时间";
 "claude.query.error.model" = "Claude 未返回内置 /usage 结果，已丢弃该响应。";
 "claude.query.error.login" = "请使用订阅账号登录 Claude CLI 后刷新。";
-"claude.query.error.no_quota" = "Claude /usage 未返回订阅额度，请检查 CLI 登录与套餐。";
+"claude.query.error.no_quota" = "Claude /usage 未返回订阅额度，额度请求可能失败。请检查 CLI 的网络连接后重试。";
 "claude.query.error.failed" = "Claude /usage 查询失败，请检查 CLI 登录与网络后重试。";
 "claude.subscription.cached" = "已缓存的 Claude 套餐 · 刷新以更新";
 "claude.subscription.reported" = "Claude CLI 报告的订阅套餐";

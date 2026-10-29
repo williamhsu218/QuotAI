@@ -250,9 +250,11 @@ struct MenuBarPanelView: View {
 
     private var footer: some View {
         HStack(spacing: AppTheme.Spacing.medium) {
-            TimelineView(.animation(minimumInterval: 60, paused: !panelVisible)) { context in
+            TimelineView(.animation(minimumInterval: 60, paused: !panelVisible)) { _ in
                 Label {
-                    Text(statusMessage(at: context.date))
+                    // A refresh can update the snapshot between timeline ticks.
+                    // Compare it with the render time, not an older tick date.
+                    Text(statusMessage(at: Date()))
                         .foregroundStyle(AppTheme.secondaryText)
                 } icon: {
                     Image(systemName: statusIcon)

@@ -232,5 +232,6 @@ final class ClaudeCodeUsageStore: QuotaProviderStore {
         let seven = ClaudeCodeQuotaReport(kind: .sevenDay, usedPercentage: 9, resetsAt: scenario == "expired" ? now.addingTimeInterval(-60) : now.addingTimeInterval(3 * 86_400), firstObservedAt: received)
         snapshot = ClaudeCodeQuotaSnapshot(fiveHour: scenario == "weekly" ? nil : five, sevenDay: scenario == "single" ? nil : seven, sessionFingerprint: "usage-query", lastCallbackAt: received, source: .usageQuery)
         if scenario == "conflict" { phase = .failed(ClaudeUsageQueryError.timeout.localizedDescription) }
+        if scenario == "unavailable" { phase = .failed(ClaudeUsageQueryError.noQuota.localizedDescription) }
     }
 }

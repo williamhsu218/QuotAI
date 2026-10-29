@@ -13,7 +13,7 @@ public enum ClaudeUsageQueryError: Error, LocalizedError, Equatable {
         case .invalidResetTime: L10n.text("claude.query.error.reset_time", fallback: "Claude /usage returned a reset time that could not be verified. Try refreshing again.")
         case .modelResponse: L10n.text("claude.query.error.model", fallback: "Claude did not return a local /usage result. This response was discarded.")
         case .loginRequired: L10n.text("claude.query.error.login", fallback: "Sign in to Claude CLI with your subscription, then refresh.")
-        case .noQuota: L10n.text("claude.query.error.no_quota", fallback: "Claude /usage returned no subscription limits. Check your CLI login and plan.")
+        case .noQuota: L10n.text("claude.query.error.no_quota", fallback: "Claude /usage did not return subscription limits. Its quota request may have failed. Check the CLI’s network connection and retry.")
         case .commandFailed: L10n.text("claude.query.error.failed", fallback: "Claude /usage failed. Check your CLI login and network, then refresh.")
         }
     }
@@ -64,6 +64,9 @@ public enum ClaudeUsageQueryParser {
         }
         // A recognized built-in result may have no active windows. Returning
         // that state clears previous numbers rather than retaining a false error.
+        // The CLI can exit successfully after a quota request times out and
+        // return only local activity statistics. Those percentages are not
+        // subscription limits, and this does not establish a login failure.
         guard !seenKinds.isEmpty else { throw ClaudeUsageQueryError.noQuota }
         return ClaudeCodeQuotaSnapshot(fiveHour: windows[.fiveHour], sevenDay: windows[.sevenDay],
             sessionFingerprint: "usage-query", lastCallbackAt: now, source: .usageQuery)
