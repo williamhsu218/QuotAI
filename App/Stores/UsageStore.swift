@@ -98,7 +98,12 @@ final class UsageStore: QuotaProviderStore {
         phase = .loading
         do {
             let customPath = UserDefaults.standard.string(forKey: "codexBinaryPath")
-            let fetched = try await client.fetch(customPath: customPath)
+            let hadResetCredits = (snapshot?.availableResetCount ?? 0) > 0
+                || snapshot?.resetCredits.isEmpty == false
+            let fetched = try await client.fetch(
+                customPath: customPath,
+                confirmsEmptyResetCredits: hadResetCredits
+            )
             let latest = fetched.preservingResetCredits(from: snapshot)
             snapshot = latest
             phase = .ready

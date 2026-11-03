@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Test, build and probe
+    # The app uses guarded macOS 26 APIs, so it needs the macOS 26 SDK.
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select the newest stable Xcode
+        run: |
+          latest="$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -viE 'beta|_rc' | sort -V | tail -n 1 || true)"
+          if [[ -n "$latest" ]]; then
+            sudo xcode-select -s "$latest/Contents/Developer"
+          fi
+          xcodebuild -version
+          swift --version
+
+      - name: Core tests
+        run: swift test
+
+      - name: Debug build
+        run: |
+          xcodebuild -quiet -project QuotAI.xcodeproj -scheme QuotAI -configuration Debug \
+            -destination 'platform=macOS' -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO build
+
+      - name: Isolated probes
+        run: ./script/run_probes.sh
+
+      - name: Universal Release package
+        run: |
+          mkdir -p build/qa
+          if ! ./script/build_and_run.sh --package-release > build/qa/package-release.log 2>&1; then
+            grep -E "error:" build/qa/package-release.log | sort -u | head -40 || true
+            tail -n 60 build/qa/package-release.log
+            exit 1
+          fi
+          tail -n 2 build/qa/package-release.log
+          lipo -archs build/Distribution/QuotAI-*/QuotAI.app/Contents/MacOS/QuotAI
+
+      - name: Upload the ad-hoc signed package
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuotAI-macos-universal
+          path: build/Distribution/*.zip
+          retention-days: 7
+          if-no-files-found: error

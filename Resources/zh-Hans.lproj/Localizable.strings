@@ -169,7 +169,6 @@
 // Legacy provider label and shared quota states
 "provider.claude" = "Claude Code";
 "claude.report.title" = "本机报告";
-"claude.report.beijing" = "北京时间";
 "claude.report.source_unknown" = "源采样时间未提供";
 "claude.report.window_received_format" = "%@ 收到于 %@";
 "claude.report.session" = "会话";

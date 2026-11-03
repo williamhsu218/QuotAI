@@ -48,7 +48,9 @@ final class AntigravityUsageStore: QuotaProviderStore {
         fetchSnapshot: @escaping @Sendable () async throws -> AntigravityQuotaSnapshot = {
             try await AntigravityQuotaClient.shared.fetch()
         },
-        installationDetector: @escaping @Sendable () -> Bool = { ProviderInstallationDetector.antigravity() }
+        installationDetector: @escaping @Sendable () -> Bool = {
+            ProviderInstallationDetector.antigravity(cache: .shared)
+        }
     ) {
         self.previewMode = previewMode
         self.defaults = defaults

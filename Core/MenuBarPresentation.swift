@@ -71,7 +71,7 @@ public struct MenuBarPresentation: Equatable, Sendable {
 
         let fetchedAt: Date?
         switch effectiveProvider {
-        case .codex, .claude:
+        case .codex:
             groupID = nil
             icon = .codex
             lines = codexSnapshot?.menuBarLines(for: mode, now: now) ?? ["--"]

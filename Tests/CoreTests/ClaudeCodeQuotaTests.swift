@@ -84,17 +84,11 @@ struct ClaudeCodeQuotaTests {
         #expect(!ClaudeCodeQuotaReport(kind: .fiveHour, usedPercentage: .nan, resetsAt: now.addingTimeInterval(10), firstObservedAt: now).isDisplayable(at: now))
     }
 
-    @Test("Session selection stays pinned and missing selected sessions are unavailable")
-    func selectionIsolation() throws {
+    @Test("Different sessions never share a first-observed receipt")
+    func sessionIsolation() throws {
         let first = try #require(parse(input(usedFive: 20, usedSeven: nil, session: "session-one")))
         let second = try #require(parse(input(usedFive: 80, usedSeven: nil, session: "session-two")))
         #expect(first.sessionFingerprint != second.sessionFingerprint)
-        var selection = ClaudeCodeSessionSelection(selectedSessionID: first.sessionFingerprint)
-        #expect(selection.resolve(in: [first]) == first)
-        #expect(selection.resolve(in: [second, first]) == first)
-        #expect(selection.resolve(in: [second]) == nil)
-        selection.selectedSessionID = second.sessionFingerprint
-        #expect(selection.resolve(in: [first, second]) == second)
         let candidate = try #require(parse(input(usedFive: 20, usedSeven: nil, session: "session-two"), previous: first, at: now.addingTimeInterval(60)))
         #expect(candidate.fiveHour?.firstObservedAt == now.addingTimeInterval(60))
     }

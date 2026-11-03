@@ -56,7 +56,11 @@ actor CodexAppServerClient {
         category: "CodexProcess"
     )
 
-    func fetch(customPath: String?) async throws -> UsageSnapshot {
+    /// - Parameter confirmsEmptyResetCredits: Re-read once when the response
+    ///   reports no reset credits. Pass true only when the previous snapshot
+    ///   had credits: a transient empty response would otherwise erase them.
+    ///   Accounts that already had none skip the second app-server launch.
+    func fetch(customPath: String?, confirmsEmptyResetCredits: Bool = false) async throws -> UsageSnapshot {
         let executables = try CodexBinaryLocator.candidates(customPath: customPath)
         var failures: [CodexAppServerClientError] = []
 
@@ -67,7 +71,8 @@ actor CodexAppServerClient {
                     try Self.fetchSynchronously(executable: executable)
                 }
                 try Task.checkCancellation()
-                guard snapshot.hasCurrentResetCreditData,
+                guard confirmsEmptyResetCredits,
+                      snapshot.hasCurrentResetCreditData,
                       snapshot.availableResetCount == 0,
                       snapshot.resetCredits.isEmpty else {
                     return snapshot

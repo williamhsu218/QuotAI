@@ -71,7 +71,7 @@ func menuBarNoData(mode: MenuBarQuotaDisplayMode) {
         #expect(!value.detail.contains("%"))
         #expect(value.groupID == nil)
         let expectedIcon: MenuBarPresentation.Icon = switch provider {
-        case .codex, .claude, .claudeCode: .codex // Unenabled / retired Claude falls back.
+        case .codex, .claudeCode: .codex // An unenabled Claude source falls back.
         case .antigravity: .antigravity
         }
         #expect(value.icon == expectedIcon)
@@ -125,12 +125,12 @@ func menuBarRetiredClaudeProvider() throws {
     defer { defaults.removePersistentDomain(forName: suite) }
     defaults.set("claude", forKey: QuotaProvider.menuBarDefaultsKey)
     defaults.set("claude", forKey: QuotaProvider.panelDefaultsKey)
-    defaults.set(true, forKey: QuotaProvider.claudeIntegrationDefaultsKey)
 
-    let decoded = try JSONDecoder().decode(QuotaProvider.self, from: Data("\"claude\"".utf8))
-    #expect(decoded == .claude)
+    #expect(QuotaProvider(rawValue: "claude") == nil)
+    #expect((try? JSONDecoder().decode(QuotaProvider.self, from: Data("\"claude\"".utf8))) == nil)
     for key in [QuotaProvider.menuBarDefaultsKey, QuotaProvider.panelDefaultsKey] {
-        let saved = try #require(defaults.string(forKey: key).flatMap(QuotaProvider.init(rawValue:)))
+        // Mirrors the app: an unknown saved value resolves to the Codex default.
+        let saved = defaults.string(forKey: key).flatMap(QuotaProvider.init(rawValue:)) ?? .codex
         for (enabled, available) in [(true, true), (false, true), (true, false), (false, false)] {
             let value = presentation(provider: saved, groupID: "3p", enabled: enabled, available: available)
             #expect(value.provider == .codex)
@@ -141,7 +141,6 @@ func menuBarRetiredClaudeProvider() throws {
         }
         #expect(defaults.string(forKey: key) == "claude")
     }
-    #expect(defaults.bool(forKey: QuotaProvider.claudeIntegrationDefaultsKey))
 }
 
 @Test("Only Codex and installed, enabled Antigravity are offered as quota sources")

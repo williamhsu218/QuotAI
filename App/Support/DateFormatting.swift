@@ -28,16 +28,18 @@ enum DisplayDateFormatter {
     static func activityMonth(_ date: Date) -> String { monthFormatter.string(from: date) }
     static func exactTokens(_ count: Int64) -> String { tokenFormatter.string(from: NSNumber(value: count)) ?? "\(count)" }
 
-    private static let beijingCalendar: Calendar = {
+    /// Reset and expiry times follow the Mac's current time zone, including
+    /// later system changes, so "Today" matches the user's own calendar day.
+    private static let displayCalendar: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        calendar.timeZone = .autoupdatingCurrent
         return calendar
     }()
 
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = L10n.locale
-        formatter.timeZone = TimeZone(identifier: "Asia/Shanghai")
+        formatter.timeZone = .autoupdatingCurrent
         formatter.dateFormat = "HH:mm"
         return formatter
     }()
@@ -45,7 +47,7 @@ enum DisplayDateFormatter {
     private static let monthDayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = L10n.locale
-        formatter.timeZone = TimeZone(identifier: "Asia/Shanghai")
+        formatter.timeZone = .autoupdatingCurrent
         formatter.setLocalizedDateFormatFromTemplate("MMMdHHmm")
         return formatter
     }()
@@ -63,7 +65,7 @@ enum DisplayDateFormatter {
         guard let date else {
             return L10n.text("date.reset_unknown", fallback: "Reset time unknown")
         }
-        if beijingCalendar.isDate(date, inSameDayAs: now) {
+        if displayCalendar.isDate(date, inSameDayAs: now) {
             return L10n.format(
                 "date.reset_today_format",
                 fallback: "Resets: Today %@",
