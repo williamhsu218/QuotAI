@@ -10,9 +10,9 @@ App 支持 macOS 14+。构建需 Swift 6 和包含 macOS 26 SDK 的 Xcode 26 或
 
 | 路径 | 用途 |
 | --- | --- |
-| `App/` | AppKit 菜单栏入口、SwiftUI 界面、数据源服务和状态管理 |
-| `Core/` | 额度模型、Codex 用量解析、安装检测和旧状态栏迁移 |
-| `Tests/CoreTests/` | Swift Package 核心测试 |
+| `App/` | AppKit 菜单栏入口与 SwiftUI 界面（`Support/` 为主题与菜单栏渲染） |
+| `Core/` | 额度模型、解析、安装检测与旧状态栏迁移；`Services/` 为各来源的数据读取，`Stores/` 为状态管理，`Support/` 为日期格式化 |
+| `Tests/CoreTests/` | Swift Package 测试，覆盖 `Core/` 全部内容（含 Stores 与 Services） |
 | `Preview/`、`Tools/` | 隔离预览、渲染器和诊断探针 |
 | `Resources/` | 英文与简体中文资源 |
 | `Assets.xcassets/`、`Design/` | 生产素材、有效主稿和当前版本说明 |
@@ -69,8 +69,8 @@ ZIP 作为 7 天有效的构建产物上传。CI 不发布 Release，也不代�
 
 ```bash
 mkdir -p build
-swiftc -parse-as-library Core/*.swift App/Services/CodexBinaryLocator.swift \
-  App/Services/CodexAppServerClient.swift Tools/ClientFallbackProbe.swift \
+swiftc -parse-as-library Core/*.swift Core/Services/CodexBinaryLocator.swift \
+  Core/Services/CodexAppServerClient.swift Tools/ClientFallbackProbe.swift \
   -o build/client-fallback-probe
 for mode in silent eof unsupported usage launchFailure emptyCredits; do
   QUOTAI_PROBE_MODE=$mode build/client-fallback-probe || exit 1
@@ -80,7 +80,7 @@ done
 Codex 命令发现的隔离回归探针，覆盖桌面版优先、旧路径、CLI 回退、自定义路径和符号链接去重，使用临时可执行文件：
 
 ```bash
-swiftc -parse-as-library Core/*.swift App/Services/CodexBinaryLocator.swift \
+swiftc -parse-as-library Core/*.swift Core/Services/CodexBinaryLocator.swift \
   Tools/CodexBinaryLocatorProbe.swift -o build/codex-binary-locator-probe
 build/codex-binary-locator-probe
 ```
@@ -90,8 +90,8 @@ Antigravity 仅保留实时额度与账号模型权限链路，不再扫描本�
 
 ```bash
 xcrun swiftc -swift-version 6 -strict-concurrency=complete -parse-as-library Core/*.swift \
-  App/Stores/QuotaProviderStore.swift App/Stores/AntigravityUsageStore.swift \
-  App/Services/AntigravityQuotaClient.swift App/Support/DateFormatting.swift \
+  Core/Stores/QuotaProviderStore.swift Core/Stores/AntigravityUsageStore.swift \
+  Core/Services/AntigravityQuotaClient.swift Core/Support/DateFormatting.swift \
   Tools/AntigravityQuotaFixtures.swift Tools/AntigravityQuotaProbe.swift -o /tmp/quotai-antigravity-probe
 /tmp/quotai-antigravity-probe
 ```
@@ -100,7 +100,7 @@ xcrun swiftc -swift-version 6 -strict-concurrency=complete -parse-as-library Cor
 
 ```bash
 xcrun swiftc -swift-version 6 -strict-concurrency=complete -parse-as-library Core/*.swift \
-  App/Services/AntigravityQuotaClient.swift Tools/AntigravityTransportProbe.swift \
+  Core/Services/AntigravityQuotaClient.swift Tools/AntigravityTransportProbe.swift \
   -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker App/Info.plist \
   -o /tmp/quotai-transport-probe
 python3 Tools/antigravity_transport_probe.py /tmp/quotai-transport-probe
@@ -120,8 +120,8 @@ Claude Code 当前使用官方 CLI `/usage` 查询；保留旧状态栏辅助程
 
 ```bash
 swiftc -swift-version 6 -strict-concurrency=complete -parse-as-library Core/*.swift \
-  App/Stores/QuotaProviderStore.swift App/Stores/ClaudeCodeUsageStore.swift \
-  App/Services/ClaudeUsageQueryClient.swift Tools/ClaudeUsageQueryProbe.swift \
+  Core/Stores/QuotaProviderStore.swift Core/Stores/ClaudeCodeUsageStore.swift \
+  Core/Services/ClaudeUsageQueryClient.swift Tools/ClaudeUsageQueryProbe.swift \
   -o build/claude-usage-query-probe
 build/claude-usage-query-probe
 build/claude-usage-query-probe --live

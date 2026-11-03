@@ -40,6 +40,21 @@ jobs:
             -destination 'platform=macOS' -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO build
 
+      - name: Design preview renders
+        timeout-minutes: 10
+        run: |
+          ./script/build_and_run.sh --render-preview en light codex
+          ./script/build_and_run.sh --render-preview zh-Hans dark claude recent
+          ./script/build_and_run.sh --render-preview en light antigravity
+
+      - name: Upload design previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-previews
+          path: build/qa/*.png
+          retention-days: 7
+          if-no-files-found: error
+
       - name: Isolated probes
         run: |
           # The Claude store probe injects every query, but the store only

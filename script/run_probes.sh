@@ -16,37 +16,37 @@ cd "$ROOT_DIR"
 step() { printf '\n==== %s ====\n' "$*"; }
 
 step "Codex client fallback"
-xcrun swiftc -parse-as-library Core/*.swift App/Services/CodexBinaryLocator.swift \
-  App/Services/CodexAppServerClient.swift Tools/ClientFallbackProbe.swift \
+xcrun swiftc -parse-as-library Core/*.swift Core/Services/CodexBinaryLocator.swift \
+  Core/Services/CodexAppServerClient.swift Tools/ClientFallbackProbe.swift \
   -o "$OUT/client-fallback-probe"
 for mode in silent eof unsupported usage launchFailure emptyCredits; do
   QUOTAI_PROBE_MODE=$mode "$OUT/client-fallback-probe"
 done
 
 step "Codex binary discovery"
-xcrun swiftc -parse-as-library Core/*.swift App/Services/CodexBinaryLocator.swift \
+xcrun swiftc -parse-as-library Core/*.swift Core/Services/CodexBinaryLocator.swift \
   Tools/CodexBinaryLocatorProbe.swift -o "$OUT/codex-binary-locator-probe"
 "$OUT/codex-binary-locator-probe"
 
 step "Antigravity store and model access"
 xcrun swiftc -swift-version 6 -strict-concurrency=complete -parse-as-library Core/*.swift \
-  App/Stores/QuotaProviderStore.swift App/Stores/AntigravityUsageStore.swift \
-  App/Services/AntigravityQuotaClient.swift App/Support/DateFormatting.swift \
+  Core/Stores/QuotaProviderStore.swift Core/Stores/AntigravityUsageStore.swift \
+  Core/Services/AntigravityQuotaClient.swift Core/Support/DateFormatting.swift \
   Tools/AntigravityQuotaFixtures.swift Tools/AntigravityQuotaProbe.swift \
   -o "$OUT/antigravity-probe"
 "$OUT/antigravity-probe"
 
 step "Antigravity loopback transport"
 xcrun swiftc -swift-version 6 -strict-concurrency=complete -parse-as-library Core/*.swift \
-  App/Services/AntigravityQuotaClient.swift Tools/AntigravityTransportProbe.swift \
+  Core/Services/AntigravityQuotaClient.swift Tools/AntigravityTransportProbe.swift \
   -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker App/Info.plist \
   -o "$OUT/transport-probe"
 python3 Tools/antigravity_transport_probe.py "$OUT/transport-probe"
 
 step "Claude usage query store"
 xcrun swiftc -swift-version 6 -strict-concurrency=complete -parse-as-library Core/*.swift \
-  App/Stores/QuotaProviderStore.swift App/Stores/ClaudeCodeUsageStore.swift \
-  App/Services/ClaudeUsageQueryClient.swift Tools/ClaudeUsageQueryProbe.swift \
+  Core/Stores/QuotaProviderStore.swift Core/Stores/ClaudeCodeUsageStore.swift \
+  Core/Services/ClaudeUsageQueryClient.swift Tools/ClaudeUsageQueryProbe.swift \
   -o "$OUT/claude-usage-query-probe"
 "$OUT/claude-usage-query-probe"
 
