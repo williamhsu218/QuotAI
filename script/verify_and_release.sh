@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Verify QuotAI and, only if every check passes, commit any working-tree
-# changes, tag, push and publish the GitHub release. When the release changes
-# are already committed (for example merged through a pull request), the
-# current commit is tagged as is.
-# Usage: ./script/verify_and_release.sh 2.0.15 [--check-only]
+# Validate a release candidate. Publishing requires the explicit --publish flag
+# and a clean, already-committed tree; this script never stages user changes.
+# Usage: ./script/verify_and_release.sh 3.0.0 [--check-only|--publish]
 set -euo pipefail
 
-VERSION="${1:?usage: $0 <version> [--check-only]}"
-CHECK_ONLY="${2:-}"
+VERSION="${1:?usage: $0 <version> [--check-only|--publish]}"
+ACTION="${2:---check-only}"
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Invalid version' >&2; exit 2; }
+[[ "$ACTION" == '--check-only' || "$ACTION" == '--publish' ]] || { echo 'Unknown action' >&2; exit 2; }
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 mkdir -p build/qa
@@ -17,6 +17,14 @@ exec > >(tee "$LOG") 2>&1
 step() { printf '\n==== %s ====\n' "$*"; }
 fail() { printf '\nRESULT: FAILED — %s\n' "$*"; exit 1; }
 trap 'fail "command failed on line $LINENO"' ERR
+
+if [[ "$ACTION" == '--publish' ]]; then
+  [[ -z "$(git status --porcelain)" ]] || fail "commit the intended release changes first; the tree must be clean"
+  command -v gh >/dev/null || fail "gh is required for explicit publishing"
+fi
+
+step "Formatting"
+git ls-files -z '*.swift' | xargs -0 swift format lint --strict --parallel
 
 step "Version"
 grep -q "MARKETING_VERSION = $VERSION;" QuotAI.xcodeproj/project.pbxproj \
@@ -65,29 +73,25 @@ echo "$SHA  $(basename "$ZIP_PATH")" > "$SUMS"
 cat "$SUMS"
 
 printf '\nRESULT: ALL CHECKS PASSED for %s\n' "$VERSION"
-[[ "$CHECK_ONLY" == "--check-only" ]] && exit 0
+[[ "$ACTION" == "--check-only" ]] && exit 0
 
-step "Commit, tag and push"
-git add -A
-if git diff --cached --quiet; then
-  echo "No uncommitted changes; tagging the current commit $(git rev-parse --short HEAD)"
-else
-  git commit -q -F - <<MSG
-Release QuotAI $VERSION
+step "Signed update feed preparation"
+./script/prepare_update.py "$ZIP_PATH"
+FEED="build/Distribution/appcast-$VERSION.xml"
 
-See Design/release-notes-$VERSION.md for the changes and validation scope.
-MSG
-fi
+step "Tag the reviewed commit and push"
+[[ -z "$(git status --porcelain)" ]] || fail "working tree changed during verification"
 git tag -a "v$VERSION" -m "Release QuotAI $VERSION"
 git push origin HEAD
 git push origin "v$VERSION"
 
 step "GitHub release"
 if command -v gh >/dev/null 2>&1; then
-  gh release create "v$VERSION" "$ZIP_PATH" "$SUMS" \
+  gh release create "v$VERSION" "$ZIP_PATH" "$SUMS" "$FEED" \
     --title "QuotAI $VERSION" --notes-file "Design/release-notes-$VERSION.md" --latest
   gh release view "v$VERSION" --json url,assets --jq '.url, (.assets[] | .name + " " + (.size|tostring))'
 else
   echo "gh CLI not found: upload $ZIP_PATH and $SUMS to the v$VERSION release on GitHub manually."
 fi
+echo "After verifying the uploaded asset, promote $FEED to Updates/appcast.xml through a reviewed commit."
 printf '\nRESULT: RELEASED %s\n' "$VERSION"

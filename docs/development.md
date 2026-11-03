@@ -180,7 +180,7 @@ xcrun swiftc -parse-as-library -target arm64-apple-macosx14.0 \
 探针检查呈现图层在连续布局、高度变化和中途反向切换时的运动连续性，以及减少动态效果下即时到位。
 它不代替正式弹窗的交互与观感验收。
 
-当前版本的测试、构建和安装状态以[版本说明](../Design/release-notes-2.2.0.md)为准，
+当前版本的测试、构建和安装状态以[版本说明](../Design/release-notes-3.0.0.md)为准，
 不能沿用旧版本的验收结果。
 
 ad-hoc 签名没有 Apple Developer ID 或公证。可信安装包经浏览器等途径传输后可能带隔离标记。
@@ -200,3 +200,22 @@ open "/Applications/QuotAI.app"
 - 真实数据库、缓存和偏好快照不是可再生构建缓存。`build/InstallBackups/` 及各验收目录内的此类文件应单独保留，不随旧应用包删除。
 - `.build/` 是 Swift Package 开发缓存，`.git/` 保存项目历史；它们不属于过时文档。
 - 不将凭据、对话或真实数据写入项目文档。需要记录故障时保留脱敏结论和定位方法。
+
+
+## 3.0 架构与可选功能
+
+`QuotAIAppModel` 持有稳定的 `QuotaProviderRegistry`、Store 与可选功能控制器。AppDelegate、面板与设置统一从注册表解析来源及刷新目标。实现 `QuotaProviderPlugin`，提供 descriptor、独立 Store、生命周期和 `ProviderQuotaSnapshot` 后即可注册；新的适配器默认复用通用额度视图及菜单栏/通知/趋势/小组件投影。注册表验证重复 ID，Codex 为保留回退；原有持久化 ID 与设置键保持不变。这里的插件是编译期适配模块，不加载第三方二进制或脚本。
+
+`Core` 是 SPM 可测试 target，包含 Services/Stores/Support/Features/Widget 的无 UI 数据层。`App` 仅负责原生桥接与视图，WidgetKit 扩展只编译共享快照、私有文件写入、共用额度视图和本地化。新增源文件可运行 `python3 script/configure_platform_targets.py`，脚本幂等同步工程及平台 target；版本更新必须同时修改 App/Widget 的版本，打包验证会检查一致性。
+
+### 签名、小组件与更新
+
+Sparkle 固定为 2.9.6，并提交 `Package.resolved`。CI 无需发布密钥，生成 ad-hoc 包并检查 app/extension 通用架构、版本与所有嵌套签名；ad-hoc 构建不支持团队 App Group。正式团队签名可通过 `QUOTAI_SIGN_IDENTITY` 与 `QUOTAI_SIGN_TEAM` 传给 `--package-release`，App 与扩展的 App Group 使用 `<TEAMID>.com.willhsu.QuotAI`。
+
+本机独立 QA：`./script/build_signed_qa.py` 使用已有 Apple Development 身份，产物位于 `build/SignedQA/`。QA Bundle ID、URL scheme 与 App Group 独立，并始终使用合成 Store、跳过真实 CLI 配置迁移；启动加 `--qa-widget --qa-shortcut` 可验证共享容器与快捷键。其签名不代表 Developer ID 分发或公证。
+
+`./script/build_and_run.sh --render-widget en light medium fresh` 以及 `... zh-Hans dark small expired` 渲染扩展使用的同一个内容组件，不能替代系统桌面宿主验证。
+
+`./script/prepare_update.py <archive.zip>` 验证实际包、匹配内置公钥后，使用官方 Sparkle 工具从 `com.willhsu.QuotAI` 钥匙串条目签名并立即验证，只输出候选 feed，不上传、不导出私钥、不修改 git。默认工具目录为 `build/SparkleSDK/distribution/bin`，可用 `SPARKLE_BIN` 覆盖。只从官方 Sparkle 2.9.6 发行页获取工具。先上传并核验 archive，再通过评审提交将候选 feed 提升到 `Updates/appcast.xml`，防止更新源先于资源生效。
+
+`verify_and_release.sh <version>` 默认仅验证；只有显式 `--publish` 才打 tag、推送并发布。发布要求工作树已干净且意图变更已提交，脚本不会执行 `git add -A` 或代提交其他修改。首次安装仍走现有手动分发流程，2.x 没有 Sparkle；3.0 之后的已签名版本可通过应用内更新。Developer ID/公证与另一台 Mac 的 Gatekeeper 验收需要单独完成。

@@ -21,6 +21,18 @@ public enum DefaultsKey {
     /// Set by versions that installed the Claude Code status-line bridge.
     public static let legacyClaudeStatusLineBridge = "claudeCodeRateLimitBridgeEnabled"
 
+    // Optional 3.0 features; unset values keep all automatic behavior off.
+    public static let quotaNotifications = "quotaNotificationsEnabled"
+    public static let lowQuotaThreshold = "lowQuotaThresholdPercent"
+    public static let resetNotifications = "quotaResetNotificationsEnabled"
+    public static let notificationSound = "quotaNotificationSoundEnabled"
+    public static let quotaHistory = "quotaHistoryRecordingEnabled"
+    public static let quotaWidgets = "quotaWidgetSharingEnabled"
+    public static let globalShortcut = "globalPanelShortcutEnabled"
+    public static let claudeAutoRefresh = "claudeAutomaticRefreshSeconds"
+    public static let automaticUpdateChecks = "SUEnableAutomaticChecks"
+    public static let automaticUpdateInstallation = "SUAutomaticallyUpdate"
+
     // Stay Awake
     public static let stayAwakeEnabled = "stayAwakeEnabled"
     public static let stayAwakeDuration = "stayAwakeDuration"

@@ -65,7 +65,28 @@ struct RenderDesignPreview {
         let stayAwakeStore = StayAwakeStore(previewMode: true)
         let colorScheme: ColorScheme = CommandLine.arguments.contains("--dark") ? .dark : .light
         NSApplication.shared.appearance = NSAppearance(named: colorScheme == .dark ? .darkAqua : .aqua)
-        if CommandLine.arguments.contains("--token-themes") {
+        if CommandLine.arguments.contains("--widget") {
+            let now = Date()
+            let medium = CommandLine.arguments.contains("--widget-medium")
+            let expired = CommandLine.arguments.contains("--widget-expired")
+            let stale = CommandLine.arguments.contains("--widget-stale")
+            let rows = [82, 93, 76, 61, 0, 19].enumerated().map { index, percent in
+                WidgetQuotaRow(
+                    id: "sample/\(index)", providerID: ["codex", "antigravity", "claudeCode"][index / 2],
+                    title: ["Codex", "Antigravity · Gemini", "Claude Code"][index / 2],
+                    window: index % 2 == 0 ? "5h" : "7d",
+                    remainingPercent: percent, resetsAt: now.addingTimeInterval(expired ? -1 : 3_600),
+                    fetchedAt: now.addingTimeInterval(stale ? -2_000 : 0), historical: stale)
+            }
+            let size = CGSize(width: medium ? 344 : 164, height: 164)
+            try write(
+                WidgetQuotaContent(
+                    snapshot: .init(version: 1, generatedAt: now, rows: rows), date: now, compact: !medium
+                )
+                .padding(14).frame(width: size.width, height: size.height)
+                .background(Color(nsColor: .windowBackgroundColor))
+                .environment(\.colorScheme, colorScheme), size: size)
+        } else if CommandLine.arguments.contains("--token-themes") {
             let size = CGSize(width: 388, height: 470)
             try write(
                 tokenThemePreview(theme: tokenTheme, colorScheme: colorScheme)
@@ -77,11 +98,13 @@ struct RenderDesignPreview {
         } else if CommandLine.arguments.contains("--settings") {
             let size = CGSize(width: 480, height: 420)
             let initialTab: SettingsTab =
-                CommandLine.arguments.contains("--about")
-                ? .about
-                : CommandLine.arguments.contains("--menu-bar")
-                    ? .menuBar
-                    : CommandLine.arguments.contains("--providers") ? .providers : .general
+                CommandLine.arguments.contains("--features")
+                ? .features
+                : CommandLine.arguments.contains("--about")
+                    ? .about
+                    : CommandLine.arguments.contains("--menu-bar")
+                        ? .menuBar
+                        : CommandLine.arguments.contains("--providers") ? .providers : .general
             try write(
                 SettingsView(
                     store: store,

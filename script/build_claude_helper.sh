@@ -27,3 +27,9 @@ else
 fi
 chmod 755 "$HELPER_TEMP/quotai-claude-statusline"
 mv "$HELPER_TEMP/quotai-claude-statusline" "$OUTPUT"
+
+# lipo produces an unsigned universal executable. Sign this nested helper before
+# Xcode seals the containing app when building with a real signing identity.
+if [[ "${CODE_SIGNING_ALLOWED:-NO}" == YES && -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" ]]; then
+  codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" --options runtime --timestamp=none "$OUTPUT"
+fi

@@ -78,6 +78,7 @@ func menuBarNoData(mode: MenuBarQuotaDisplayMode) {
             switch provider {
             case .codex, .claudeCode: .codex  // An unenabled Claude source falls back.
             case .antigravity: .antigravity
+            default: .codex
             }
         #expect(value.icon == expectedIcon)
     }

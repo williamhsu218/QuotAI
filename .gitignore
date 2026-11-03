@@ -6,3 +6,5 @@ QuotAI.xcodeproj/xcuserdata/
 CodexIndicator.xcodeproj/project.xcworkspace/xcuserdata/
 CodexIndicator.xcodeproj/xcuserdata/
 *.xcuserstate
+
+__pycache__/

@@ -23,7 +23,17 @@ func persistedPreferenceKeys() {
         (DefaultsKey.stayAwakeExpiration, "stayAwakeExpiration"),
         (DefaultsKey.stayAwakeMode, "stayAwakeMode"),
         (DefaultsKey.legacyAppLanguage, "appLanguage"),
-        (DefaultsKey.legacyPreferencesMigrated, "didMigrateLegacyQuotAIPreferencesV2")
+        (DefaultsKey.legacyPreferencesMigrated, "didMigrateLegacyQuotAIPreferencesV2"),
+        (DefaultsKey.quotaNotifications, "quotaNotificationsEnabled"),
+        (DefaultsKey.lowQuotaThreshold, "lowQuotaThresholdPercent"),
+        (DefaultsKey.resetNotifications, "quotaResetNotificationsEnabled"),
+        (DefaultsKey.notificationSound, "quotaNotificationSoundEnabled"),
+        (DefaultsKey.quotaHistory, "quotaHistoryRecordingEnabled"),
+        (DefaultsKey.quotaWidgets, "quotaWidgetSharingEnabled"),
+        (DefaultsKey.globalShortcut, "globalPanelShortcutEnabled"),
+        (DefaultsKey.claudeAutoRefresh, "claudeAutomaticRefreshSeconds"),
+        (DefaultsKey.automaticUpdateChecks, "SUEnableAutomaticChecks"),
+        (DefaultsKey.automaticUpdateInstallation, "SUAutomaticallyUpdate")
     ]
     for (key, stored) in keys {
         #expect(key == stored)

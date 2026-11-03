@@ -7,6 +7,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     case general
     case menuBar
     case providers
+    case features
     case about
 
     var id: String { rawValue }
@@ -19,6 +20,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
             return L10n.text("settings.tab.menu_bar", fallback: "Menu Bar")
         case .providers:
             return L10n.text("settings.tab.providers", fallback: "Providers")
+        case .features:
+            return L10n.text("settings.tab.features", fallback: "Features")
         case .about:
             return L10n.text("settings.tab.about", fallback: "About")
         }
@@ -32,6 +35,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
             return "menubar.rectangle"
         case .providers:
             return "server.rack"
+        case .features:
+            return "slider.horizontal.3"
         case .about:
             return "info.circle"
         }
@@ -50,6 +55,7 @@ struct SettingsView: View {
     let antigravityStore: AntigravityUsageStore
     let claudeCodeStore: ClaudeCodeUsageStore
     let stayAwakeStore: StayAwakeStore
+    let model: QuotAIAppModel
     var initialTab: SettingsTab = .general
 
     @State private var selectedTab: SettingsTab
@@ -59,12 +65,14 @@ struct SettingsView: View {
         antigravityStore: AntigravityUsageStore,
         stayAwakeStore: StayAwakeStore? = nil,
         initialTab: SettingsTab = .general,
-        claudeCodeStore: ClaudeCodeUsageStore? = nil
+        claudeCodeStore: ClaudeCodeUsageStore? = nil,
+        model: QuotAIAppModel? = nil
     ) {
         self.store = store
         self.antigravityStore = antigravityStore
         self.claudeCodeStore = claudeCodeStore ?? .shared
         self.stayAwakeStore = stayAwakeStore ?? .shared
+        self.model = model ?? .preview(codex: store, antigravity: antigravityStore, claudeCode: self.claudeCodeStore)
         self.initialTab = initialTab
         _selectedTab = State(initialValue: initialTab)
     }
@@ -82,22 +90,24 @@ struct SettingsView: View {
 
     @State private var launchAtLogin = false
     @State private var claudeCodeActionError: String?
+    @State private var resolvedCodexBinary: URL?
+    @State private var codexPathIsChecking = true
+    @State private var pathValidationRevision = 0
+    @AppStorage(DefaultsKey.automaticUpdateChecks) private var automaticUpdates = false
+    @AppStorage(DefaultsKey.automaticUpdateInstallation) private var automaticInstallation = false
 
     private var isAntigravitySupported: Bool {
         antigravityStore.isInstalled
     }
 
-    private var availability: ProviderAvailability {
-        QuotaProviderStores(codex: store, antigravity: antigravityStore, claudeCode: claudeCodeStore)
-            .availability(antigravityEnabled: antigravityIntegrationEnabled)
-    }
+    private var registry: QuotaProviderRegistry { model.registry }
 
     private var menuBarProviders: [QuotaProvider] {
-        availability.visibleProviders
+        registry.visibleProviders
     }
 
     private var effectiveMenuBarProvider: QuotaProvider {
-        availability.resolve(menuBarQuotaProvider)
+        registry.resolve(menuBarQuotaProvider)
     }
 
     private var menuBarProviderSelection: Binding<QuotaProvider> {
@@ -108,7 +118,7 @@ struct SettingsView: View {
     }
 
     private var isAnyProviderLoading: Bool {
-        store.isLoading || antigravityStore.isLoading
+        registry.visibleProviders.contains { registry.store(for: $0).phase == .loading }
     }
 
     var body: some View {
@@ -129,6 +139,8 @@ struct SettingsView: View {
                     menuBarPane
                 case .providers:
                     providersPane
+                case .features:
+                    FeatureSettingsView(model: model)
                 case .about:
                     aboutPane
                 }
@@ -149,6 +161,27 @@ struct SettingsView: View {
         }
         .onChange(of: antigravityGroupIDs) {
             normalizeAntigravityGroupSelection()
+        }
+        .task(id: "\(pathValidationRevision):\(codexBinaryPath)") {
+            codexPathIsChecking = true
+            let customPath = codexBinaryPath.isEmpty ? nil : codexBinaryPath
+            do {
+                try await Task.sleep(for: .milliseconds(180))
+                let resolved = await Task.detached(priority: .utility) {
+                    try? CodexBinaryLocator.locate(customPath: customPath)
+                }.value
+                try Task.checkCancellation()
+                resolvedCodexBinary = resolved
+                codexPathIsChecking = false
+            } catch is CancellationError {
+                // A newer path or a closed settings window superseded this lookup.
+            } catch {
+                resolvedCodexBinary = nil
+                codexPathIsChecking = false
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            pathValidationRevision &+= 1
         }
     }
 
@@ -246,7 +279,8 @@ struct SettingsView: View {
                         Spacer()
                         Picker("", selection: menuBarProviderSelection) {
                             ForEach(menuBarProviders, id: \.self) { provider in
-                                Text(provider.displayName).tag(provider)
+                                Text(registry.plugin(for: provider)?.descriptor.title ?? provider.displayName).tag(
+                                    provider)
                             }
                         }
                         .labelsHidden()
@@ -354,9 +388,11 @@ struct SettingsView: View {
                         HStack(spacing: 6) {
                             Circle()
                                 .fill(
-                                    codexPathIsValid
-                                        ? AppTheme.quotaHealthy.accent
-                                        : AppTheme.quotaCritical.accent
+                                    codexPathIsChecking
+                                        ? AppTheme.secondaryText
+                                        : codexPathIsValid
+                                            ? AppTheme.quotaHealthy.accent
+                                            : AppTheme.quotaCritical.accent
                                 )
                                 .frame(width: 7, height: 7)
 
@@ -382,6 +418,7 @@ struct SettingsView: View {
                                 fallback: "Show Antigravity model quota alongside Codex when Antigravity is running.")
                         )
                         .onChange(of: antigravityIntegrationEnabled) {
+                            model.preferencesDidChange()
                             NotificationCenter.default.post(
                                 name: .antigravityIntegrationPreferenceDidChange,
                                 object: nil
@@ -463,74 +500,107 @@ struct SettingsView: View {
     }
 
     private var aboutPane: some View {
-        VStack(spacing: 14) {
-            Spacer()
+        ScrollView {
+            VStack(spacing: 14) {
 
-            Image(nsImage: appMarkImage)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 64, height: 64)
-                .shadow(color: Color.black.opacity(0.15), radius: 6, y: 3)
+                Image(nsImage: appMarkImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 64, height: 64)
+                    .shadow(color: Color.black.opacity(0.15), radius: 6, y: 3)
 
-            VStack(spacing: 4) {
-                Text("QuotAI")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(AppTheme.primaryText)
+                VStack(spacing: 4) {
+                    Text("QuotAI")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(AppTheme.primaryText)
 
-                Text(L10n.text("settings.app_subtitle", fallback: "Codex, Claude Code & Antigravity Quotas"))
-                    .font(.system(size: AppTheme.TypeSize.cardTitle, weight: .medium))
-                    .foregroundStyle(AppTheme.secondaryText)
+                    Text(L10n.text("settings.app_subtitle", fallback: "Codex, Claude Code & Antigravity Quotas"))
+                        .font(.system(size: AppTheme.TypeSize.cardTitle, weight: .medium))
+                        .foregroundStyle(AppTheme.secondaryText)
 
-                Text(versionText)
-                    .font(.system(size: AppTheme.TypeSize.caption, design: .monospaced))
-                    .foregroundStyle(AppTheme.secondaryText.opacity(0.8))
-                    .padding(.top, 2)
-            }
-
-            HStack(spacing: 12) {
-                Link(destination: Self.latestReleaseURL) {
-                    Label(
-                        L10n.text("settings.check_updates", fallback: "Check for Updates"),
-                        systemImage: "arrow.up.right.square"
-                    )
+                    Text(versionText)
+                        .font(.system(size: AppTheme.TypeSize.caption, design: .monospaced))
+                        .foregroundStyle(AppTheme.secondaryText.opacity(0.8))
+                        .padding(.top, 2)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.regular)
 
-                Link(destination: Self.repoURL) {
-                    Label(
-                        L10n.text("settings.github_repo", fallback: "GitHub Repository"),
-                        systemImage: "link"
-                    )
+                HStack(spacing: 12) {
+                    Button {
+                        AppUpdateController.shared.checkForUpdates()
+                    } label: {
+                        Label(
+                            L10n.text("settings.check_updates", fallback: "Check for Updates"),
+                            systemImage: "arrow.up.right.square"
+                        )
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.regular)
+                    .disabled(!AppUpdateController.shared.configured || !AppUpdateController.shared.canCheck)
+
+                    Link(destination: Self.repoURL) {
+                        Label(
+                            L10n.text("settings.github_repo", fallback: "GitHub Repository"),
+                            systemImage: "link"
+                        )
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.regular)
-            }
-            .padding(.top, 4)
+                .padding(.top, 4)
 
-            Text(L10n.text("settings.acknowledgements", fallback: "Created with pair programming on macOS."))
-                .font(.system(size: AppTheme.TypeSize.small))
-                .foregroundStyle(AppTheme.secondaryText.opacity(0.7))
+                VStack(alignment: .leading, spacing: 6) {
+                    Toggle(
+                        L10n.text("updates.automatic_checks", fallback: "Check for updates automatically"),
+                        isOn: $automaticUpdates
+                    )
+                    .onChange(of: automaticUpdates) {
+                        AppUpdateController.shared.configureAutomaticChecks(automaticUpdates)
+                    }
+                    Toggle(
+                        L10n.text(
+                            "updates.automatic_installation", fallback: "Download and install updates automatically"),
+                        isOn: $automaticInstallation
+                    )
+                    .disabled(!automaticUpdates)
+                    .onChange(of: automaticInstallation) {
+                        AppUpdateController.shared.configureAutomaticInstallation(automaticInstallation)
+                    }
+                    Text(
+                        L10n.text(
+                            "updates.privacy",
+                            fallback: "Update checks contact GitHub. Quota data and account details are never included."
+                        )
+                    )
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+                .font(.system(size: AppTheme.TypeSize.caption))
+                .toggleStyle(.checkbox)
+                .padding(.horizontal, 26)
+                .disabled(!AppUpdateController.shared.configured)
 
-            Spacer()
+                Text(L10n.text("settings.acknowledgements", fallback: "Created with pair programming on macOS."))
+                    .font(.system(size: AppTheme.TypeSize.small))
+                    .foregroundStyle(AppTheme.secondaryText.opacity(0.7))
 
-            Divider()
+                Divider()
+                    .padding(.horizontal, 20)
+
+                HStack {
+                    Spacer()
+                    Button(role: .destructive) {
+                        NSApp.terminate(nil)
+                    } label: {
+                        Text(L10n.text("action.quit", fallback: "Quit QuotAI"))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
                 .padding(.horizontal, 20)
-
-            HStack {
-                Spacer()
-                Button(role: .destructive) {
-                    NSApp.terminate(nil)
-                } label: {
-                    Text(L10n.text("action.quit", fallback: "Quit QuotAI"))
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                .padding(.bottom, 14)
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 14)
+            .padding(.top, 16)
+            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Helpers
@@ -652,26 +722,24 @@ struct SettingsView: View {
     }
 
     private var menuBarPreviewPresentation: MenuBarPresentation {
-        MenuBarPresentation(
-            provider: menuBarQuotaProvider,
-            availability: availability,
+        let plugin = registry.plugin(for: effectiveMenuBarProvider)!
+        return MenuBarPresentation(
+            provider: effectiveMenuBarProvider, title: plugin.descriptor.title,
+            symbol: plugin.descriptor.symbol, snapshot: plugin.snapshot(at: Date()),
             selectedGroupID: menuBarAntigravityGroupID,
-            mode: menuBarQuotaDisplayMode,
-            codexSnapshot: store.snapshot,
-            antigravitySnapshot: antigravityStore.snapshot,
-            claudeCodeSnapshot: claudeCodeStore.snapshot,
-            claudeCodeHistorical: claudeCodeStore.isHistorical(at: Date()),
-            isStayAwakeActive: stayAwakeStore.isActive,
-            now: effectiveMenuBarProvider == .claudeCode ? Date() : store.expiryReferenceDate
-        )
+            mode: menuBarQuotaDisplayMode, isStayAwakeActive: stayAwakeStore.isActive,
+            now: plugin.store.expiryReferenceDate)
     }
 
     private var codexPathIsValid: Bool {
-        (try? CodexBinaryLocator.locate(customPath: codexBinaryPath.isEmpty ? nil : codexBinaryPath)) != nil
+        resolvedCodexBinary != nil
     }
 
     private var codexStatusMessage: String {
-        if let resolved = try? CodexBinaryLocator.locate(customPath: codexBinaryPath.isEmpty ? nil : codexBinaryPath) {
+        if codexPathIsChecking {
+            return L10n.text("settings.codex_status_checking", fallback: "Checking executable…")
+        }
+        if let resolved = resolvedCodexBinary {
             return codexBinaryPath.isEmpty
                 ? "\(L10n.text("settings.codex_status_auto", fallback: "Auto-detected")): \(resolved.path)"
                 : "\(L10n.text("settings.codex_status_verified", fallback: "Executable verified")): \(resolved.path)"
@@ -702,6 +770,7 @@ struct SettingsView: View {
     }
 
     private func postMenuBarPreferenceChange() {
+        model.preferencesDidChange()
         NotificationCenter.default.post(
             name: .menuBarQuotaPreferencesDidChange,
             object: nil
@@ -709,33 +778,26 @@ struct SettingsView: View {
     }
 
     private func refreshAllProviders() {
-        Task { await store.refresh() }
-        if antigravityIntegrationEnabled {
-            Task { await antigravityStore.refresh() }
-        }
-        if claudeCodeStore.isEnabled {
-            Task { await claudeCodeStore.userRefresh() }
+        for provider in registry.visibleProviders {
+            let source = registry.store(for: provider)
+            Task { await source.userRefresh() }
         }
     }
 
     private func refreshLaunchAtLogin() {
-        if #available(macOS 13.0, *) {
-            launchAtLogin = SMAppService.mainApp.status == .enabled
-        }
+        launchAtLogin = SMAppService.mainApp.status == .enabled
     }
 
     private func setLaunchAtLogin(_ enabled: Bool) {
-        if #available(macOS 13.0, *) {
-            do {
-                if enabled {
-                    try SMAppService.mainApp.register()
-                } else {
-                    try SMAppService.mainApp.unregister()
-                }
-                launchAtLogin = enabled
-            } catch {
-                refreshLaunchAtLogin()
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
             }
+            launchAtLogin = enabled
+        } catch {
+            refreshLaunchAtLogin()
         }
     }
 
@@ -768,7 +830,7 @@ struct SettingsView: View {
         )
     }
 }
-private struct SettingsSection<Content: View>: View {
+struct SettingsSection<Content: View>: View {
     let title: String
     @ViewBuilder let content: () -> Content
 

@@ -1,48 +1,65 @@
 import Foundation
 
-public enum QuotaProvider: String, Codable, CaseIterable, Sendable {
-    case codex
-    case antigravity
-    case claudeCode
-    // The retired Claude snapshot source was saved as "claude". It no longer
-    // decodes, so callers fall back to Codex without rewriting the preference.
+/// Stable preference identifier. Built-ins keep their existing persisted strings;
+/// independently registered adapters use the `plugin.` namespace.
+public struct QuotaProvider: RawRepresentable, Hashable, Codable, CaseIterable, Sendable {
+    public let rawValue: String
+    public static let codex = Self(builtin: "codex")
+    public static let antigravity = Self(builtin: "antigravity")
+    public static let claudeCode = Self(builtin: "claudeCode")
+    public static let allCases: [Self] = [.codex, .antigravity, .claudeCode]
+
+    private init(builtin: String) { rawValue = builtin }
+
+    public init?(rawValue: String) {
+        let builtIn = ["codex", "antigravity", "claudeCode"].contains(rawValue)
+        let plugin =
+            rawValue.hasPrefix("plugin.") && rawValue.count > 7 && rawValue.count <= 100
+            && rawValue.unicodeScalars.allSatisfy {
+                CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz0123456789.-_").contains($0)
+            }
+        guard builtIn || plugin else { return nil }
+        self.rawValue = rawValue
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let raw = try container.decode(String.self)
+        guard let value = Self(rawValue: raw) else {
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid provider identifier")
+        }
+        self = value
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 
     public var displayName: String {
         switch self {
-        case .codex:
-            L10n.text("provider.codex", fallback: "Codex")
-        case .antigravity:
-            L10n.text("provider.antigravity", fallback: "Antigravity")
-        case .claudeCode:
-            L10n.text("provider.claude", fallback: "Claude Code")
+        case .codex: L10n.text("provider.codex", fallback: "Codex")
+        case .antigravity: L10n.text("provider.antigravity", fallback: "Antigravity")
+        case .claudeCode: L10n.text("provider.claude", fallback: "Claude Code")
+        default: String(rawValue.dropFirst("plugin.".count))
         }
     }
 
-    /// Resolve saved selections without rewriting the user's preferences.
-    /// Codex is always available. Other sources require enabled installations.
+    /// Legacy three-source resolution. Dynamic adapters resolve through the registry.
     public func effectiveProvider(
-        antigravityEnabled: Bool,
-        antigravityAvailable: Bool,
-        claudeCodeEnabled: Bool = false,
-        claudeCodeAvailable: Bool = false
+        antigravityEnabled: Bool, antigravityAvailable: Bool,
+        claudeCodeEnabled: Bool = false, claudeCodeAvailable: Bool = false
     ) -> QuotaProvider {
         switch self {
-        case .codex:
-            return .codex
-        case .antigravity:
-            return antigravityEnabled && antigravityAvailable ? .antigravity : .codex
-        case .claudeCode:
-            return claudeCodeEnabled && claudeCodeAvailable ? .claudeCode : .codex
+        case .codex: .codex
+        case .antigravity: antigravityEnabled && antigravityAvailable ? .antigravity : .codex
+        case .claudeCode: claudeCodeEnabled && claudeCodeAvailable ? .claudeCode : .codex
+        default: .codex
         }
     }
 
-    /// Providers that should be offered in pickers, in display order.
-    public static func visibleProviders(
-        antigravityVisible: Bool,
-        claudeCodeVisible: Bool = false
-    ) -> [QuotaProvider] {
-        [.codex] + (antigravityVisible ? [.antigravity] : [])
-            + (claudeCodeVisible ? [.claudeCode] : [])
+    public static func visibleProviders(antigravityVisible: Bool, claudeCodeVisible: Bool = false) -> [Self] {
+        [.codex] + (antigravityVisible ? [.antigravity] : []) + (claudeCodeVisible ? [.claudeCode] : [])
     }
 }
 

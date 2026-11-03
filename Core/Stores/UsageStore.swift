@@ -11,6 +11,7 @@ final class UsageStore: QuotaProviderStore {
 
     private(set) var snapshot: UsageSnapshot?
     private(set) var phase: Phase = .idle
+    private(set) var isCached = false
 
     typealias Fetch = @Sendable (_ customPath: String?, _ confirmsEmptyResetCredits: Bool) async throws -> UsageSnapshot
 
@@ -59,6 +60,7 @@ final class UsageStore: QuotaProviderStore {
                 snapshot = try? LocalSnapshotStore.load()
             }
             phase = snapshot == nil ? .idle : .ready
+            isCached = snapshot != nil
         }
     }
 
@@ -106,6 +108,10 @@ final class UsageStore: QuotaProviderStore {
         refreshScheduler.start()
     }
 
+    func stop() {
+        refreshScheduler.stop()
+    }
+
     func rescheduleRefresh() {
         guard !previewMode else { return }
         refreshScheduler.reschedule()
@@ -123,6 +129,7 @@ final class UsageStore: QuotaProviderStore {
             let fetched = try await fetchSnapshot(customPath, hadResetCredits)
             let latest = fetched.preservingResetCredits(from: snapshot)
             snapshot = latest
+            isCached = false
             phase = .ready
             let snapshotURL = self.snapshotURL
             try await Task.detached(priority: .utility) {

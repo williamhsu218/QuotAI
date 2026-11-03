@@ -39,37 +39,34 @@ struct MenuBarPanelView: View {
     let antigravityStore: AntigravityUsageStore
     let claudeCodeStore: ClaudeCodeUsageStore
     let stayAwakeStore: StayAwakeStore
+    let model: QuotAIAppModel
 
     init(
         store: UsageStore,
         antigravityStore: AntigravityUsageStore,
         stayAwakeStore: StayAwakeStore,
-        claudeCodeStore: ClaudeCodeUsageStore? = nil
+        claudeCodeStore: ClaudeCodeUsageStore? = nil,
+        model: QuotAIAppModel? = nil
     ) {
         self.store = store
         self.antigravityStore = antigravityStore
         self.claudeCodeStore = claudeCodeStore ?? .shared
         self.stayAwakeStore = stayAwakeStore
+        self.model = model ?? .preview(codex: store, antigravity: antigravityStore, claudeCode: self.claudeCodeStore)
     }
 
-    private var providerStores: QuotaProviderStores {
-        QuotaProviderStores(codex: store, antigravity: antigravityStore, claudeCode: claudeCodeStore)
-    }
-
-    private var availability: ProviderAvailability {
-        providerStores.availability(antigravityEnabled: antigravityIntegrationEnabled)
-    }
+    private var registry: QuotaProviderRegistry { model.registry }
 
     private var visibleProviders: [QuotaProvider] {
-        availability.visibleProviders
+        registry.visibleProviders
     }
 
     private var effectiveQuotaProvider: QuotaProvider {
-        availability.resolve(quotaProvider)
+        registry.resolve(quotaProvider)
     }
 
     private var selectedStore: any QuotaProviderStore {
-        providerStores.store(for: effectiveQuotaProvider)
+        registry.store(for: effectiveQuotaProvider)
     }
 
     var body: some View {
@@ -101,13 +98,7 @@ struct MenuBarPanelView: View {
         .frame(width: 340)
         .appPanelSurface()
         .task {
-            store.start()
-            if availability.showsAntigravity {
-                antigravityStore.start()
-            }
-            if availability.showsClaudeCode {
-                claudeCodeStore.start()
-            }
+            registry.startEnabledProviders()
         }
     }
 
@@ -148,7 +139,7 @@ struct MenuBarPanelView: View {
                 set: { quotaProvider = $0 }
             )
         ) { provider, _ in
-            Text(provider.displayName)
+            Text(registry.plugin(for: provider)?.descriptor.title ?? provider.displayName)
                 .font(.system(size: AppTheme.TypeSize.caption, weight: .medium))
         }
         .accessibilityElement(children: .contain)
@@ -158,13 +149,17 @@ struct MenuBarPanelView: View {
 
     private var quotaContent: some View {
         Group {
-            switch effectiveQuotaProvider {
+            switch registry.plugin(for: effectiveQuotaProvider)?.descriptor.viewKind {
             case .codex:
                 codexQuotaContent
             case .antigravity:
                 AntigravityQuotaView(store: antigravityStore)
             case .claudeCode:
                 ClaudeCodeQuotaView(store: claudeCodeStore)
+            case .standard:
+                if let plugin = registry.plugin(for: effectiveQuotaProvider) { ProviderQuotaView(plugin: plugin) }
+            case nil:
+                emptyState
             }
         }
         .frame(maxWidth: .infinity, alignment: .top)
@@ -316,12 +311,22 @@ struct MenuBarPanelView: View {
         } else {
             Menu {
                 Button {
-                    openLatestRelease()
+                    if AppUpdateController.shared.configured {
+                        AppUpdateController.shared.checkForUpdates()
+                    } else {
+                        openLatestRelease()
+                    }
                 } label: {
                     Label(
-                        L10n.text("action.check_updates_github", fallback: "Check on GitHub"),
+                        L10n.text("settings.check_updates", fallback: "Check for Updates"),
                         systemImage: "arrow.up.right.square"
                     )
+                }
+
+                Button {
+                    model.historyWindow.show()
+                } label: {
+                    Label(L10n.text("history.open", fallback: "View History…"), systemImage: "chart.xyaxis.line")
                 }
 
                 Divider()
