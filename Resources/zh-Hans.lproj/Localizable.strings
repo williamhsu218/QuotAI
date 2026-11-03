@@ -308,7 +308,7 @@
 "updates.automatic_checks" = "自动检查更新";
 "updates.automatic_installation" = "自动下载并安装更新";
 "updates.privacy" = "检查更新会连接 GitHub，不会附带额度数据或账号信息。";
-"widget.detail" = "在桌面“编辑小组件”中添加 QuotAI。显示上次查询结果，打开应用可刷新；到重置时间后隐藏旧数值。";
+"widget.detail" = "外环显示 7d，内环显示 5h。小号跟随菜单栏来源，中号显示三个来源；虚线环表示暂无有效数据。";
 "widget.empty" = "打开 QuotAI，并开启小组件共享。";
 "widget.enable" = "向桌面小组件共享额度";
 "widget.expired" = "已到重置时间，请刷新 QuotAI";
@@ -323,3 +323,5 @@
 "notifications.test_title" = "QuotAI 通知测试";
 "notifications.test_body" = "通知功能正常。这是一条测试消息，不代表额度变化。点击可打开 QuotAI。";
 "notifications.test_accepted" = "测试已提交给 macOS，稍后显示。若横幅已关闭，请查看通知中心。";
+
+"widget.historical" = "历史查询";

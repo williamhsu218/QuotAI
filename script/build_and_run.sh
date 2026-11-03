@@ -138,6 +138,7 @@ build_preview() {
   cp "$ROOT_DIR/Design/AppMark-master.png" "$preview_resources/"
   cp "$ROOT_DIR/Design/CodexMark-master.png" "$preview_resources/"
   cp "$ROOT_DIR/Design/ClaudeMark-master.png" "$preview_resources/"
+  cp "$ROOT_DIR"/Widgets/ProviderAssets/*.png "$preview_resources/"
 
   xcrun swiftc \
     -parse-as-library \
@@ -286,6 +287,7 @@ render_preview() {
   cp "$ROOT_DIR/Design/AppMark-master.png" "$renderer_resources/"
   cp "$ROOT_DIR/Design/CodexMark-master.png" "$renderer_resources/"
   cp "$ROOT_DIR/Design/ClaudeMark-master.png" "$renderer_resources/"
+  cp "$ROOT_DIR"/Widgets/ProviderAssets/*.png "$renderer_resources/"
   xcrun swiftc \
     -parse-as-library \
     -target arm64-apple-macosx14.0 \
@@ -428,6 +430,7 @@ case "$MODE" in
     [[ "${4:-small}" == medium ]] && widget_args+=(--widget-medium)
     [[ "${5:-fresh}" == expired ]] && widget_args+=(--widget-expired)
     [[ "${5:-fresh}" == stale ]] && widget_args+=(--widget-stale)
+    [[ "${5:-fresh}" == weekly ]] && widget_args+=(--widget-weekly)
     widget_output="$BUILD_ROOT/qa/widget-${2:-en}-${3:-light}-${4:-small}-${5:-fresh}.png"
     "$BUILD_ROOT/qa/RenderDesignPreview.app/Contents/MacOS/RenderDesignPreview" "$widget_output" "${widget_args[@]}" -AppleLanguages "(${2:-en})"
     echo "$widget_output"

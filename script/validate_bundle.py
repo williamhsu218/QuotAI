@@ -27,6 +27,10 @@ for bundle in [app, widget]:
     arches = subprocess.run(['lipo', '-archs', str(bundle / 'Contents/MacOS' / info(bundle)['CFBundleExecutable'])], capture_output=True, text=True, check=True).stdout.split()
     if args.universal:
         assert set(arches) == {'arm64', 'x86_64'}, f'{bundle.name} missing universal slices'
+if int(main['CFBundleVersion']) >= 54:
+    for bundle in [app, widget]:
+        for name in ['CodexProviderMark.png', 'ClaudeProviderMark.png', 'AntigravityProviderMark.png']:
+            assert (bundle / 'Contents/Resources' / name).is_file(), f'{bundle.name} missing provider logo {name}'
 assert (app / 'Contents/Frameworks/Sparkle.framework').is_dir(), 'Sparkle framework missing'
 framework = app / 'Contents/Frameworks/Sparkle.framework'
 subprocess.run(['codesign', '--verify', '--deep', '--strict', str(framework)], check=True)

@@ -55,3 +55,31 @@ enum WidgetSharedStore {
         try PrivateJSONFile.write(value, to: url)
     }
 }
+
+/// Group only each provider's own windows, preserving the user's preferred order.
+struct WidgetProviderQuota: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let detail: String?
+    let fiveHour: WidgetQuotaRow?
+    let sevenDay: WidgetQuotaRow?
+}
+
+extension SharedWidgetSnapshot {
+    var providerQuotas: [WidgetProviderQuota] {
+        var order: [String] = []
+        var groups: [String: [WidgetQuotaRow]] = [:]
+        for row in rows where row.window == "5h" || row.window == "7d" {
+            if groups[row.providerID] == nil { order.append(row.providerID) }
+            groups[row.providerID, default: []].append(row)
+        }
+        return order.compactMap { id in
+            guard let values = groups[id], let first = values.first else { return nil }
+            let parts = first.title.components(separatedBy: " · ")
+            return WidgetProviderQuota(
+                id: id, name: parts[0],
+                detail: parts.count > 1 ? parts.dropFirst().joined(separator: " · ") : nil,
+                fiveHour: values.first { $0.window == "5h" }, sevenDay: values.first { $0.window == "7d" })
+        }
+    }
+}
