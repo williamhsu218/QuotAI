@@ -71,10 +71,12 @@ struct ClaudeCodeUsageStoreTests {
         defer { defaults.remove() }
         let result = usageSnapshot(at: Date(), usedFive: 40)
         let queries = CallLog<Bool>()
-        let store = makeStore(defaults: defaults, directory: directory, subscription: { .max }, query: {
-            await queries.append(true)
-            return result
-        })
+        let store = makeStore(
+            defaults: defaults, directory: directory, subscription: { .max },
+            query: {
+                await queries.append(true)
+                return result
+            })
         store.start()
         defer { store.stop() }
 
