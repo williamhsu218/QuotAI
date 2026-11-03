@@ -84,6 +84,7 @@ final class QuotAIAppModel {
                     || CommandLine.arguments.contains("--qa-shortcut"))
         }
         observeProviders()
+        if !previewMode { widget.recoverAfterUpgradeIfNeeded() }
         if !previewMode { Task { await notifications.refreshAuthorization() } }
     }
 
@@ -94,6 +95,7 @@ final class QuotAIAppModel {
         automaticClaudeKey = ""
         automaticClaudeOwnsQuery = false
         shortcut.configure(enabled: false)
+        widget.stop()
         registry.stop()
         activeProviders.removeAll()
     }

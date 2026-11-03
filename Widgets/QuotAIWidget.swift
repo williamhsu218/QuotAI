@@ -1,3 +1,4 @@
+import OSLog
 import SwiftUI
 import WidgetKit
 
@@ -7,6 +8,7 @@ struct QuotaWidgetEntry: TimelineEntry {
 }
 
 struct QuotaWidgetTimeline: TimelineProvider {
+    private let logger = Logger(subsystem: "com.willhsu.QuotAI", category: "WidgetTimeline")
     func placeholder(in context: Context) -> QuotaWidgetEntry {
         let now = Date()
         return .init(
@@ -34,6 +36,10 @@ struct QuotaWidgetTimeline: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<QuotaWidgetEntry>) -> Void) {
         let now = Date()
         let snapshot = read()
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+        logger.info(
+            "Providing widget timeline; build=\(build, privacy: .public), rows=\(snapshot.rows.count, privacy: .public)"
+        )
         let deadlines = snapshot.rows.flatMap { row in
             [row.resetsAt, row.fetchedAt.addingTimeInterval(1_800)].compactMap { $0 }
         }.filter { $0 > now && $0 < now.addingTimeInterval(7 * 86_400) }
@@ -45,7 +51,16 @@ struct QuotaWidgetTimeline: TimelineProvider {
     }
 
     private func read() -> SharedWidgetSnapshot {
-        (try? WidgetSharedStore.read(from: WidgetSharedStore.snapshotURL())) ?? .empty
+        do {
+            guard let url = WidgetSharedStore.snapshotURL() else {
+                logger.error("Widget shared container is unavailable")
+                return .empty
+            }
+            return try WidgetSharedStore.read(from: url)
+        } catch {
+            logger.error("Widget snapshot read failed; code=\((error as NSError).code, privacy: .public)")
+            return .empty
+        }
     }
 }
 

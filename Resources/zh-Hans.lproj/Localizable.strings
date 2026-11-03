@@ -325,3 +325,6 @@
 "notifications.test_accepted" = "测试已提交给 macOS，稍后显示。若横幅已关闭，请查看通知中心。";
 
 "widget.historical" = "历史查询";
+"widget.repair" = "修复小组件";
+"widget.reload_requested" = "已请求 macOS 重新载入小组件，保留现有桌面组件。";
+"widget.repair_failed" = "未能更新小组件注册，请再次尝试修复。";

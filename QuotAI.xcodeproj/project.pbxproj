@@ -88,6 +88,8 @@
 		E3DB2443931F102BA0718B0B = {isa = PBXBuildFile; fileRef = CFC8807003CC24C125D78F3C; };
 		727560E75D1727C94E0D56D9 = {isa = PBXBuildFile; fileRef = 39D1353B66920B6A53596A9B; };
 		6949086FE6E954C909805740 = {isa = PBXBuildFile; fileRef = 39D1353B66920B6A53596A9B; };
+		7F1739FC7522F3F266A40D63 /* WidgetExtensionRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0D27F36523DFF1FE903318; };
+		1D9667F3C33F7FA4166E969A /* WidgetRecoveryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 639A77F2CD5C6D42851416AC; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -168,6 +170,8 @@
 		776DA38A9786B1EEA83EE2F1 = {isa = PBXFileReference; lastKnownFileType = image.png; path = "CodexProviderMark.png"; sourceTree = "<group>"; };
 		CFC8807003CC24C125D78F3C = {isa = PBXFileReference; lastKnownFileType = image.png; path = "ClaudeProviderMark.png"; sourceTree = "<group>"; };
 		39D1353B66920B6A53596A9B = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AntigravityProviderMark.png"; sourceTree = "<group>"; };
+		0D0D27F36523DFF1FE903318 /* WidgetExtensionRecovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WidgetExtensionRecovery.swift"; sourceTree = "<group>"; };
+		639A77F2CD5C6D42851416AC /* WidgetRecoveryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WidgetRecoveryPolicy.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -215,6 +219,8 @@
 				F795F4F073459C9BFF66D659 /* QuotaNotificationController.swift */,
 
 				4C9E1278901487AB3D4D1B19 /* QuotaWidgetController.swift */,
+
+				0D0D27F36523DFF1FE903318 /* WidgetExtensionRecovery.swift */,
 			); path = Support; sourceTree = "<group>"; };
 		800000000000000000000010 /* Support */ = {isa = PBXGroup; children = (90000000000000000000000A, ); path = Support; sourceTree = "<group>"; };
 		800000000000000000000006 /* Views */ = {isa = PBXGroup; children = (970000000000000000000002, 930000000000000000000004, 91000000000000000000000B, 91000000000000000000000A, 90000000000000000000000D, 900000000000000000000022, 90000000000000000000000B, 90000000000000000000000C, 900000000000000000000024, 90000000000000000000001E, 90000000000000000000000E, 90000000000000000000000F,
@@ -243,6 +249,8 @@
 			); path = "Features"; sourceTree = "<group>"; };
 		33D46FB189F7B22A1DBBA772 /* Widget */ = {isa = PBXGroup; children = (
 				B638883B43B68FBACC446C1D /* SharedWidgetSnapshot.swift */,
+
+				639A77F2CD5C6D42851416AC /* WidgetRecoveryPolicy.swift */,
 			); path = "Widget"; sourceTree = "<group>"; };
 		1D519C4F3FD7937C596DC5CA = {isa = PBXGroup; children = ( 2F4174DC0F57234E48B816E7,  19FFF8B1D77D99F4A7D20D07,  38E6ACF54DD37AB1F0F77897,  A9FEF502D7C27E1E587A9067, ); path = Widgets; sourceTree = "<group>"; };
 		A9FEF502D7C27E1E587A9067 = {isa = PBXGroup; children = ( 776DA38A9786B1EEA83EE2F1,  CFC8807003CC24C125D78F3C,  39D1353B66920B6A53596A9B, ); path = ProviderAssets; sourceTree = "<group>"; };
@@ -411,6 +419,10 @@
 				EA9642492B964C34C3DB4607 /* SharedWidgetSnapshot.swift in Sources */,
 
 				5977C45A5917EFBAB9ED4E07 /* WidgetQuotaContent.swift in Sources */,
+
+				7F1739FC7522F3F266A40D63 /* WidgetExtensionRecovery.swift in Sources */,
+
+				1D9667F3C33F7FA4166E969A /* WidgetRecoveryPolicy.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -426,7 +438,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 54;
+				CURRENT_PROJECT_VERSION = 56;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -437,7 +449,7 @@
 				QUOTAI_URL_SCHEME = quotai;
 				QUOTAI_DISPLAY_NAME = QuotAI;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				MARKETING_VERSION = 3.0.1;
+				MARKETING_VERSION = 3.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(QUOTAI_APP_BUNDLE_ID)";
 				PRODUCT_NAME = QuotAI;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -453,7 +465,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 54;
+				CURRENT_PROJECT_VERSION = 56;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -464,7 +476,7 @@
 				QUOTAI_URL_SCHEME = quotai;
 				QUOTAI_DISPLAY_NAME = QuotAI;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				MARKETING_VERSION = 3.0.1;
+				MARKETING_VERSION = 3.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(QUOTAI_APP_BUNDLE_ID)";
 				PRODUCT_NAME = QuotAI;
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -475,8 +487,8 @@
 			};
 			name = Release;
 		};
-		FD1E3A6835A79AC90A34E596 = {isa = XCBuildConfiguration; buildSettings = {APPLICATION_EXTENSION_API_ONLY = "YES"; CODE_SIGN_STYLE = "Automatic"; CODE_SIGN_ENTITLEMENTS = "Widgets/QuotAIWidget.entitlements"; CURRENT_PROJECT_VERSION = "54"; ENABLE_APP_SANDBOX = "YES"; ENABLE_HARDENED_RUNTIME = "YES"; GENERATE_INFOPLIST_FILE = "NO"; INFOPLIST_FILE = "Widgets/Info.plist"; MACOSX_DEPLOYMENT_TARGET = "14.0"; MARKETING_VERSION = "3.0.1"; PRODUCT_BUNDLE_IDENTIFIER = "$(QUOTAI_APP_BUNDLE_ID).QuotaWidget"; PRODUCT_NAME = "QuotAIWidget"; SKIP_INSTALL = "YES"; SWIFT_STRICT_CONCURRENCY = "complete"; SWIFT_VERSION = "6.0"; QUOTAI_APP_BUNDLE_ID = "com.willhsu.QuotAI"; QUOTAI_APP_GROUP = "$(DEVELOPMENT_TEAM).com.willhsu.QuotAI"; QUOTAI_URL_SCHEME = "quotai"; QUOTAI_DISPLAY_NAME = "QuotAI"; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";}; name = Debug; };
-		60F7F9554FBBBA38AC8CE997 = {isa = XCBuildConfiguration; buildSettings = {APPLICATION_EXTENSION_API_ONLY = "YES"; CODE_SIGN_STYLE = "Automatic"; CODE_SIGN_ENTITLEMENTS = "Widgets/QuotAIWidget.entitlements"; CURRENT_PROJECT_VERSION = "54"; ENABLE_APP_SANDBOX = "YES"; ENABLE_HARDENED_RUNTIME = "YES"; GENERATE_INFOPLIST_FILE = "NO"; INFOPLIST_FILE = "Widgets/Info.plist"; MACOSX_DEPLOYMENT_TARGET = "14.0"; MARKETING_VERSION = "3.0.1"; PRODUCT_BUNDLE_IDENTIFIER = "$(QUOTAI_APP_BUNDLE_ID).QuotaWidget"; PRODUCT_NAME = "QuotAIWidget"; SKIP_INSTALL = "YES"; SWIFT_STRICT_CONCURRENCY = "complete"; SWIFT_VERSION = "6.0"; QUOTAI_APP_BUNDLE_ID = "com.willhsu.QuotAI"; QUOTAI_APP_GROUP = "$(DEVELOPMENT_TEAM).com.willhsu.QuotAI"; QUOTAI_URL_SCHEME = "quotai"; QUOTAI_DISPLAY_NAME = "QuotAI"; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";}; name = Release; };
+		FD1E3A6835A79AC90A34E596 = {isa = XCBuildConfiguration; buildSettings = {APPLICATION_EXTENSION_API_ONLY = "YES"; CODE_SIGN_STYLE = "Automatic"; CODE_SIGN_ENTITLEMENTS = "Widgets/QuotAIWidget.entitlements"; CURRENT_PROJECT_VERSION = "56"; ENABLE_APP_SANDBOX = "YES"; ENABLE_HARDENED_RUNTIME = "YES"; GENERATE_INFOPLIST_FILE = "NO"; INFOPLIST_FILE = "Widgets/Info.plist"; MACOSX_DEPLOYMENT_TARGET = "14.0"; MARKETING_VERSION = "3.0.2"; PRODUCT_BUNDLE_IDENTIFIER = "$(QUOTAI_APP_BUNDLE_ID).QuotaWidget"; PRODUCT_NAME = "QuotAIWidget"; SKIP_INSTALL = "YES"; SWIFT_STRICT_CONCURRENCY = "complete"; SWIFT_VERSION = "6.0"; QUOTAI_APP_BUNDLE_ID = "com.willhsu.QuotAI"; QUOTAI_APP_GROUP = "$(DEVELOPMENT_TEAM).com.willhsu.QuotAI"; QUOTAI_URL_SCHEME = "quotai"; QUOTAI_DISPLAY_NAME = "QuotAI"; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";}; name = Debug; };
+		60F7F9554FBBBA38AC8CE997 = {isa = XCBuildConfiguration; buildSettings = {APPLICATION_EXTENSION_API_ONLY = "YES"; CODE_SIGN_STYLE = "Automatic"; CODE_SIGN_ENTITLEMENTS = "Widgets/QuotAIWidget.entitlements"; CURRENT_PROJECT_VERSION = "56"; ENABLE_APP_SANDBOX = "YES"; ENABLE_HARDENED_RUNTIME = "YES"; GENERATE_INFOPLIST_FILE = "NO"; INFOPLIST_FILE = "Widgets/Info.plist"; MACOSX_DEPLOYMENT_TARGET = "14.0"; MARKETING_VERSION = "3.0.2"; PRODUCT_BUNDLE_IDENTIFIER = "$(QUOTAI_APP_BUNDLE_ID).QuotaWidget"; PRODUCT_NAME = "QuotAIWidget"; SKIP_INSTALL = "YES"; SWIFT_STRICT_CONCURRENCY = "complete"; SWIFT_VERSION = "6.0"; QUOTAI_APP_BUNDLE_ID = "com.willhsu.QuotAI"; QUOTAI_APP_GROUP = "$(DEVELOPMENT_TEAM).com.willhsu.QuotAI"; QUOTAI_URL_SCHEME = "quotai"; QUOTAI_DISPLAY_NAME = "QuotAI"; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";}; name = Release; };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
