@@ -12,6 +12,12 @@ struct ClientFallbackProbe {
         let mode = ProcessInfo.processInfo.environment["QUOTAI_PROBE_MODE"] ?? "silent"
         precondition(["silent", "eof", "unsupported", "usage", "launchFailure", "emptyCredits"].contains(mode))
         if CommandLine.arguments.contains("app-server") {
+            if mode == "emptyCredits", let path = ProcessInfo.processInfo.environment["QUOTAI_PROBE_LAUNCH_LOG"] {
+                let log = try FileHandle(forWritingTo: URL(fileURLWithPath: path))
+                try log.seekToEnd()
+                try log.write(contentsOf: Data("launch\n".utf8))
+                try log.close()
+            }
             for _ in 0..<5 { _ = readLine() }
             if mode == "launchFailure" { exit(127) }
             let credits = mode == "emptyCredits" ? 0 : 1
@@ -43,18 +49,25 @@ struct ClientFallbackProbe {
             }
         }
         if mode == "emptyCredits" {
+            let log = FileManager.default.temporaryDirectory.appendingPathComponent(
+                "quotai-launches-\(UUID().uuidString)")
+            try Data().write(to: log)
+            defer { try? FileManager.default.removeItem(at: log) }
+            setenv("QUOTAI_PROBE_LAUNCH_LOG", log.path, 1)
+            func launches() throws -> Int {
+                try String(contentsOf: log, encoding: .utf8).split(separator: "\n").count
+            }
             let path = URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL.path
             let single = try await CodexAppServerClient().fetch(customPath: path)
             precondition(single.hasCurrentResetCreditData && single.availableResetCount == 0)
-            precondition(
-                Date().timeIntervalSince(started) < 1.5,
-                "An account without previous credits must not wait for a confirmation read")
-            let confirmationStarted = Date()
+            let singleLaunches = try launches()
+            precondition(singleLaunches == 1, "An account without previous credits must launch app-server once")
             let confirmed = try await CodexAppServerClient().fetch(customPath: path, confirmsEmptyResetCredits: true)
             precondition(confirmed.availableResetCount == 0)
+            let totalLaunches = try launches()
             precondition(
-                Date().timeIntervalSince(confirmationStarted) >= 2,
-                "Previously held credits must be confirmed once before they are cleared")
+                totalLaunches - singleLaunches == 2,
+                "Previously held credits must launch app-server once plus one confirmation")
             print("PASS emptyCredits: one read without previous credits, one confirmation otherwise")
             return
         }

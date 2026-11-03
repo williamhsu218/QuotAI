@@ -5,7 +5,7 @@
 ## 环境与源码
 
 App 支持 macOS 14+。构建需 Swift 6 和包含 macOS 26 SDK 的 Xcode 26 或更新版本；
-源码使用受系统版本检查保护的 Liquid Glass API。最近一次构建使用 Xcode 27.0。
+源码使用受系统版本检查保护的 Liquid Glass API。最近一次本机构建使用 Xcode 27.2。
 项目使用本机 ad-hoc 签名，不需要 Apple Developer Program。
 
 | 路径 | 用途 |
@@ -52,6 +52,7 @@ swift test
 
 `script/run_probes.sh` 依次编译并运行下文所列的隔离探针（不含 `--live` 和需要图形会话的滑块探针），
 不读取真实账号、凭据或用户配置。
+日期探针在独立进程中切换 TZ，检查本地重置/到期/查询时间、跨日及夏令时，不修改 Mac 系统时区。
 
 GitHub Actions（`.github/workflows/ci.yml`）在每次推送和 PR 时于 macOS 26 runner 上执行
 严格格式检查（`swift format lint --strict`）、`swift test`、Debug 构建、三张设计预览渲染、
@@ -159,7 +160,7 @@ build/claude-usage-query-probe --live-subscription
 脚本验证 ad-hoc 签名并输出 ZIP 路径与 SHA-256，不执行安装或公开发布。
 同营销版本可以有不同构建号，核对包内 `Info.plist`、可执行文件哈希和架构，不能只看 ZIP 文件名。
 
-`script/verify_and_release.sh <版本> --check-only` 执行测试和打包检查。
+`script/verify_and_release.sh <版本> --check-only` 执行测试、Debug 构建、隔离探针和打包检查。
 去掉 `--check-only` 会提交全部工作区改动、打标签、推送并创建 GitHub Release；
 工作区没有未提交改动时（例如改动已通过 PR 合入）跳过提交，直接为当前提交打标签；
 正式发布前需要审查工作区差异、版本说明和发布动作。
