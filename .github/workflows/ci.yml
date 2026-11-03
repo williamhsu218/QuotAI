@@ -76,3 +76,26 @@ jobs:
           path: build/Distribution/*.zip
           retention-days: 7
           if-no-files-found: error
+
+      - name: swift-format report
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p build/format
+          swift format --version
+          git ls-files -z '*.swift' > build/format/files
+          xargs -0 swift format --in-place --parallel < build/format/files
+          git diff --stat | tail -n 3
+          git diff > build/format/swift-format.patch
+          xargs -0 swift format lint --parallel < build/format/files > build/format/lint.txt 2>&1 || true
+          echo "Remaining lint findings by rule:"
+          grep -oE "\[[A-Za-z]+\]" build/format/lint.txt | sort | uniq -c | sort -rn || true
+          git checkout -- .
+
+      - name: Upload swift-format report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: swift-format-report
+          path: build/format/
+          retention-days: 7
