@@ -1,6 +1,6 @@
 import Foundation
-import Observation
 import OSLog
+import Observation
 
 @MainActor
 @Observable
@@ -80,7 +80,7 @@ final class AntigravityUsageStore: QuotaProviderStore {
 
     func statusMessage(at now: Date) -> String {
         if previewMode {
-            if case let .failed(message) = phase { return message }
+            if case .failed(let message) = phase { return message }
             return L10n.text("date.updated_just_now", fallback: "Updated just now")
         }
         switch phase {
@@ -92,7 +92,7 @@ final class AntigravityUsageStore: QuotaProviderStore {
             return snapshot.map {
                 DisplayDateFormatter.updatedText(for: $0.fetchedAt, now: now)
             } ?? L10n.text("status.waiting", fallback: "Waiting to refresh")
-        case let .failed(message):
+        case .failed(let message):
             return message
         }
     }

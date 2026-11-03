@@ -201,8 +201,9 @@ public struct AntigravityQuotaSnapshot: Codable, Equatable, Sendable {
             }
         }
         if thirdPartyAvailability != .unavailable,
-           !result.contains(where: { $0.id == "3p" }),
-           thirdPartyAvailability == .available || groups.contains(where: { $0.id == "gemini" }) {
+            !result.contains(where: { $0.id == "3p" }),
+            thirdPartyAvailability == .available || groups.contains(where: { $0.id == "gemini" })
+        {
             result.append(Self.thirdPartyPlaceholder)
         }
         return result
@@ -219,9 +220,11 @@ public struct AntigravityQuotaSnapshot: Codable, Equatable, Sendable {
         switch thirdPartyAvailability {
         case .available: nil
         case .unavailable:
-            L10n.text("antigravity.models.unavailable", fallback: "No third-party models are available for this account.")
+            L10n.text(
+                "antigravity.models.unavailable", fallback: "No third-party models are available for this account.")
         case .unknown:
-            L10n.text("antigravity.models.unknown", fallback: "Third-party model access could not be read. Try refreshing.")
+            L10n.text(
+                "antigravity.models.unknown", fallback: "Third-party model access could not be read. Try refreshing.")
         }
     }
 
@@ -236,9 +239,11 @@ public struct AntigravityQuotaSnapshot: Codable, Equatable, Sendable {
         switch argonAvailability {
         case .available: return nil
         case .unavailable:
-            return L10n.text("antigravity.argon.unavailable", fallback: "Gemini 4 Argon is not available for this account.")
+            return L10n.text(
+                "antigravity.argon.unavailable", fallback: "Gemini 4 Argon is not available for this account.")
         case .unknown:
-            return L10n.text("antigravity.argon.unknown", fallback: "Gemini 4 Argon access could not be read. Try refreshing.")
+            return L10n.text(
+                "antigravity.argon.unknown", fallback: "Gemini 4 Argon access could not be read. Try refreshing.")
         }
     }
 
@@ -263,7 +268,7 @@ public struct AntigravityQuotaSnapshot: Codable, Equatable, Sendable {
             argonAvailability == .unavailable ? AntigravityQuotaTab.argon.rawValue : nil
         ].compactMap { $0 }
         for key in [DefaultsKey.panelAntigravityGroup, DefaultsKey.menuBarAntigravityGroup]
-            where defaults.string(forKey: key).map(denied.contains) == true {
+        where defaults.string(forKey: key).map(denied.contains) == true {
             defaults.set("gemini", forKey: key)
         }
     }
@@ -323,8 +328,9 @@ public enum AntigravityQuotaParser {
         let groups = rawGroups.compactMap { rawGroup -> AntigravityQuotaGroup? in
             let recognizedBuckets = (rawGroup.buckets ?? []).compactMap { bucket -> (QuotaKind, QuotaWindow)? in
                 guard let kind = quotaKind(window: bucket.window, bucketID: bucket.bucketId),
-                      let remainingFraction = bucket.remainingFraction,
-                      remainingFraction.isFinite else {
+                    let remainingFraction = bucket.remainingFraction,
+                    remainingFraction.isFinite
+                else {
                     return nil
                 }
                 let percentage = Int((remainingFraction * 100).rounded())
@@ -371,8 +377,10 @@ public enum AntigravityQuotaParser {
         }
 
         var rawPlanType = envelope.response?.planType ?? envelope.planType
-        if (rawPlanType == nil || rawPlanType?.isEmpty == true), let userStatusData {
-            if let userStatusEnvelope = try? JSONDecoder().decode(AntigravityUserStatusEnvelope.self, from: userStatusData) {
+        if rawPlanType == nil || rawPlanType?.isEmpty == true, let userStatusData {
+            if let userStatusEnvelope = try? JSONDecoder().decode(
+                AntigravityUserStatusEnvelope.self, from: userStatusData)
+            {
                 let statusBody = userStatusEnvelope.userStatus ?? userStatusEnvelope.response?.userStatus
                 let tier = statusBody?.userTier ?? userStatusEnvelope.userTier ?? userStatusEnvelope.response?.userTier
                 let planInfo = statusBody?.planStatus?.planInfo
@@ -431,17 +439,19 @@ public enum AntigravityQuotaParser {
         displayName: String?,
         bucketIDs: [String]
     ) -> String {
-        let stems = Set(bucketIDs.compactMap { bucketID -> String? in
-            let normalized = bucketID
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .lowercased()
-            guard !normalized.isEmpty else { return nil }
-            for suffix in ["-weekly", "_weekly", "-5h", "_5h"]
+        let stems = Set(
+            bucketIDs.compactMap { bucketID -> String? in
+                let normalized =
+                    bucketID
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .lowercased()
+                guard !normalized.isEmpty else { return nil }
+                for suffix in ["-weekly", "_weekly", "-5h", "_5h"]
                 where normalized.hasSuffix(suffix) {
-                return String(normalized.dropLast(suffix.count))
-            }
-            return normalized
-        })
+                    return String(normalized.dropLast(suffix.count))
+                }
+                return normalized
+            })
         if stems.count == 1, let identifier = stems.first, !identifier.isEmpty {
             return identifier
         }

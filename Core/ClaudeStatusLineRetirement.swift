@@ -43,12 +43,15 @@ public enum ClaudeStatusLineRetirement {
             throw RetirementError.unreadableSettings
         }
         guard let statusLine = settings["statusLine"] as? [String: Any],
-              statusLine["type"] as? String == "command",
-              let command = statusLine["command"] as? String,
-              isOwnedCommand(command) else { return false }
-        guard let state = try? JSONSerialization.jsonObject(with: boundedData(stateURL, limit: 65_536)) as? [String: Any],
-              let previous = state["previousStatusLine"],
-              previous is NSNull || previous is [String: Any] else {
+            statusLine["type"] as? String == "command",
+            let command = statusLine["command"] as? String,
+            isOwnedCommand(command)
+        else { return false }
+        guard
+            let state = try? JSONSerialization.jsonObject(with: boundedData(stateURL, limit: 65_536)) as? [String: Any],
+            let previous = state["previousStatusLine"],
+            previous is NSNull || previous is [String: Any]
+        else {
             throw RetirementError.missingPreviousState
         }
         if let previous = previous as? [String: Any] {
@@ -66,7 +69,8 @@ public enum ClaudeStatusLineRetirement {
         guard try boundedData(settingsURL, limit: 1_048_576) == original else {
             throw RetirementError.settingsChanged
         }
-        var updated = try JSONSerialization.data(withJSONObject: settings, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+        var updated = try JSONSerialization.data(
+            withJSONObject: settings, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
         updated.append(0x0A)
         try updated.write(to: settingsURL, options: .atomic)
         // Keep migration state for a terminal already invoking the old hook.
@@ -75,19 +79,21 @@ public enum ClaudeStatusLineRetirement {
 
     public static func previousCommand(stateURL: URL = stateURL) -> String? {
         guard let data = try? boundedData(stateURL, limit: 65_536),
-              let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let previous = state["previousStatusLine"] as? [String: Any],
-              (previous["type"] as? String ?? "command") == "command",
-              let command = previous["command"] as? String,
-              !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              !command.contains("--claude-statusline") else { return nil }
+            let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let previous = state["previousStatusLine"] as? [String: Any],
+            (previous["type"] as? String ?? "command") == "command",
+            let command = previous["command"] as? String,
+            !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            !command.contains("--claude-statusline")
+        else { return nil }
         return command
     }
 
     private static func boundedData(_ url: URL, limit: Int) throws -> Data {
         let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
         guard attributes[.type] as? FileAttributeType == .typeRegular,
-              let size = attributes[.size] as? NSNumber, size.intValue <= limit else {
+            let size = attributes[.size] as? NSNumber, size.intValue <= limit
+        else {
             throw RetirementError.unreadableSettings
         }
         let handle = try FileHandle(forReadingFrom: url)

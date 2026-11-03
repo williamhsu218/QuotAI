@@ -1,6 +1,6 @@
 import AppKit
-import QuartzCore
 import Foundation
+import QuartzCore
 
 @main struct PickerContinuityProbe {
     @MainActor static func main() throws {
@@ -10,8 +10,9 @@ import Foundation
         }
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
-        let window = NSWindow(contentRect: NSRect(x: 40, y: 40, width: 308, height: 36),
-                              styleMask: [.borderless], backing: .buffered, defer: false)
+        let window = NSWindow(
+            contentRect: NSRect(x: 40, y: 40, width: 308, height: 36),
+            styleMask: [.borderless], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         let view = PickerHighlightView()
         window.contentView = view
@@ -43,16 +44,22 @@ import Foundation
                 // SwiftUI can configure/layout the same selection repeatedly.
                 // Those updates must preserve the animation's original start.
                 let before = layer.animation(forKey: "selection.slide") as? CABasicAnimation
-                view.configure(index: reversed ? 0 : 2, count: 3, spacing: 8, radius: 7, duration: 0.18, reduceMotion: false)
+                view.configure(
+                    index: reversed ? 0 : 2, count: 3, spacing: 8, radius: 7, duration: 0.18, reduceMotion: false)
                 view.setFrameSize(NSSize(width: 308, height: samples.count.isMultiple(of: 2) ? 36 : 37))
                 view.needsLayout = true
                 view.layoutSubtreeIfNeeded()
                 let after = layer.animation(forKey: "selection.slide") as? CABasicAnimation
                 if let before, let after {
-                    precondition((before.fromValue as! NSNumber) == (after.fromValue as! NSNumber), "Layout restarted the animation")
+                    precondition(
+                        (before.fromValue as! NSNumber) == (after.fromValue as! NSNumber),
+                        "Layout restarted the animation")
                 }
-                if reversed { precondition(x <= oldX + 0.5, "Unexpected backwards jitter after reversal") }
-                else { precondition(x >= oldX - 0.5, "Unexpected backwards jitter while sliding right") }
+                if reversed {
+                    precondition(x <= oldX + 0.5, "Unexpected backwards jitter after reversal")
+                } else {
+                    precondition(x >= oldX - 0.5, "Unexpected backwards jitter while sliding right")
+                }
                 oldX = x
             }
             samples.append(["time": t, "x": x])
@@ -62,10 +69,14 @@ import Foundation
         view.configure(index: 2, count: 3, spacing: 8, radius: 7, duration: 0.18, reduceMotion: true)
         precondition(layer.animation(forKey: "selection.slide") == nil, "Reduce Motion still animated")
         window.orderOut(nil)
-        let result: [String: Any] = ["passed": true, "samples": samples, "reversalPositionDelta": discontinuity,
-                                   "repeatedLayoutPreservedAnimation": true, "reduceMotionRemovedAnimation": true]
+        let result: [String: Any] = [
+            "passed": true, "samples": samples, "reversalPositionDelta": discontinuity,
+            "repeatedLayoutPreservedAnimation": true, "reduceMotionRemovedAnimation": true
+        ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
         try data.write(to: URL(fileURLWithPath: CommandLine.arguments[1]))
-        print("PASS: \(samples.count) presentation samples; continuous reversal; layout updates preserve animation; reduce motion immediate")
+        print(
+            "PASS: \(samples.count) presentation samples; continuous reversal; layout updates preserve animation; reduce motion immediate"
+        )
     }
 }

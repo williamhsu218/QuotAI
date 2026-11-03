@@ -12,7 +12,7 @@ public enum CodexRateLimitParserError: LocalizedError, Equatable {
                 "error.parser.missing_response",
                 fallback: "Codex did not return quota data."
             )
-        case let .serverError(code, message):
+        case .serverError(let code, let message):
             let summary = code.map { "\($0): \(message)" } ?? message
             return L10n.format(
                 "error.parser.server_format",
@@ -40,8 +40,9 @@ public enum CodexRateLimitParser {
 
         for line in jsonLines.split(whereSeparator: \.isNewline) {
             guard let data = String(line).data(using: .utf8),
-                  let envelope = try? decoder.decode(RateLimitsEnvelope.self, from: data),
-                  envelope.id == requestID else {
+                let envelope = try? decoder.decode(RateLimitsEnvelope.self, from: data),
+                envelope.id == requestID
+            else {
                 continue
             }
             matchedResponse = envelope
@@ -94,14 +95,16 @@ public enum CodexRateLimitParser {
 
         for line in jsonLines.split(whereSeparator: \.isNewline) {
             guard let data = String(line).data(using: .utf8),
-                  let envelope = try? decoder.decode(AccountUsageEnvelope.self, from: data) else {
+                let envelope = try? decoder.decode(AccountUsageEnvelope.self, from: data)
+            else {
                 continue
             }
             if let targetID = usageRequestID {
                 guard envelope.id == targetID else { continue }
             } else {
                 guard envelope.id != requestID,
-                      (envelope.result?.dailyUsageBuckets != nil || envelope.result?.summary != nil) else {
+                    envelope.result?.dailyUsageBuckets != nil || envelope.result?.summary != nil
+                else {
                     continue
                 }
             }
@@ -204,8 +207,9 @@ public enum CodexAccountParser {
 
         for line in jsonLines.split(whereSeparator: \.isNewline) {
             guard let data = String(line).data(using: .utf8),
-                  let envelope = try? decoder.decode(AccountEnvelope.self, from: data),
-                  envelope.id == requestID else {
+                let envelope = try? decoder.decode(AccountEnvelope.self, from: data),
+                envelope.id == requestID
+            else {
                 continue
             }
             guard envelope.error == nil, let result = envelope.result else {
@@ -235,8 +239,9 @@ public enum CodexAccountParser {
 
         for line in jsonLines.split(whereSeparator: \.isNewline) {
             guard let data = String(line).data(using: .utf8),
-                  let envelope = try? decoder.decode(AccountEnvelope.self, from: data),
-                  envelope.id == requestID else {
+                let envelope = try? decoder.decode(AccountEnvelope.self, from: data),
+                envelope.id == requestID
+            else {
                 continue
             }
             guard envelope.error == nil else { return nil }

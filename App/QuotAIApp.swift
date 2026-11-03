@@ -1,6 +1,6 @@
 import Darwin
-import SwiftUI
 import OSLog
+import SwiftUI
 
 @main
 enum QuotAIMain {

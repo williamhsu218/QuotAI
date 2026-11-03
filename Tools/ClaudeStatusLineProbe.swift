@@ -9,17 +9,21 @@ enum ClaudeStatusLineProbe {
             throw ProbeError.failure("usage: ClaudeStatusLineProbe <helper>")
         }
         let helper = URL(fileURLWithPath: CommandLine.arguments[1])
-        let directory = helper.deletingLastPathComponent().appendingPathComponent("QuotAI-ClaudeProbe-" + UUID().uuidString)
+        let directory = helper.deletingLastPathComponent().appendingPathComponent(
+            "QuotAI-ClaudeProbe-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         let settings = directory.appendingPathComponent("settings.json")
         let state = directory.appendingPathComponent("state.json")
         let reports = directory.appendingPathComponent("reports.json")
         let captured = directory.appendingPathComponent("captured")
-        let previous: [String: Any] = ["type": "command", "command": "/usr/bin/tee " + quote(captured.path), "padding": 2]
+        let previous: [String: Any] = [
+            "type": "command", "command": "/usr/bin/tee " + quote(captured.path), "padding": 2
+        ]
         let original = try JSONSerialization.data(withJSONObject: ["statusLine": previous, "unrelated": "keep"])
         try original.write(to: settings)
-        let installed = try ClaudeCodeStatusLineConfiguration.enable(helperURL: helper, settingsURL: settings, stateURL: state)
+        let installed = try ClaudeCodeStatusLineConfiguration.enable(
+            helperURL: helper, settingsURL: settings, stateURL: state)
 
         var environment = ProcessInfo.processInfo.environment
         environment["QUOTAI_CLAUDE_V2_STATE"] = state.path
@@ -63,11 +67,15 @@ enum ClaudeStatusLineProbe {
             try require(try Data(contentsOf: captured) == data, "previous command stdin \(size)")
         }
         let recorded = try Data(contentsOf: reports)
-        let archive = try ClaudeCodeReportRepository.read(configurationFingerprint: installed.configurationFingerprint, reportsURL: reports)
-        try require(archive.snapshots.count == 1 && archive.snapshots.first?.fiveHour?.usedPercentage == 42
-            && archive.snapshots.first?.sevenDay?.usedPercentage == 19, "official quota fields recorded")
+        let archive = try ClaudeCodeReportRepository.read(
+            configurationFingerprint: installed.configurationFingerprint, reportsURL: reports)
+        try require(
+            archive.snapshots.count == 1 && archive.snapshots.first?.fiveHour?.usedPercentage == 42
+                && archive.snapshots.first?.sevenDay?.usedPercentage == 19, "official quota fields recorded")
         let text = String(decoding: recorded, as: UTF8.self)
-        try require(!text.contains("private-cwd") && !text.contains("private-transcript") && !text.contains("total_cost_usd") && !text.contains("padding"), "report whitelist")
+        try require(
+            !text.contains("private-cwd") && !text.contains("private-transcript") && !text.contains("total_cost_usd")
+                && !text.contains("padding"), "report whitelist")
         _ = try JSONSerialization.jsonObject(with: recorded)
         let malformed = Data("{invalid JSON but previous command must still receive it".utf8)
         let (out, status) = try run(malformed, tag: "malformed")
@@ -76,12 +84,17 @@ enum ClaudeStatusLineProbe {
 
         try ClaudeCodeStatusLineConfiguration.disable(settingsURL: settings, stateURL: state)
         let restored = try JSONSerialization.jsonObject(with: Data(contentsOf: settings)) as! [String: Any]
-        try require(NSDictionary(dictionary: restored["statusLine"] as! [String: Any]).isEqual(to: previous), "previous status line restoration")
+        try require(
+            NSDictionary(dictionary: restored["statusLine"] as! [String: Any]).isEqual(to: previous),
+            "previous status line restoration")
         let disabledInput = try input(padding: 120)
         let (disabledOut, disabledStatus) = try run(disabledInput, tag: "disabled")
-        try require(disabledStatus == 0 && disabledOut == disabledInput, "open terminal still passes through after disable")
+        try require(
+            disabledStatus == 0 && disabledOut == disabledInput, "open terminal still passes through after disable")
         try require(try Data(contentsOf: reports) == recorded, "disabled helper cannot collect")
-        print("PASS: helper passthrough (small, pipe threshold, large, above collection limit), whitelist, malformed input, restore, disabled collection")
+        print(
+            "PASS: helper passthrough (small, pipe threshold, large, above collection limit), whitelist, malformed input, restore, disabled collection"
+        )
     }
 
     private static func quote(_ value: String) -> String {

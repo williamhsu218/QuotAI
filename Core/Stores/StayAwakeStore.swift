@@ -1,6 +1,6 @@
 import Foundation
-import Observation
 import OSLog
+import Observation
 
 @MainActor
 @Observable
@@ -31,10 +31,12 @@ final class StayAwakeStore {
         self.defaults = defaults
         self.processInfo = processInfo
         self.previewMode = previewMode
-        selectedDuration = defaults.string(forKey: DefaultsKey.stayAwakeDuration)
+        selectedDuration =
+            defaults.string(forKey: DefaultsKey.stayAwakeDuration)
             .flatMap(StayAwakeDuration.init(rawValue:))
             ?? .oneHour
-        selectedMode = defaults.string(forKey: DefaultsKey.stayAwakeMode)
+        selectedMode =
+            defaults.string(forKey: DefaultsKey.stayAwakeMode)
             .flatMap(StayAwakeMode.init(rawValue:))
             ?? .allowDisplaySleep
 

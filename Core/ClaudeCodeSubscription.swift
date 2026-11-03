@@ -32,14 +32,17 @@ public enum ClaudeCodeSubscriptionParser {
             throw ClaudeUsageQueryError.invalidOutput
         }
         guard status.loggedIn, status.authMethod == "claude.ai", status.apiProvider == "firstParty",
-              let identifier = status.subscriptionType?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let identifier = status.subscriptionType?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         else { return nil }
         return ClaudeCodeSubscriptionPlan(rawValue: identifier)
     }
 }
 
 public enum ClaudeCodeSubscriptionCache {
-    private struct Archive: Codable { let version: Int; let plan: ClaudeCodeSubscriptionPlan }
+    private struct Archive: Codable {
+        let version: Int
+        let plan: ClaudeCodeSubscriptionPlan
+    }
     public static var url: URL {
         ClaudeCodeStatusLineConfiguration.supportDirectory.appendingPathComponent("claude-subscription-v1.json")
     }
@@ -50,8 +53,12 @@ public enum ClaudeCodeSubscriptionCache {
         return archive.plan
     }
     public static func write(_ plan: ClaudeCodeSubscriptionPlan?, to url: URL = url) throws {
-        guard let plan else { try clear(at: url); return }
-        try ClaudeCodePrivateFile.atomicWrite(JSONEncoder().encode(Archive(version: 1, plan: plan)), to: url, permissions: 0o600)
+        guard let plan else {
+            try clear(at: url)
+            return
+        }
+        try ClaudeCodePrivateFile.atomicWrite(
+            JSONEncoder().encode(Archive(version: 1, plan: plan)), to: url, permissions: 0o600)
     }
     public static func clear(at url: URL = url) throws {
         try ClaudeCodePrivateFile.rejectSymlink(url)

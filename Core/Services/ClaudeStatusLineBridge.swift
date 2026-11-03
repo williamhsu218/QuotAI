@@ -21,7 +21,8 @@ enum ClaudeStatusLineBridge {
 
         // Never recurse if a previous command somehow points back here.
         guard ProcessInfo.processInfo.environment[ClaudeStatusLineRetirement.bridgeEnvironmentKey] == nil,
-              let previous = ClaudeStatusLineRetirement.previousCommand() else {
+            let previous = ClaudeStatusLineRetirement.previousCommand()
+        else {
             return 0
         }
         setenv(ClaudeStatusLineRetirement.bridgeEnvironmentKey, "1", 1)
@@ -44,7 +45,8 @@ enum ClaudeStatusLineBridge {
         }
         close(descriptors[1])
         guard written == input.count,
-              dup2(descriptors[0], STDIN_FILENO) >= 0 else {
+            dup2(descriptors[0], STDIN_FILENO) >= 0
+        else {
             close(descriptors[0])
             return
         }

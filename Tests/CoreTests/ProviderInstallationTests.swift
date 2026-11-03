@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import QuotAICore
 
 @Suite("Antigravity installation detection")
@@ -15,8 +16,9 @@ struct ProviderInstallationTests {
         #expect(!fixture.antigravity())
     }
 
-    @Test("Installed and renamed app bundles are detected by identity",
-          arguments: ["Antigravity.app", "Antigravity Personal.app"])
+    @Test(
+        "Installed and renamed app bundles are detected by identity",
+        arguments: ["Antigravity.app", "Antigravity Personal.app"])
     func installedBundle(name: String) throws {
         let fixture = try InstallationFixture()
         defer { fixture.remove() }
@@ -47,14 +49,16 @@ struct ProviderInstallationTests {
         #expect(!fixture.antigravity())
     }
 
-    @Test("The declared executable cannot use an empty name or path traversal",
-          arguments: ["", ".", "..", "../Provider", "/Provider"])
+    @Test(
+        "The declared executable cannot use an empty name or path traversal",
+        arguments: ["", ".", "..", "../Provider", "/Provider"])
     func invalidExecutableName(name: String) throws {
         let fixture = try InstallationFixture()
         defer { fixture.remove() }
         let bundle = try fixture.application("Antigravity.app")
         try fixture.file("Applications/Antigravity.app/Contents/Provider", permissions: 0o755)
-        let declaredName = name == "/Provider"
+        let declaredName =
+            name == "/Provider"
             ? try fixture.file("Provider", permissions: 0o755).path
             : name
         try fixture.writeInfo(bundle, identifier: "com.google.antigravity", executableName: declaredName)
@@ -78,8 +82,10 @@ struct ProviderInstallationTests {
         defer { fixture.remove() }
         try fixture.application("Antigravity.app")
         #expect(fixture.antigravity())
-        #expect(!ProviderInstallationDetector.antigravity(homeDirectory: fixture.home,
-                                                         applicationDirectories: []))
+        #expect(
+            !ProviderInstallationDetector.antigravity(
+                homeDirectory: fixture.home,
+                applicationDirectories: []))
     }
 
     @Test("Cached scans notice a broken or removed installation immediately")
@@ -150,16 +156,19 @@ private struct InstallationFixture {
     @discardableResult
     func file(_ path: String, permissions: Int = 0o644) throws -> URL {
         let url = home.appendingPathComponent(path)
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
-                                                withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true)
         try Data("fixture".utf8).write(to: url)
         try FileManager.default.setAttributes([.posixPermissions: permissions], ofItemAtPath: url.path)
         return url
     }
 
     @discardableResult
-    func application(_ name: String, identifier: String = "com.google.antigravity",
-                     executablePermissions: Int = 0o755) throws -> URL {
+    func application(
+        _ name: String, identifier: String = "com.google.antigravity",
+        executablePermissions: Int = 0o755
+    ) throws -> URL {
         let bundle = try directory("Applications/\(name)/Contents/MacOS")
             .deletingLastPathComponent().deletingLastPathComponent()
         try writeInfo(bundle, identifier: identifier, executableName: "Provider")
@@ -174,12 +183,14 @@ private struct InstallationFixture {
     }
 
     func antigravity() -> Bool {
-        ProviderInstallationDetector.antigravity(homeDirectory: home,
+        ProviderInstallationDetector.antigravity(
+            homeDirectory: home,
             applicationDirectories: [home.appendingPathComponent("Applications", isDirectory: true)])
     }
 
     func antigravity(cache: ApplicationInstallationCache) -> Bool {
-        ProviderInstallationDetector.antigravity(homeDirectory: home,
+        ProviderInstallationDetector.antigravity(
+            homeDirectory: home,
             applicationDirectories: [home.appendingPathComponent("Applications", isDirectory: true)],
             cache: cache)
     }

@@ -1,6 +1,6 @@
 import AppKit
-import Observation
 import OSLog
+import Observation
 import SwiftUI
 
 @MainActor
@@ -162,13 +162,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
 
     private func configurePopover() {
         let hostingController = NSHostingController(
-            rootView: QuotaPopoverContent(visibility: panelVisibility, panel: MenuBarPanelView(
-                store: store,
-                antigravityStore: antigravityStore,
-                stayAwakeStore: stayAwakeStore,
-                claudeCodeStore: claudeCodeStore
-            ))
-                .environment(\.usesSystemPopoverSurface, true)
+            rootView: QuotaPopoverContent(
+                visibility: panelVisibility,
+                panel: MenuBarPanelView(
+                    store: store,
+                    antigravityStore: antigravityStore,
+                    stayAwakeStore: stayAwakeStore,
+                    claudeCodeStore: claudeCodeStore
+                )
+            )
+            .environment(\.usesSystemPopoverSurface, true)
         )
         hostingController.sizingOptions = [.preferredContentSize]
         hostingController.view.wantsLayer = true
@@ -421,7 +424,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         button.setAccessibilityLabel(toolTip)
         button.setAccessibilityTitle(toolTip)
     }
-
 
     private var menuBarQuotaDisplayMode: MenuBarQuotaDisplayMode {
         let rawValue = UserDefaults.standard.string(

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import QuotAICore
 
 private struct FetchCall: Equatable, Sendable {
@@ -12,11 +13,13 @@ private func codexSnapshot(resetCount: Int, remaining: Int = 82) -> UsageSnapsho
     let fetched = Date(timeIntervalSince1970: 1_800_000_000)
     return UsageSnapshot(
         fetchedAt: fetched,
-        fiveHour: QuotaWindow(kind: .fiveHour, remainingPercent: remaining, resetsAt: fetched.addingTimeInterval(3_600)),
+        fiveHour: QuotaWindow(
+            kind: .fiveHour, remainingPercent: remaining, resetsAt: fetched.addingTimeInterval(3_600)),
         sevenDay: nil,
         availableResetCount: resetCount,
         resetCredits: (0..<resetCount).map {
-            ResetCredit(grantedAt: fetched.addingTimeInterval(Double(-$0) * 86_400), expiresAt: nil, status: "available")
+            ResetCredit(
+                grantedAt: fetched.addingTimeInterval(Double(-$0) * 86_400), expiresAt: nil, status: "available")
         }
     )
 }

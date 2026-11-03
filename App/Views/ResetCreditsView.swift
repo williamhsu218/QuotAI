@@ -48,8 +48,8 @@ struct ResetCreditsView: View {
                         fallback: "Temporarily unavailable"
                     )
                 )
-                    .font(.system(size: AppTheme.TypeSize.caption))
-                    .foregroundStyle(AppTheme.secondaryText)
+                .font(.system(size: AppTheme.TypeSize.caption))
+                .foregroundStyle(AppTheme.secondaryText)
             } else if visibleCredits.isEmpty, snapshot.availableResetCount > 0 {
                 Text(
                     L10n.text(
@@ -57,8 +57,8 @@ struct ResetCreditsView: View {
                         fallback: "Expiry details unavailable"
                     )
                 )
-                    .font(.system(size: AppTheme.TypeSize.caption))
-                    .foregroundStyle(AppTheme.secondaryText)
+                .font(.system(size: AppTheme.TypeSize.caption))
+                .foregroundStyle(AppTheme.secondaryText)
             } else {
                 LazyVGrid(
                     columns: [

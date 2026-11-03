@@ -1,4 +1,5 @@
 import Testing
+
 @testable import QuotAICore
 
 @Test("Every activity level stays visible on its palette reference surface", arguments: TokenActivityTheme.allCases)
@@ -7,8 +8,9 @@ func tokenActivitySurfaceContrast(theme: TokenActivityTheme) {
         for increasedContrast in [false, true] {
             let palette = theme.palette(dark: dark, increasedContrast: increasedContrast)
             for level in 1...4 {
-                #expect(palette.color(for: level).contrastRatio(with: palette.surface)
-                    >= (increasedContrast ? 4.5 : 3.0))
+                #expect(
+                    palette.color(for: level).contrastRatio(with: palette.surface)
+                        >= (increasedContrast ? 4.5 : 3.0))
                 #expect(palette.marker(for: level).contrastRatio(with: palette.color(for: level)) >= 4.5)
             }
             #expect(palette.accent.contrastRatio(with: palette.surface) >= 4.5)

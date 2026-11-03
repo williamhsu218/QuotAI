@@ -20,9 +20,11 @@ public enum AntigravityModelAccessParser {
 
     private static func availability(data: Data?, family: Family) -> AntigravityModelAvailability {
         guard let data,
-              let envelope = try? JSONDecoder().decode(StatusEnvelope.self, from: data),
-              let status = envelope.userStatus ?? envelope.response?.userStatus ?? envelope.response?.directStatus ?? envelope.directStatus,
-              let models = status.cascadeModelConfigData?.clientModelConfigs else {
+            let envelope = try? JSONDecoder().decode(StatusEnvelope.self, from: data),
+            let status = envelope.userStatus ?? envelope.response?.userStatus ?? envelope.response?.directStatus
+                ?? envelope.directStatus,
+            let models = status.cascadeModelConfigData?.clientModelConfigs
+        else {
             return .unknown
         }
 

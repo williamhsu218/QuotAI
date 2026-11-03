@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import QuotAICore
 
 @Test("Persisted preference keys keep their stored names and stay unique")

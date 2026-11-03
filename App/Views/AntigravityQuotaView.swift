@@ -23,20 +23,25 @@ struct AntigravityQuotaView: View {
                         set: { selectedGroupID = $0 }
                     )
                 ) { id, _ in
-                    Text(AntigravityQuotaTab(rawValue: id)?.title
-                         ?? snapshot.panelGroups.first(where: { $0.id == id })?.localizedDisplayName
-                         ?? id)
-                        .font(.system(size: AppTheme.TypeSize.caption, weight: .medium))
+                    Text(
+                        AntigravityQuotaTab(rawValue: id)?.title
+                            ?? snapshot.panelGroups.first(where: { $0.id == id })?.localizedDisplayName
+                            ?? id
+                    )
+                    .font(.system(size: AppTheme.TypeSize.caption, weight: .medium))
                 }
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel(L10n.text("antigravity.quota_group", fallback: "Quota group"))
                 .accessibilityIdentifier("antigravity.quotaGroupPicker")
             } else {
-                Text(L10n.format("antigravity.group.quota_title", fallback: "%@ quota",
-                                 AntigravityQuotaTab(rawValue: group.id)?.title ?? group.localizedDisplayName))
-                    .font(.system(size: AppTheme.TypeSize.caption, weight: .semibold))
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .accessibilityIdentifier("antigravity.singleGroupTitle")
+                Text(
+                    L10n.format(
+                        "antigravity.group.quota_title", fallback: "%@ quota",
+                        AntigravityQuotaTab(rawValue: group.id)?.title ?? group.localizedDisplayName)
+                )
+                .font(.system(size: AppTheme.TypeSize.caption, weight: .semibold))
+                .foregroundStyle(AppTheme.secondaryText)
+                .accessibilityIdentifier("antigravity.singleGroupTitle")
             }
 
             if group.orderedQuotas.isEmpty {
@@ -46,7 +51,9 @@ struct AntigravityQuotaView: View {
                         ? L10n.text("antigravity.models.read_failed", fallback: "Model access unavailable")
                         : L10n.text("empty.antigravity_failed", fallback: "Antigravity quota unavailable"),
                     detail: snapshot.modelStatusMessage(for: group.id)
-                        ?? L10n.text("antigravity.quota.missing", fallback: "No quota was returned for this group. Try refreshing.")
+                        ?? L10n.text(
+                            "antigravity.quota.missing",
+                            fallback: "No quota was returned for this group. Try refreshing.")
                 ) { Task { await store.userRefresh() } }
                 .accessibilityIdentifier("antigravity.groupReadFailure")
             } else {
@@ -56,11 +63,13 @@ struct AntigravityQuotaView: View {
                         .foregroundStyle(AppTheme.secondaryText)
                 }
                 if group.isExhausted {
-                    Label(L10n.text("antigravity.quota.exhausted", fallback: "Quota exhausted · waiting for reset"),
-                          systemImage: "hourglass")
-                        .font(.system(size: AppTheme.TypeSize.small))
-                        .foregroundStyle(AppTheme.secondaryText)
-                        .accessibilityIdentifier("antigravity.quotaExhausted")
+                    Label(
+                        L10n.text("antigravity.quota.exhausted", fallback: "Quota exhausted · waiting for reset"),
+                        systemImage: "hourglass"
+                    )
+                    .font(.system(size: AppTheme.TypeSize.small))
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .accessibilityIdentifier("antigravity.quotaExhausted")
                 }
                 VStack(spacing: AppTheme.Spacing.small) {
                     ForEach(Array(group.orderedQuotas.enumerated()), id: \.element.id) { index, quota in
@@ -75,7 +84,7 @@ struct AntigravityQuotaView: View {
                         )
                     }
                 }
-                .id(group.id) // Replace quota rows immediately; don't animate from another pool.
+                .id(group.id)  // Replace quota rows immediately; don't animate from another pool.
             }
         }
         .padding(AppTheme.Spacing.compact)

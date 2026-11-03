@@ -6,7 +6,7 @@ enum CodexBinaryLocatorError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case let .invalidCustomPath(path):
+        case .invalidCustomPath(let path):
             L10n.format(
                 "error.binary.invalid_path_format",
                 fallback: "The configured Codex path is not executable: %@",
@@ -15,7 +15,8 @@ enum CodexBinaryLocatorError: LocalizedError {
         case .notFound:
             L10n.text(
                 "error.binary.not_found",
-                fallback: "Codex was not found on this Mac. Install or sign in to ChatGPT/Codex, or specify the Codex path in Settings."
+                fallback:
+                    "Codex was not found on this Mac. Install or sign in to ChatGPT/Codex, or specify the Codex path in Settings."
             )
         }
     }
@@ -51,18 +52,21 @@ enum CodexBinaryLocator {
             URL(fileURLWithPath: $0)
                 .appendingPathComponent("Contents/Resources/codex-cli/bin/codex").path
         }
-        candidates.append(contentsOf: applicationPaths.map {
-            URL(fileURLWithPath: $0)
-                .appendingPathComponent("Contents/Resources/codex").path
-        })
-        candidates.append(contentsOf: commandDirectories.map {
-            URL(fileURLWithPath: $0).appendingPathComponent("codex").path
-        })
+        candidates.append(
+            contentsOf: applicationPaths.map {
+                URL(fileURLWithPath: $0)
+                    .appendingPathComponent("Contents/Resources/codex").path
+            })
+        candidates.append(
+            contentsOf: commandDirectories.map {
+                URL(fileURLWithPath: $0).appendingPathComponent("codex").path
+            })
 
         if let path = environment["PATH"] {
-            candidates.append(contentsOf: path.split(separator: ":").map {
-                URL(fileURLWithPath: String($0)).appendingPathComponent("codex").path
-            })
+            candidates.append(
+                contentsOf: path.split(separator: ":").map {
+                    URL(fileURLWithPath: String($0)).appendingPathComponent("codex").path
+                })
         }
         var seenPaths = Set<String>()
         let executables = candidates.compactMap { path -> URL? in

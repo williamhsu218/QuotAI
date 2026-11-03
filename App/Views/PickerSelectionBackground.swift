@@ -12,7 +12,9 @@ struct SlidingSegmentedPicker<Selection: Hashable, SegmentLabel: View>: View {
     var body: some View {
         HStack(spacing: AppTheme.Spacing.small) {
             ForEach(Array(options.enumerated()), id: \.element) { index, option in
-                Button { selection = option } label: {
+                Button {
+                    selection = option
+                } label: {
                     label(option, selection == option)
                         .foregroundStyle(selection == option ? AppTheme.primaryText : AppTheme.secondaryText)
                         .frame(maxWidth: .infinity)
@@ -21,9 +23,11 @@ struct SlidingSegmentedPicker<Selection: Hashable, SegmentLabel: View>: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(selection == option ? .isSelected : [])
-                .keyboardShortcut(keyboardShortcuts
-                    ? KeyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
-                    : nil)
+                .keyboardShortcut(
+                    keyboardShortcuts
+                        ? KeyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
+                        : nil
+                )
                 .transaction { transaction in
                     transaction.animation = nil
                     transaction.disablesAnimations = true
@@ -57,9 +61,10 @@ struct PickerSelectionBackground: NSViewRepresentable {
     func makeNSView(context: Context) -> PickerHighlightView { PickerHighlightView() }
 
     func updateNSView(_ view: PickerHighlightView, context: Context) {
-        view.configure(index: selectedIndex, count: count, spacing: spacing,
-                       radius: cornerRadius, duration: duration,
-                       reduceMotion: reduceMotion || forceReduceMotion)
+        view.configure(
+            index: selectedIndex, count: count, spacing: spacing,
+            radius: cornerRadius, duration: duration,
+            reduceMotion: reduceMotion || forceReduceMotion)
     }
 }
 
@@ -99,11 +104,17 @@ final class PickerHighlightView: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
-    func configure(index: Int, count: Int, spacing: CGFloat, radius: CGFloat,
-                   duration: TimeInterval, reduceMotion: Bool) {
+    func configure(
+        index: Int, count: Int, spacing: CGFloat, radius: CGFloat,
+        duration: TimeInterval, reduceMotion: Bool
+    ) {
         let selectionChanged = self.index != index
-        self.index = index; self.count = count; self.spacing = spacing
-        self.radius = radius; self.duration = duration; self.reduceMotion = reduceMotion
+        self.index = index
+        self.count = count
+        self.spacing = spacing
+        self.radius = radius
+        self.duration = duration
+        self.reduceMotion = reduceMotion
         updateHighlight(animateSelection: selectionChanged)
     }
 
@@ -131,8 +142,9 @@ final class PickerHighlightView: NSView {
         guard bounds.width > 0, bounds.height > 0 else { return }
         let slots = max(1, count)
         let width = max(0, (bounds.width - CGFloat(slots - 1) * spacing) / CGFloat(slots))
-        let target = CGRect(x: CGFloat(min(max(0, index), slots - 1)) * (width + spacing),
-                            y: 0, width: width, height: bounds.height)
+        let target = CGRect(
+            x: CGFloat(min(max(0, index), slots - 1)) * (width + spacing),
+            y: 0, width: width, height: bounds.height)
         let currentX = highlight.presentation()?.position.x ?? highlight.position.x
         let xChanged = abs(highlight.position.x - target.midX) > 0.001
         let shouldAnimate = hasLayout && animateSelection && !reduceMotion && duration > 0 && window != nil
@@ -143,18 +155,23 @@ final class PickerHighlightView: NSView {
         highlight.position = CGPoint(x: target.midX, y: target.midY)
         highlight.cornerRadius = radius
         let scale = window?.backingScaleFactor ?? 2
-        highlight.contentsScale = scale; border.contentsScale = scale; borderMask.contentsScale = scale
+        highlight.contentsScale = scale
+        border.contentsScale = scale
+        borderMask.contentsScale = scale
         effectiveAppearance.performAsCurrentDrawingAppearance {
             highlight.backgroundColor = NSColor(AppTheme.pickerSelectedBackground).cgColor
             highlight.shadowColor = NSColor(AppTheme.pickerSelectedShadow).cgColor
-            border.colors = dark
+            border.colors =
+                dark
                 ? [NSColor.white.withAlphaComponent(0.22).cgColor, NSColor.white.withAlphaComponent(0.06).cgColor]
                 : [NSColor.white.withAlphaComponent(0.80).cgColor, NSColor.black.withAlphaComponent(0.06).cgColor]
         }
         border.frame = highlight.bounds
-        borderMask.path = CGPath(roundedRect: highlight.bounds.insetBy(dx: 0.25, dy: 0.25),
-                                 cornerWidth: max(0, radius - 0.25), cornerHeight: max(0, radius - 0.25), transform: nil)
-        highlight.shadowPath = CGPath(roundedRect: highlight.bounds, cornerWidth: radius, cornerHeight: radius, transform: nil)
+        borderMask.path = CGPath(
+            roundedRect: highlight.bounds.insetBy(dx: 0.25, dy: 0.25),
+            cornerWidth: max(0, radius - 0.25), cornerHeight: max(0, radius - 0.25), transform: nil)
+        highlight.shadowPath = CGPath(
+            roundedRect: highlight.bounds, cornerWidth: radius, cornerHeight: radius, transform: nil)
         CATransaction.commit()
         if reduceMotion || !hasLayout || (xChanged && !shouldAnimate) {
             highlight.removeAnimation(forKey: "selection.slide")

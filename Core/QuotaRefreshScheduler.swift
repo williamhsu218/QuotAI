@@ -9,20 +9,22 @@ final class QuotaRefreshScheduler {
     private let tick: @MainActor @Sendable () -> Void
     var isRunning: Bool { loop != nil }
 
-    init(interval: @escaping @MainActor @Sendable () -> TimeInterval,
-         tick: @escaping @MainActor @Sendable () -> Void) {
+    init(
+        interval: @escaping @MainActor @Sendable () -> TimeInterval,
+        tick: @escaping @MainActor @Sendable () -> Void
+    ) {
         self.interval = interval
         self.tick = tick
     }
 
     func start() {
         guard loop == nil else { return }
-        let interval = interval, tick = tick
+        let interval = interval
+        let tick = tick
         loop = Task {
             while !Task.isCancelled {
                 let configured = interval()
-                do { try await Task.sleep(for: .seconds(RefreshInterval.normalized(configured))) }
-                catch { return }
+                do { try await Task.sleep(for: .seconds(RefreshInterval.normalized(configured))) } catch { return }
                 guard !Task.isCancelled else { return }
                 tick()
             }
