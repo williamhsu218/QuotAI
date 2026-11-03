@@ -43,6 +43,13 @@ echo "Debug build succeeded; Swift warnings:"
 grep -E "\.swift:[0-9]+:[0-9]+: warning:" build/qa/debug-build.log | sort -u | head -40 || true
 APP_BINARY="build/DerivedData/Build/Products/Debug/QuotAI.app/Contents/MacOS/QuotAI"
 
+step "Isolated probes"
+if ! ./script/run_probes.sh > build/qa/isolated-probes.log 2>&1; then
+  tail -60 build/qa/isolated-probes.log
+  fail "isolated probes (full log: build/qa/isolated-probes.log)"
+fi
+tail -3 build/qa/isolated-probes.log
+
 step "Universal Release package"
 PACKAGE_OUTPUT=$(./script/build_and_run.sh --package-release 2>&1 | tail -5)
 echo "$PACKAGE_OUTPUT"

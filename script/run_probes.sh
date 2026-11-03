@@ -13,6 +13,11 @@ cd "$ROOT_DIR"
 
 step() { printf '\n==== %s ====\n' "$*"; }
 
+step "Local date formatting"
+xcrun swiftc -parse-as-library Core/Localization.swift Core/Support/DateFormatting.swift \
+  Tools/DateFormattingProbe.swift -o "$OUT/date-formatting-probe"
+"$OUT/date-formatting-probe"
+
 step "Codex client fallback"
 xcrun swiftc -parse-as-library Core/*.swift Core/Services/CodexBinaryLocator.swift \
   Core/Services/CodexAppServerClient.swift Tools/ClientFallbackProbe.swift \
