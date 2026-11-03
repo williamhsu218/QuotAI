@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		980000000000000000000003 = {isa = PBXBuildFile; fileRef = 980000000000000000000004; };
 		980000000000000000000001 = {isa = PBXBuildFile; fileRef = 980000000000000000000002; };
 		970000000000000000000001 = {isa = PBXBuildFile; fileRef = 970000000000000000000002; };
 		960000000000000000000003 = {isa = PBXBuildFile; fileRef = 960000000000000000000004; };
@@ -60,6 +61,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		980000000000000000000004 /* QuotaProviderStores.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaProviderStores.swift; sourceTree = "<group>"; };
 		980000000000000000000002 /* PreferenceKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferenceKeys.swift; sourceTree = "<group>"; };
 		970000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickerSelectionBackground.swift; sourceTree = "<group>"; };
 		960000000000000000000004 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaRefreshScheduler.swift; sourceTree = "<group>"; };
@@ -144,7 +146,7 @@
 			sourceTree = "<group>";
 		};
 		800000000000000000000003 /* Services */ = {isa = PBXGroup; children = (940000000000000000000002, 920000000000000000000003, 900000000000000000000006, 900000000000000000000007, 900000000000000000000020, ); path = Services; sourceTree = "<group>"; };
-		800000000000000000000004 /* Stores */ = {isa = PBXGroup; children = (930000000000000000000003, 920000000000000000000005, 900000000000000000000008, 900000000000000000000021, 90000000000000000000001D, ); path = Stores; sourceTree = "<group>"; };
+		800000000000000000000004 /* Stores */ = {isa = PBXGroup; children = (980000000000000000000004, 930000000000000000000003, 920000000000000000000005, 900000000000000000000008, 900000000000000000000021, 90000000000000000000001D, ); path = Stores; sourceTree = "<group>"; };
 		800000000000000000000005 /* Support */ = {isa = PBXGroup; children = (910000000000000000000009, 910000000000000000000007, 900000000000000000000009, ); path = Support; sourceTree = "<group>"; };
 		800000000000000000000010 /* Support */ = {isa = PBXGroup; children = (90000000000000000000000A, ); path = Support; sourceTree = "<group>"; };
 		800000000000000000000006 /* Views */ = {isa = PBXGroup; children = (970000000000000000000002, 930000000000000000000004, 91000000000000000000000B, 91000000000000000000000A, 90000000000000000000000D, 900000000000000000000022, 90000000000000000000000B, 90000000000000000000000C, 900000000000000000000024, 90000000000000000000001E, 90000000000000000000000E, 90000000000000000000000F, ); path = Views; sourceTree = "<group>"; };
@@ -231,6 +233,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				980000000000000000000003,
 				980000000000000000000001,
 				970000000000000000000001,
 				960000000000000000000003,

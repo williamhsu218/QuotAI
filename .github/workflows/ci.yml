@@ -88,8 +88,8 @@ jobs:
           git diff --stat | tail -n 3
           git diff > build/format/swift-format.patch
           xargs -0 swift format lint --parallel < build/format/files > build/format/lint.txt 2>&1 || true
-          echo "Remaining lint findings by rule:"
-          grep -oE "\[[A-Za-z]+\]" build/format/lint.txt | sort | uniq -c | sort -rn || true
+          echo "Lint findings that formatting does not fix:"
+          cat build/format/lint.txt
           git checkout -- .
 
       - name: Upload swift-format report

@@ -1,0 +1,38 @@
+name: Format
+
+# Run manually from the Actions tab (or the API) on a branch: formats every
+# Swift source with the repository's .swift-format and commits the result to
+# that branch. Review the commit like any other change.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: format-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  format:
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Format with swift-format
+        run: |
+          swift format --version
+          git ls-files -z '*.swift' | xargs -0 swift format --in-place --parallel
+          git diff --stat | tail -n 3
+
+      - name: Commit the formatting
+        run: |
+          if git diff --quiet; then
+            echo "Sources are already formatted."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -am "Format Swift sources with swift-format"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

@@ -54,8 +54,19 @@ swift test
 不读取真实账号、凭据或用户配置。
 
 GitHub Actions（`.github/workflows/ci.yml`）在每次推送和 PR 时于 macOS 26 runner 上执行
-`swift test`、Debug 构建、`script/run_probes.sh` 和 Universal Release 打包，并把 ad-hoc 签名的
-ZIP 作为 7 天有效的构建产物上传。CI 不发布 Release，也不代替原生界面与已安装 App 的验收。
+`swift test`、Debug 构建、三张设计预览渲染、`script/run_probes.sh` 和 Universal Release 打包，
+并把预览 PNG 与 ad-hoc 签名的 ZIP 作为 7 天有效的构建产物上传。CI 不发布 Release，
+也不代替原生界面与已安装 App 的验收。
+
+代码格式由仓库根目录的 `.swift-format` 定义（4 空格缩进、每行 120 列），使用 Xcode 自带的 swift-format：
+
+```bash
+git ls-files -z '*.swift' | xargs -0 swift format --in-place --parallel
+git ls-files -z '*.swift' | xargs -0 swift format lint --parallel
+```
+
+也可以在 GitHub Actions 中对某个分支手动运行 Format 工作流（`.github/workflows/format.yml`），
+它会格式化全部 Swift 源码并把结果提交到该分支，提交后仍需像其他改动一样审查。
 
 `--preview` 支持面板与设置窗口；静态渲染结果位于 `build/qa/`，Codex 主题预览位于
 `build/TokenThemePreview/`。部分原生控件不能通过 ImageRenderer 完整呈现，
