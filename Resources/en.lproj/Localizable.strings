@@ -169,7 +169,6 @@
 // Legacy provider label and shared quota states
 "provider.claude" = "Claude Code";
 "claude.report.title" = "Local report";
-"claude.report.beijing" = "Beijing time";
 "claude.report.source_unknown" = "Source sampling time not provided";
 "claude.report.window_received_format" = "%@ received %@";
 "claude.report.session" = "Session";

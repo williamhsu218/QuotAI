@@ -4,7 +4,7 @@
 
 ## 展示与刷新
 
-Claude 页面显示官方 `/usage` 的 **5h、7d 剩余额度和北京时间重置时间**。
+Claude 页面显示官方 `/usage` 的 **5h、7d 剩余额度和按系统时区显示的重置时间**。
 不显示重置卡、查看入口、套餐或每日 Token。刷新直接查询，无需选择或等待 Claude 会话。
 
 本机 Claude CLI 2.1.285 已验证：
@@ -44,4 +44,4 @@ Claude 页面显示官方 `/usage` 的 **5h、7d 剩余额度和北京时间重�
 
 分别验收解析与时间规则、隔离子进程/状态生命周期、完整 App 与 Universal 构建、
 中英文及明暗渲染、原生设置/面板、真实官方查询、安装版刷新和 Release 产物读回。
-实际结果见 [2.1.1 版本说明](../Design/release-notes-2.1.1.md)。
+实际结果见 [2.1.1 版本说明](https://github.com/williamhsu218/QuotAI/releases/tag/v2.1.1)。

@@ -7,14 +7,9 @@ struct ClaudeCodeQuotaView: View {
     var body: some View {
         TimelineView(.explicit(panelVisible ? ClaudeCodeReportDisplayTimeline.entries(for: store.snapshot, from: Date()) : [])) { _ in
             VStack(alignment: .leading, spacing: AppTheme.Spacing.small) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(L10n.text("claude.query.title", fallback: "Claude usage"))
-                        .font(.system(size: AppTheme.TypeSize.cardTitle, weight: .semibold))
-                        .foregroundStyle(AppTheme.primaryText)
-                    Spacer(minLength: AppTheme.Spacing.small)
-                    Text(L10n.text("claude.report.beijing", fallback: "Beijing time"))
-                        .font(.system(size: AppTheme.TypeSize.small)).foregroundStyle(AppTheme.secondaryText)
-                }
+                Text(L10n.text("claude.query.title", fallback: "Claude usage"))
+                    .font(.system(size: AppTheme.TypeSize.cardTitle, weight: .semibold))
+                    .foregroundStyle(AppTheme.primaryText)
                 if let snapshot = store.snapshot {
                     let historical = store.isHistorical(at: Date())
                     ForEach([QuotaKind.fiveHour, .sevenDay], id: \.self) { kind in

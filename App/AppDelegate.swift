@@ -477,7 +477,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
 
     private func providerStore(for provider: QuotaProvider) -> any QuotaProviderStore {
         switch provider {
-        case .codex, .claude: store
+        case .codex: store
         case .antigravity: antigravityStore
         case .claudeCode: claudeCodeStore
         }

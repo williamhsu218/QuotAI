@@ -81,6 +81,52 @@ struct ProviderInstallationTests {
         #expect(!ProviderInstallationDetector.antigravity(homeDirectory: fixture.home,
                                                          applicationDirectories: []))
     }
+
+    @Test("Cached scans notice a broken or removed installation immediately")
+    func cachedUninstall() throws {
+        let fixture = try InstallationFixture()
+        defer { fixture.remove() }
+        let cache = ApplicationInstallationCache()
+        let bundle = try fixture.application("Antigravity.app")
+        #expect(fixture.antigravity(cache: cache))
+        #expect(fixture.antigravity(cache: cache))
+        try FileManager.default.removeItem(at: bundle.appendingPathComponent("Contents/MacOS/Provider"))
+        #expect(!fixture.antigravity(cache: cache))
+        try FileManager.default.removeItem(at: bundle)
+        #expect(!fixture.antigravity(cache: cache))
+    }
+
+    @Test("Cached scans pick up a bundle added to the application directory")
+    func cachedInstall() throws {
+        let fixture = try InstallationFixture()
+        defer { fixture.remove() }
+        let cache = ApplicationInstallationCache()
+        #expect(!fixture.antigravity(cache: cache))
+        try fixture.directory("Applications")
+        #expect(!fixture.antigravity(cache: cache))
+        try fixture.application("Antigravity.app")
+        #expect(fixture.antigravity(cache: cache))
+    }
+
+    @Test("A bundle completed inside an unchanged directory is found after the age limit")
+    func cachedIncompleteBundle() throws {
+        let fixture = try InstallationFixture()
+        defer { fixture.remove() }
+        let clock = TestClock()
+        let cache = ApplicationInstallationCache(maximumAge: 300, now: { clock.now })
+        try fixture.directory("Applications/Antigravity.app")
+        #expect(!fixture.antigravity(cache: cache))
+        // Filling the existing bundle leaves the parent directory unchanged.
+        try fixture.application("Antigravity.app")
+        #expect(!fixture.antigravity(cache: cache))
+        clock.now = clock.now.addingTimeInterval(301)
+        #expect(fixture.antigravity(cache: cache))
+        #expect(fixture.antigravity())
+    }
+}
+
+private final class TestClock: @unchecked Sendable {
+    var now = Date()
 }
 
 private struct InstallationFixture {
@@ -130,5 +176,11 @@ private struct InstallationFixture {
     func antigravity() -> Bool {
         ProviderInstallationDetector.antigravity(homeDirectory: home,
             applicationDirectories: [home.appendingPathComponent("Applications", isDirectory: true)])
+    }
+
+    func antigravity(cache: ApplicationInstallationCache) -> Bool {
+        ProviderInstallationDetector.antigravity(homeDirectory: home,
+            applicationDirectories: [home.appendingPathComponent("Applications", isDirectory: true)],
+            cache: cache)
     }
 }

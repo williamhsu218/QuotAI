@@ -102,69 +102,6 @@ public struct ClaudeCodeQuotaSnapshot: Codable, Equatable, Sendable {
     }
 }
 
-public struct ClaudeCodeUsageSession: Identifiable, Equatable, Sendable {
-    public let id: String
-    public var label: String { String(id.prefix(8)) }
-    public init(id: String) { self.id = id }
-}
-
-/// Nil selects Auto; an explicit fingerprint stays pinned. Automatic reports
-/// are local callback observations, never proof of an account or live process.
-public struct ClaudeCodeSessionSelection: Equatable, Sendable {
-    public enum AutoPolicy: Equatable, Sendable {
-        /// Follow the session with the latest locally received callback that
-        /// still contains at least one displayable official window.
-        case latestDisplayableReport
-        /// Require one unambiguous displayable session; otherwise wait for an
-        /// explicit choice. This does not establish OS process liveness.
-        case onlyDisplayableSession
-    }
-
-    public var selectedSessionID: String?
-    public init(selectedSessionID: String? = nil) { self.selectedSessionID = selectedSessionID }
-    public func resolve(in snapshots: [ClaudeCodeQuotaSnapshot], at now: Date = Date(), autoPolicy: AutoPolicy = .latestDisplayableReport) -> ClaudeCodeQuotaSnapshot? {
-        Self.resolve(in: snapshots, selectedSessionID: selectedSessionID, autoPolicy: autoPolicy, at: now)
-    }
-
-    /// Pure, opt-in resolver for an automatic selection mode. Nil means Auto;
-    /// a nonnil fingerprint means a manually pinned session, including its
-    /// unavailable/stale state. No windows are combined across sessions, no
-    /// timestamps are changed, and a callback identifies a session, not an
-    /// account or a currently running process.
-    public static func resolve(
-        in snapshots: [ClaudeCodeQuotaSnapshot],
-        selectedSessionID: String?,
-        autoPolicy: AutoPolicy = .latestDisplayableReport,
-        at now: Date
-    ) -> ClaudeCodeQuotaSnapshot? {
-        if let selectedSessionID {
-            return snapshots.first { $0.sessionFingerprint == selectedSessionID }
-        }
-        let candidates = automaticCandidates(in: snapshots, at: now)
-        switch autoPolicy {
-        case .latestDisplayableReport:
-            // Preserve a waiting/hidden state when no report remains usable.
-            // The fallback cannot contribute percentages: it failed the same
-            // displayableQuotas check used by the UI and menu bar.
-            return candidates.first ?? sortedByCallback(snapshots.filter {
-                $0.lastCallbackAt.timeIntervalSince1970.isFinite && $0.lastCallbackAt <= now
-            }).first
-        case .onlyDisplayableSession: return candidates.count == 1 ? candidates.first : nil
-        }
-    }
-
-    public static func automaticCandidates(in snapshots: [ClaudeCodeQuotaSnapshot], at now: Date) -> [ClaudeCodeQuotaSnapshot] {
-        sortedByCallback(snapshots.filter { !$0.displayableQuotas(at: now).isEmpty })
-    }
-
-    private static func sortedByCallback(_ snapshots: [ClaudeCodeQuotaSnapshot]) -> [ClaudeCodeQuotaSnapshot] {
-        snapshots.sorted {
-            if $0.lastCallbackAt != $1.lastCallbackAt { return $0.lastCallbackAt > $1.lastCallbackAt }
-            return $0.sessionFingerprint < $1.sessionFingerprint
-        }
-    }
-}
-
 public enum ClaudeCodeRateLimitParser {
     public static let inputLimit = 1_048_576
 

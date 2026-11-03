@@ -78,7 +78,7 @@ struct MenuBarPanelView: View {
 
     private func providerStore(for provider: QuotaProvider) -> any QuotaProviderStore {
         switch provider {
-        case .codex, .claude: store
+        case .codex: store
         case .antigravity: antigravityStore
         case .claudeCode: claudeCodeStore
         }
@@ -174,7 +174,7 @@ struct MenuBarPanelView: View {
     private var quotaContent: some View {
         Group {
             switch effectiveQuotaProvider {
-            case .codex, .claude:
+            case .codex:
                 codexQuotaContent
             case .antigravity:
                 AntigravityQuotaView(store: antigravityStore)

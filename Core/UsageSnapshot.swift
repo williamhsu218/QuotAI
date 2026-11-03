@@ -368,61 +368,8 @@ public struct UsageSnapshot: Codable, Equatable, Sendable {
         [fiveHour, sevenDay].compactMap { $0 }
     }
 
-    public var menuBarTitle: String {
-        menuBarTitle(for: .both)
-    }
-
-    public func menuBarTitle(for mode: MenuBarQuotaDisplayMode) -> String {
-        let quotasByKind = Dictionary(
-            uniqueKeysWithValues: orderedQuotas.map { ($0.kind, $0) }
-        )
-        let parts = mode.selectedKinds.compactMap { kind -> String? in
-            if let quota = quotasByKind[kind] {
-                return "\(kind.shortLabel) \(quota.remainingPercent)%"
-            }
-            return mode == .both ? nil : "\(kind.shortLabel) --"
-        }
-        return parts.isEmpty ? "Codex --" : parts.joined(separator: " · ")
-    }
-
     public func menuBarLines(for mode: MenuBarQuotaDisplayMode, now: Date? = nil) -> [String] {
         MenuBarQuotaLines.lines(for: orderedQuotas, mode: mode, now: now)
-    }
-
-    public var todayBucket: DailyUsageBucket? {
-        bucket(for: Date())
-    }
-
-    public func bucket(for date: Date, calendar: Calendar = .current) -> DailyUsageBucket? {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.timeZone = calendar.timeZone
-        let localDateStr = formatter.string(from: date)
-        return dailyUsageBuckets.first(where: { $0.startDate == localDateStr })
-    }
-
-    public func sevenDayBuckets(endingOn date: Date = Date(), calendar: Calendar = .current) -> [DailyUsageBucket] {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.timeZone = calendar.timeZone
-
-        let bucketMap = Dictionary(
-            dailyUsageBuckets.map { ($0.startDate, $0.tokens) },
-            uniquingKeysWith: { _, new in new }
-        )
-
-        var result: [DailyUsageBucket] = []
-        for dayOffset in (0..<7).reversed() {
-            guard let targetDate = calendar.date(byAdding: .day, value: -dayOffset, to: date) else { continue }
-            let dateStr = formatter.string(from: targetDate)
-            let tokens = bucketMap[dateStr] ?? 0
-            result.append(DailyUsageBucket(startDate: dateStr, tokens: tokens))
-        }
-        return result
     }
 
     public func activityWeeks(count: Int = 18, endingOn date: Date = Date(), calendar: Calendar = .current) -> [ActivityWeek] {

@@ -4,15 +4,13 @@ public enum QuotaProvider: String, Codable, CaseIterable, Sendable {
     public static let menuBarDefaultsKey = "menuBarQuotaProvider"
     public static let panelDefaultsKey = "quotaPanelProvider"
     public static let antigravityIntegrationDefaultsKey = "antigravityIntegrationEnabled"
-    public static let claudeIntegrationDefaultsKey = "claudeIntegrationEnabled"
     public static let claudeCodeIntegrationDefaultsKey = "claudeCodeUsageQueryEnabled"
 
     case codex
     case antigravity
     case claudeCode
-    /// Kept for decoding saved preferences from versions that offered Claude
-    /// snapshots. It is never presented as an available quota source.
-    case claude
+    // The retired Claude snapshot source was saved as "claude". It no longer
+    // decodes, so callers fall back to Codex without rewriting the preference.
 
     public var displayName: String {
         switch self {
@@ -20,14 +18,13 @@ public enum QuotaProvider: String, Codable, CaseIterable, Sendable {
             L10n.text("provider.codex", fallback: "Codex")
         case .antigravity:
             L10n.text("provider.antigravity", fallback: "Antigravity")
-        case .claude, .claudeCode:
+        case .claudeCode:
             L10n.text("provider.claude", fallback: "Claude Code")
         }
     }
 
     /// Resolve saved selections without rewriting the user's preferences.
-    /// Codex is always available. Other sources require enabled installations;
-    /// the retired Claude snapshot selection always falls back to Codex.
+    /// Codex is always available. Other sources require enabled installations.
     public func effectiveProvider(
         antigravityEnabled: Bool,
         antigravityAvailable: Bool,
@@ -39,8 +36,6 @@ public enum QuotaProvider: String, Codable, CaseIterable, Sendable {
             return .codex
         case .antigravity:
             return antigravityEnabled && antigravityAvailable ? .antigravity : .codex
-        case .claude:
-            return .codex
         case .claudeCode:
             return claudeCodeEnabled && claudeCodeAvailable ? .claudeCode : .codex
         }
@@ -118,32 +113,8 @@ public struct AntigravityQuotaGroup: Codable, Equatable, Identifiable, Sendable 
         [fiveHour, sevenDay].compactMap { $0 }
     }
 
-    public func menuBarTitle(for mode: MenuBarQuotaDisplayMode) -> String {
-        let quotasByKind = Dictionary(
-            uniqueKeysWithValues: orderedQuotas.map { ($0.kind, $0) }
-        )
-        let parts = mode.selectedKinds.compactMap { kind -> String? in
-            if let quota = quotasByKind[kind] {
-                return "\(kind.shortLabel) \(quota.remainingPercent)%"
-            }
-            return mode == .both ? nil : "\(kind.shortLabel) --"
-        }
-        return parts.isEmpty
-            ? "\(menuBarPrefix) --"
-            : "\(menuBarPrefix) \(parts.joined(separator: " · "))"
-    }
-
     public func menuBarLines(for mode: MenuBarQuotaDisplayMode, now: Date? = nil) -> [String] {
         MenuBarQuotaLines.lines(for: orderedQuotas, mode: mode, now: now)
-    }
-
-    private var menuBarPrefix: String {
-        switch id.lowercased() {
-        case "gemini": "✦"
-        case AntigravityQuotaTab.argon.rawValue: "✦"
-        case "3p": "✳"
-        default: "⟁"
-        }
     }
 }
 

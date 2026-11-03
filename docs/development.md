@@ -42,12 +42,20 @@ QuotAI，再启动开发构建。产物位于 `build/DerivedData/Build/Products/
 
 ```bash
 swift test
+./script/run_probes.sh
 ./script/build_and_run.sh --preview
 ./script/build_and_run.sh --preview settings general light
 ./script/build_and_run.sh --render-preview en light codex
 ./script/build_and_run.sh --render-preview zh-Hans dark antigravity
 ./script/render_token_themes.sh en
 ```
+
+`script/run_probes.sh` 依次编译并运行下文所列的隔离探针（不含 `--live` 和需要图形会话的滑块探针），
+不读取真实账号、凭据或用户配置。
+
+GitHub Actions（`.github/workflows/ci.yml`）在每次推送和 PR 时于 macOS 26 runner 上执行
+`swift test`、Debug 构建、`script/run_probes.sh` 和 Universal Release 打包，并把 ad-hoc 签名的
+ZIP 作为 7 天有效的构建产物上传。CI 不发布 Release，也不代替原生界面与已安装 App 的验收。
 
 `--preview` 支持面板与设置窗口；静态渲染结果位于 `build/qa/`，Codex 主题预览位于
 `build/TokenThemePreview/`。部分原生控件不能通过 ImageRenderer 完整呈现，
@@ -64,7 +72,7 @@ mkdir -p build
 swiftc -parse-as-library Core/*.swift App/Services/CodexBinaryLocator.swift \
   App/Services/CodexAppServerClient.swift Tools/ClientFallbackProbe.swift \
   -o build/client-fallback-probe
-for mode in silent eof unsupported usage launchFailure; do
+for mode in silent eof unsupported usage launchFailure emptyCredits; do
   QUOTAI_PROBE_MODE=$mode build/client-fallback-probe || exit 1
 done
 ```
@@ -157,7 +165,7 @@ xcrun swiftc -parse-as-library -target arm64-apple-macosx14.0 \
 探针检查呈现图层在连续布局、高度变化和中途反向切换时的运动连续性，以及减少动态效果下即时到位。
 它不代替正式弹窗的交互与观感验收。
 
-当前版本的测试、构建和安装状态以[版本说明](../Design/release-notes-2.1.10.md)为准，
+当前版本的测试、构建和安装状态以[版本说明](../Design/release-notes-2.2.0.md)为准，
 不能沿用旧版本的验收结果。
 
 ad-hoc 签名没有 Apple Developer ID 或公证。可信安装包经浏览器等途径传输后可能带隔离标记。

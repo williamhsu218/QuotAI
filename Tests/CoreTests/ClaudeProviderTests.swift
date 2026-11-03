@@ -30,17 +30,13 @@ private func claudeProviderPresentation(
 func claudeProviderVisibility() {
     #expect(QuotaProvider.visibleProviders(antigravityVisible: false, claudeCodeVisible: true) == [.codex, .claudeCode])
     #expect(QuotaProvider.visibleProviders(antigravityVisible: true, claudeCodeVisible: true) == [.codex, .antigravity, .claudeCode])
-    #expect(QuotaProvider.claudeCode.rawValue != QuotaProvider.claude.rawValue)
-    #expect(QuotaProvider.claudeCodeIntegrationDefaultsKey != QuotaProvider.claudeIntegrationDefaultsKey)
+    #expect(QuotaProvider.claudeCode.rawValue != "claude")
+    #expect(QuotaProvider.claudeCodeIntegrationDefaultsKey != "claudeIntegrationEnabled")
     for (enabled, installed) in [(false, true), (true, false), (false, false)] {
         let value = claudeProviderPresentation(snapshot: nil, enabled: enabled, installed: installed)
         #expect(value.provider == .codex)
         #expect(value.icon == .codex)
     }
-    #expect(QuotaProvider.claude.effectiveProvider(
-        antigravityEnabled: true, antigravityAvailable: true,
-        claudeCodeEnabled: true, claudeCodeAvailable: true
-    ) == .codex)
 }
 
 @Test("An enabled Claude source without reports never borrows Codex or Antigravity numbers")

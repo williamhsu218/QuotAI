@@ -13,10 +13,6 @@ func parsesBothQuotaWindows() throws {
 
     #expect(snapshot.fiveHour?.remainingPercent == 82)
     #expect(snapshot.sevenDay?.remainingPercent == 93)
-    #expect(snapshot.menuBarTitle == "5h 82% · 7d 93%")
-    #expect(snapshot.menuBarTitle(for: .fiveHour) == "5h 82%")
-    #expect(snapshot.menuBarTitle(for: .sevenDay) == "7d 93%")
-    #expect(snapshot.menuBarTitle(for: .both) == "5h 82% · 7d 93%")
     #expect(snapshot.menuBarLines(for: .both) == ["5h 82%", "7d 93%"])
     #expect(snapshot.menuBarLines(for: .fiveHour) == ["5h 82%"])
     #expect(snapshot.menuBarLines(for: .sevenDay) == ["7d 93%"])
@@ -36,10 +32,6 @@ func omitsMissingFiveHourWindow() throws {
 
     #expect(snapshot.fiveHour == nil)
     #expect(snapshot.sevenDay?.remainingPercent == 93)
-    #expect(snapshot.menuBarTitle == "7d 93%")
-    #expect(snapshot.menuBarTitle(for: .fiveHour) == "5h --")
-    #expect(snapshot.menuBarTitle(for: .sevenDay) == "7d 93%")
-    #expect(snapshot.menuBarTitle(for: .both) == "7d 93%")
     #expect(snapshot.menuBarLines(for: .both) == ["7d 93%"])
     #expect(snapshot.menuBarLines(for: .fiveHour) == ["5h --"])
     #expect(snapshot.menuBarLines(for: .sevenDay) == ["7d 93%"])
@@ -289,9 +281,9 @@ func dailyUsageDateBoundaries() throws {
         availableResetCount: 0, resetCredits: [], dailyUsageBuckets: [
             DailyUsageBucket(startDate: "2026-09-06", tokens: 100)
         ])
-    #expect(snapshot.bucket(for: date, calendar: calendar) == nil)
     let days = snapshot.activityWeeks(count: 1, endingOn: date, calendar: calendar).flatMap(\.days)
     #expect(days.first?.dateString == "2026-09-07")
+    #expect(days.first?.tokens == 0)
 }
 
 @Test("Formats token counts with appropriate scale suffix")
@@ -301,40 +293,6 @@ func formatsTokenCounts() {
     #expect(DailyUsageBucket.formatTokens(1_500) == "1.5 K")
     #expect(DailyUsageBucket.formatTokens(60_975_604) == "61.0 M")
     #expect(DailyUsageBucket.formatTokens(11_601_258_469) == "11.6 B")
-}
-
-@Test("Generates 7-day buckets ending on the specified date with zero padding")
-func generatesSevenDayBuckets() {
-    let calendar = Calendar(identifier: .gregorian)
-    var components = DateComponents()
-    components.calendar = calendar
-    components.year = 2026
-    components.month = 9
-    components.day = 6
-    let date = components.date!
-
-    let snapshot = UsageSnapshot(
-        fetchedAt: date,
-        fiveHour: nil,
-        sevenDay: nil,
-        availableResetCount: 0,
-        resetCredits: [],
-        dailyUsageBuckets: [
-            DailyUsageBucket(startDate: "2026-09-04", tokens: 100),
-            DailyUsageBucket(startDate: "2026-09-05", tokens: 200)
-        ]
-    )
-
-    let sevenDays = snapshot.sevenDayBuckets(endingOn: date, calendar: calendar)
-    #expect(sevenDays.count == 7)
-    #expect(sevenDays.last?.startDate == "2026-09-06")
-    #expect(sevenDays.last?.tokens == 0)
-    #expect(sevenDays[5].startDate == "2026-09-05")
-    #expect(sevenDays[5].tokens == 200)
-    #expect(sevenDays[4].startDate == "2026-09-04")
-    #expect(sevenDays[4].tokens == 100)
-    #expect(sevenDays[0].startDate == "2026-08-31")
-    #expect(sevenDays[0].tokens == 0)
 }
 
 @Test("Generates multi-week activity grid with correct weekday slicing and today/future flags")
