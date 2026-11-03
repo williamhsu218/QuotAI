@@ -2,23 +2,10 @@ import Foundation
 import Observation
 import OSLog
 
-extension Notification.Name {
-    static let stayAwakeStateDidChange = Notification.Name(
-        "com.willhsu.QuotAI.stayAwakeStateDidChange"
-    )
-}
-
 @MainActor
 @Observable
 final class StayAwakeStore {
     static let shared = StayAwakeStore()
-
-    private enum DefaultsKey {
-        static let enabled = "stayAwakeEnabled"
-        static let duration = "stayAwakeDuration"
-        static let expiration = "stayAwakeExpiration"
-        static let mode = "stayAwakeMode"
-    }
 
     private(set) var isActive = false
     private(set) var expiresAt: Date?
@@ -44,10 +31,10 @@ final class StayAwakeStore {
         self.defaults = defaults
         self.processInfo = processInfo
         self.previewMode = previewMode
-        selectedDuration = defaults.string(forKey: DefaultsKey.duration)
+        selectedDuration = defaults.string(forKey: DefaultsKey.stayAwakeDuration)
             .flatMap(StayAwakeDuration.init(rawValue:))
             ?? .oneHour
-        selectedMode = defaults.string(forKey: DefaultsKey.mode)
+        selectedMode = defaults.string(forKey: DefaultsKey.stayAwakeMode)
             .flatMap(StayAwakeMode.init(rawValue:))
             ?? .allowDisplaySleep
 
@@ -62,7 +49,7 @@ final class StayAwakeStore {
     func start() {
         guard !hasStarted else { return }
         hasStarted = true
-        guard !previewMode, defaults.bool(forKey: DefaultsKey.enabled) else { return }
+        guard !previewMode, defaults.bool(forKey: DefaultsKey.stayAwakeEnabled) else { return }
 
         if selectedDuration == .indefinitely {
             activate(duration: selectedDuration, expiration: nil)
@@ -70,7 +57,7 @@ final class StayAwakeStore {
         }
 
         guard
-            let savedExpiration = defaults.object(forKey: DefaultsKey.expiration) as? Date,
+            let savedExpiration = defaults.object(forKey: DefaultsKey.stayAwakeExpiration) as? Date,
             savedExpiration > Date()
         else {
             stop()
@@ -86,7 +73,7 @@ final class StayAwakeStore {
     func selectDuration(_ duration: StayAwakeDuration) {
         guard selectedDuration != duration else { return }
         selectedDuration = duration
-        defaults.set(duration.rawValue, forKey: DefaultsKey.duration)
+        defaults.set(duration.rawValue, forKey: DefaultsKey.stayAwakeDuration)
         if isActive {
             activate(duration: duration)
         }
@@ -95,7 +82,7 @@ final class StayAwakeStore {
     func selectMode(_ mode: StayAwakeMode) {
         guard selectedMode != mode else { return }
         selectedMode = mode
-        defaults.set(mode.rawValue, forKey: DefaultsKey.mode)
+        defaults.set(mode.rawValue, forKey: DefaultsKey.stayAwakeMode)
         if isActive {
             activate(duration: selectedDuration, expiration: expiresAt)
         }
@@ -105,9 +92,8 @@ final class StayAwakeStore {
         releaseActivity()
         isActive = false
         expiresAt = nil
-        defaults.set(false, forKey: DefaultsKey.enabled)
-        defaults.removeObject(forKey: DefaultsKey.expiration)
-        postStateChange()
+        defaults.set(false, forKey: DefaultsKey.stayAwakeEnabled)
+        defaults.removeObject(forKey: DefaultsKey.stayAwakeExpiration)
         logger.info("Stay Awake stopped")
     }
 
@@ -131,13 +117,13 @@ final class StayAwakeStore {
         selectedDuration = duration
         isActive = true
         expiresAt = expiration
-        defaults.set(true, forKey: DefaultsKey.enabled)
-        defaults.set(duration.rawValue, forKey: DefaultsKey.duration)
-        defaults.set(selectedMode.rawValue, forKey: DefaultsKey.mode)
+        defaults.set(true, forKey: DefaultsKey.stayAwakeEnabled)
+        defaults.set(duration.rawValue, forKey: DefaultsKey.stayAwakeDuration)
+        defaults.set(selectedMode.rawValue, forKey: DefaultsKey.stayAwakeMode)
         if let expiration {
-            defaults.set(expiration, forKey: DefaultsKey.expiration)
+            defaults.set(expiration, forKey: DefaultsKey.stayAwakeExpiration)
         } else {
-            defaults.removeObject(forKey: DefaultsKey.expiration)
+            defaults.removeObject(forKey: DefaultsKey.stayAwakeExpiration)
         }
 
         if !previewMode {
@@ -151,7 +137,6 @@ final class StayAwakeStore {
             )
         }
         scheduleExpiration(expiration)
-        postStateChange()
         logger.info(
             "Stay Awake started; duration=\(duration.rawValue, privacy: .public), mode=\(self.selectedMode.rawValue, privacy: .public), finite=\(expiration != nil, privacy: .public)"
         )
@@ -178,9 +163,5 @@ final class StayAwakeStore {
             processInfo.endActivity(activityToken)
             self.activityToken = nil
         }
-    }
-
-    private func postStateChange() {
-        NotificationCenter.default.post(name: .stayAwakeStateDidChange, object: self)
     }
 }

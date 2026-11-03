@@ -7,7 +7,6 @@ public enum TokenActivityTheme: String, CaseIterable, Identifiable, Sendable {
     case violet
     case amber
 
-    public static let defaultsKey = "tokenActivityTheme"
     public static let defaultTheme: Self = .ocean
 
     public var id: String { rawValue }

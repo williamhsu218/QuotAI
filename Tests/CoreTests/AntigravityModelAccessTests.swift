@@ -53,7 +53,7 @@ func deniedPoolAndSelectionFallback() throws {
     let suite = "QuotAI.access-tests." + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: suite))
     defer { defaults.removePersistentDomain(forName: suite) }
-    let keys = [AntigravityQuotaGroup.menuBarGroupDefaultsKey, AntigravityQuotaGroup.panelGroupDefaultsKey]
+    let keys = [DefaultsKey.menuBarAntigravityGroup, DefaultsKey.panelAntigravityGroup]
     for key in keys { defaults.set("3p", forKey: key) }
     let unknown = AntigravityQuotaSnapshot(fetchedAt: base.fetchedAt, groups: base.groups)
     unknown.reconcileUnavailableSelections(in: defaults)
@@ -131,8 +131,8 @@ func argonSafePresentationAndFallback() throws {
     let suite = "QuotAI.argon-tests." + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: suite))
     defer { defaults.removePersistentDomain(forName: suite) }
-    let panelKey = AntigravityQuotaGroup.panelGroupDefaultsKey
-    let menuKey = AntigravityQuotaGroup.menuBarGroupDefaultsKey
+    let panelKey = DefaultsKey.panelAntigravityGroup
+    let menuKey = DefaultsKey.menuBarAntigravityGroup
     for key in [panelKey, menuKey] { defaults.set(argon.id, forKey: key) }
 
     let unknown = AntigravityQuotaSnapshot(fetchedAt: base.fetchedAt, groups: base.groups + [argon],

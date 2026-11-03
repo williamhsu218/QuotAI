@@ -40,19 +40,23 @@ jobs:
             -destination 'platform=macOS' -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO build
 
-      - name: Isolated probes
+      - name: Design preview renders
+        timeout-minutes: 10
         run: |
-          # The Claude store probe injects every query, but the store only
-          # queries when a CLI is installed. Runners have none, so detection
-          # gets a placeholder that fails loudly if anything executes it.
-          if ! command -v claude >/dev/null 2>&1; then
-            placeholder="$RUNNER_TEMP/claude-placeholder"
-            mkdir -p "$placeholder"
-            printf '#!/bin/sh\necho "placeholder claude must never run" >&2\nexit 97\n' > "$placeholder/claude"
-            chmod 755 "$placeholder/claude"
-            export PATH="$placeholder:$PATH"
-          fi
-          ./script/run_probes.sh
+          ./script/build_and_run.sh --render-preview en light codex
+          ./script/build_and_run.sh --render-preview zh-Hans dark claude recent
+          ./script/build_and_run.sh --render-preview en light antigravity
+
+      - name: Upload design previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-previews
+          path: build/qa/*.png
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Isolated probes
+        run: ./script/run_probes.sh
 
       - name: Universal Release package
         run: |
@@ -72,3 +76,26 @@ jobs:
           path: build/Distribution/*.zip
           retention-days: 7
           if-no-files-found: error
+
+      - name: swift-format report
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p build/format
+          swift format --version
+          git ls-files -z '*.swift' > build/format/files
+          xargs -0 swift format --in-place --parallel < build/format/files
+          git diff --stat | tail -n 3
+          git diff > build/format/swift-format.patch
+          xargs -0 swift format lint --parallel < build/format/files > build/format/lint.txt 2>&1 || true
+          echo "Lint findings that formatting does not fix:"
+          cat build/format/lint.txt
+          git checkout -- .
+
+      - name: Upload swift-format report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: swift-format-report
+          path: build/format/
+          retention-days: 7

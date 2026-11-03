@@ -25,8 +25,9 @@ xcrun swiftc \
   -target "$(uname -m)-apple-macosx14.0" \
   -o "$PREVIEW_RENDERER" \
   "$QUOTAI_ROOT"/Core/*.swift \
-  "$QUOTAI_ROOT"/App/Services/*.swift \
-  "$QUOTAI_ROOT"/App/Stores/*.swift \
+  "$QUOTAI_ROOT"/Core/Services/*.swift \
+  "$QUOTAI_ROOT"/Core/Stores/*.swift \
+  "$QUOTAI_ROOT"/Core/Support/*.swift \
   "$QUOTAI_ROOT"/App/Support/*.swift \
   "$QUOTAI_ROOT"/App/Views/*.swift \
   "$QUOTAI_ROOT"/Tools/RenderDesignPreview.swift \

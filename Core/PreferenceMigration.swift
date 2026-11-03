@@ -1,8 +1,6 @@
 import Foundation
 
 public enum QuotAIPreferenceMigration {
-    public static let migrationKey = "didMigrateLegacyQuotAIPreferencesV2"
-
     public static let legacyDomainNames = [
         "com.willhsu.CodexQuota",
         "com.willhsu.Codexcator",
@@ -10,18 +8,18 @@ public enum QuotAIPreferenceMigration {
     ]
 
     public static let migratedKeys = [
-        "refreshIntervalSeconds",
-        "codexBinaryPath",
-        MenuBarQuotaDisplayMode.defaultsKey,
-        QuotaProvider.menuBarDefaultsKey,
-        QuotaProvider.panelDefaultsKey,
-        AntigravityQuotaGroup.menuBarGroupDefaultsKey,
-        QuotaProvider.antigravityIntegrationDefaultsKey,
-        "appLanguage",
-        "stayAwakeEnabled",
-        "stayAwakeDuration",
-        "stayAwakeExpiration",
-        "stayAwakeMode"
+        DefaultsKey.refreshInterval,
+        DefaultsKey.codexBinaryPath,
+        DefaultsKey.menuBarDisplayMode,
+        DefaultsKey.menuBarProvider,
+        DefaultsKey.panelProvider,
+        DefaultsKey.menuBarAntigravityGroup,
+        DefaultsKey.antigravityIntegration,
+        DefaultsKey.legacyAppLanguage,
+        DefaultsKey.stayAwakeEnabled,
+        DefaultsKey.stayAwakeDuration,
+        DefaultsKey.stayAwakeExpiration,
+        DefaultsKey.stayAwakeMode
     ]
 
     @discardableResult
@@ -37,7 +35,7 @@ public enum QuotAIPreferenceMigration {
         defaults: UserDefaults,
         legacyDomains: [[String: Any]]
     ) -> Bool {
-        guard !defaults.bool(forKey: migrationKey) else { return false }
+        guard !defaults.bool(forKey: DefaultsKey.legacyPreferencesMigrated) else { return false }
 
         for legacy in legacyDomains {
             for key in migratedKeys where defaults.object(forKey: key) == nil {
@@ -46,7 +44,7 @@ public enum QuotAIPreferenceMigration {
                 }
             }
         }
-        defaults.set(true, forKey: migrationKey)
+        defaults.set(true, forKey: DefaultsKey.legacyPreferencesMigrated)
         return true
     }
 }

@@ -3,13 +3,13 @@ import SwiftUI
 
 struct DesignPreviewView: View {
     @Environment(\.colorScheme) private var colorScheme
-    @AppStorage(QuotaProvider.menuBarDefaultsKey)
+    @AppStorage(DefaultsKey.menuBarProvider)
     private var menuBarQuotaProvider = QuotaProvider.codex
-    @AppStorage(AntigravityQuotaGroup.menuBarGroupDefaultsKey)
+    @AppStorage(DefaultsKey.menuBarAntigravityGroup)
     private var menuBarAntigravityGroupID = ""
-    @AppStorage(MenuBarQuotaDisplayMode.defaultsKey)
+    @AppStorage(DefaultsKey.menuBarDisplayMode)
     private var menuBarQuotaDisplayMode = MenuBarQuotaDisplayMode.both
-    @AppStorage(QuotaProvider.antigravityIntegrationDefaultsKey)
+    @AppStorage(DefaultsKey.antigravityIntegration)
     private var antigravityIntegrationEnabled = true
     let store: UsageStore
     let antigravityStore: AntigravityUsageStore

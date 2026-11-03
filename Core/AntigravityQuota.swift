@@ -1,11 +1,6 @@
 import Foundation
 
 public enum QuotaProvider: String, Codable, CaseIterable, Sendable {
-    public static let menuBarDefaultsKey = "menuBarQuotaProvider"
-    public static let panelDefaultsKey = "quotaPanelProvider"
-    public static let antigravityIntegrationDefaultsKey = "antigravityIntegrationEnabled"
-    public static let claudeCodeIntegrationDefaultsKey = "claudeCodeUsageQueryEnabled"
-
     case codex
     case antigravity
     case claudeCode
@@ -51,6 +46,56 @@ public enum QuotaProvider: String, Codable, CaseIterable, Sendable {
     }
 }
 
+/// Which quota sources are offered and what a saved selection resolves to.
+/// The menu bar, the panel and the settings window all read this one value,
+/// so a source can never be shown in one place while another falls back.
+public struct ProviderAvailability: Equatable, Sendable {
+    public var antigravityEnabled: Bool
+    public var antigravityInstalled: Bool
+    public var claudeCodeEnabled: Bool
+    public var claudeCodeInstalled: Bool
+
+    public init(
+        antigravityEnabled: Bool,
+        antigravityInstalled: Bool,
+        claudeCodeEnabled: Bool,
+        claudeCodeInstalled: Bool
+    ) {
+        self.antigravityEnabled = antigravityEnabled
+        self.antigravityInstalled = antigravityInstalled
+        self.claudeCodeEnabled = claudeCodeEnabled
+        self.claudeCodeInstalled = claudeCodeInstalled
+    }
+
+    public var showsAntigravity: Bool { antigravityEnabled && antigravityInstalled }
+    public var showsClaudeCode: Bool { claudeCodeEnabled && claudeCodeInstalled }
+
+    /// Sources offered in pickers, in display order. Codex is always offered.
+    public var visibleProviders: [QuotaProvider] {
+        QuotaProvider.visibleProviders(
+            antigravityVisible: showsAntigravity,
+            claudeCodeVisible: showsClaudeCode
+        )
+    }
+
+    /// Resolves a saved selection without rewriting it; an unavailable
+    /// source falls back to Codex.
+    public func resolve(_ saved: QuotaProvider) -> QuotaProvider {
+        saved.effectiveProvider(
+            antigravityEnabled: antigravityEnabled,
+            antigravityAvailable: antigravityInstalled,
+            claudeCodeEnabled: claudeCodeEnabled,
+            claudeCodeAvailable: claudeCodeInstalled
+        )
+    }
+
+    /// The saved Antigravity switch. The integration is on until turned off.
+    public static func antigravityIntegrationEnabled(in defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: DefaultsKey.antigravityIntegration) == nil
+            || defaults.bool(forKey: DefaultsKey.antigravityIntegration)
+    }
+}
+
 public enum AntigravityQuotaTab: String, CaseIterable, Identifiable, Sendable {
     case gemini
     case argon = "gemini-argon-wtu"
@@ -67,9 +112,6 @@ public enum AntigravityQuotaTab: String, CaseIterable, Identifiable, Sendable {
 }
 
 public struct AntigravityQuotaGroup: Codable, Equatable, Identifiable, Sendable {
-    public static let menuBarGroupDefaultsKey = "menuBarAntigravityQuotaGroup"
-    public static let panelGroupDefaultsKey = "quotaPanelAntigravityGroup"
-
     public let id: String
     public let displayName: String
     public let description: String?
@@ -220,7 +262,7 @@ public struct AntigravityQuotaSnapshot: Codable, Equatable, Sendable {
             thirdPartyAvailability == .unavailable ? "3p" : nil,
             argonAvailability == .unavailable ? AntigravityQuotaTab.argon.rawValue : nil
         ].compactMap { $0 }
-        for key in [AntigravityQuotaGroup.panelGroupDefaultsKey, AntigravityQuotaGroup.menuBarGroupDefaultsKey]
+        for key in [DefaultsKey.panelAntigravityGroup, DefaultsKey.menuBarAntigravityGroup]
             where defaults.string(forKey: key).map(denied.contains) == true {
             defaults.set("gemini", forKey: key)
         }

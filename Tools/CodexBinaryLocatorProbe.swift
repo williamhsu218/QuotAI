@@ -1,7 +1,7 @@
 import Foundation
 
 /// Filesystem and subprocess regression probe using temporary executables only.
-/// Compile with Core/*.swift and App/Services/CodexBinaryLocator.swift.
+/// Compile with Core/*.swift and Core/Services/CodexBinaryLocator.swift.
 @main
 struct CodexBinaryLocatorProbe {
     static func main() throws {

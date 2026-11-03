@@ -3,7 +3,7 @@ import SwiftUI
 struct CodexTokenUsageView: View {
     let snapshot: UsageSnapshot
 
-    @AppStorage(TokenActivityTheme.defaultsKey) private var storedTheme = TokenActivityTheme.defaultTheme.rawValue
+    @AppStorage(DefaultsKey.tokenActivityTheme) private var storedTheme = TokenActivityTheme.defaultTheme.rawValue
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var contrast
 

@@ -62,10 +62,10 @@ struct DesignPreviewApp: App {
         let agScenario = arguments.first { $0.hasPrefix("--ag-state=") }
             .map { String($0.dropFirst("--ag-state=".count)) } ?? "available"
         if arguments.contains("--antigravity") {
-            for key in [QuotaProvider.panelDefaultsKey, QuotaProvider.menuBarDefaultsKey] {
+            for key in [DefaultsKey.panelProvider, DefaultsKey.menuBarProvider] {
                 UserDefaults.standard.set(QuotaProvider.antigravity.rawValue, forKey: key)
             }
-            for key in [AntigravityQuotaGroup.panelGroupDefaultsKey, AntigravityQuotaGroup.menuBarGroupDefaultsKey] {
+            for key in [DefaultsKey.panelAntigravityGroup, DefaultsKey.menuBarAntigravityGroup] {
                 UserDefaults.standard.set(agScenario.hasPrefix("argon") ? AntigravityQuotaTab.argon.rawValue : "3p", forKey: key)
             }
         }
@@ -78,8 +78,8 @@ struct DesignPreviewApp: App {
             previewMode: true, previewScenario: claudeScenario
         ))
         if arguments.contains("--claude") {
-            UserDefaults.standard.set(QuotaProvider.claudeCode.rawValue, forKey: QuotaProvider.panelDefaultsKey)
-            UserDefaults.standard.set(QuotaProvider.claudeCode.rawValue, forKey: QuotaProvider.menuBarDefaultsKey)
+            UserDefaults.standard.set(QuotaProvider.claudeCode.rawValue, forKey: DefaultsKey.panelProvider)
+            UserDefaults.standard.set(QuotaProvider.claudeCode.rawValue, forKey: DefaultsKey.menuBarProvider)
         }
         let shouldRenderSettings = arguments.contains("--settings")
         let tab: SettingsTab = {

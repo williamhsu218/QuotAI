@@ -12,21 +12,21 @@ func migratesActualLegacyPreferences() throws {
     let migrated = QuotAIPreferenceMigration.migrate(
         defaults: defaults,
         legacyDomains: [[
-            MenuBarQuotaDisplayMode.defaultsKey: MenuBarQuotaDisplayMode.sevenDay.rawValue,
-            QuotaProvider.menuBarDefaultsKey: QuotaProvider.antigravity.rawValue,
-            QuotaProvider.panelDefaultsKey: QuotaProvider.codex.rawValue,
-            AntigravityQuotaGroup.menuBarGroupDefaultsKey: "gemini",
+            DefaultsKey.menuBarDisplayMode: MenuBarQuotaDisplayMode.sevenDay.rawValue,
+            DefaultsKey.menuBarProvider: QuotaProvider.antigravity.rawValue,
+            DefaultsKey.panelProvider: QuotaProvider.codex.rawValue,
+            DefaultsKey.menuBarAntigravityGroup: "gemini",
             "stayAwakeDuration": "indefinitely"
         ]]
     )
 
     #expect(migrated)
-    #expect(defaults.string(forKey: MenuBarQuotaDisplayMode.defaultsKey) == "sevenDay")
-    #expect(defaults.string(forKey: QuotaProvider.menuBarDefaultsKey) == "antigravity")
-    #expect(defaults.string(forKey: QuotaProvider.panelDefaultsKey) == "codex")
-    #expect(defaults.string(forKey: AntigravityQuotaGroup.menuBarGroupDefaultsKey) == "gemini")
+    #expect(defaults.string(forKey: DefaultsKey.menuBarDisplayMode) == "sevenDay")
+    #expect(defaults.string(forKey: DefaultsKey.menuBarProvider) == "antigravity")
+    #expect(defaults.string(forKey: DefaultsKey.panelProvider) == "codex")
+    #expect(defaults.string(forKey: DefaultsKey.menuBarAntigravityGroup) == "gemini")
     #expect(defaults.string(forKey: "stayAwakeDuration") == "indefinitely")
-    #expect(defaults.bool(forKey: QuotAIPreferenceMigration.migrationKey))
+    #expect(defaults.bool(forKey: DefaultsKey.legacyPreferencesMigrated))
 }
 
 @Test("Migration preserves existing QuotAI choices and only runs once")
@@ -35,18 +35,18 @@ func preservesExistingQuotAIPreferences() throws {
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
     defer { defaults.removePersistentDomain(forName: suiteName) }
-    defaults.set(MenuBarQuotaDisplayMode.fiveHour.rawValue, forKey: MenuBarQuotaDisplayMode.defaultsKey)
+    defaults.set(MenuBarQuotaDisplayMode.fiveHour.rawValue, forKey: DefaultsKey.menuBarDisplayMode)
 
     #expect(QuotAIPreferenceMigration.migrate(
         defaults: defaults,
-        legacyDomains: [[MenuBarQuotaDisplayMode.defaultsKey: MenuBarQuotaDisplayMode.sevenDay.rawValue]]
+        legacyDomains: [[DefaultsKey.menuBarDisplayMode: MenuBarQuotaDisplayMode.sevenDay.rawValue]]
     ))
-    #expect(defaults.string(forKey: MenuBarQuotaDisplayMode.defaultsKey) == "fiveHour")
+    #expect(defaults.string(forKey: DefaultsKey.menuBarDisplayMode) == "fiveHour")
     #expect(!QuotAIPreferenceMigration.migrate(
         defaults: defaults,
-        legacyDomains: [[MenuBarQuotaDisplayMode.defaultsKey: MenuBarQuotaDisplayMode.both.rawValue]]
+        legacyDomains: [[DefaultsKey.menuBarDisplayMode: MenuBarQuotaDisplayMode.both.rawValue]]
     ))
-    #expect(defaults.string(forKey: MenuBarQuotaDisplayMode.defaultsKey) == "fiveHour")
+    #expect(defaults.string(forKey: DefaultsKey.menuBarDisplayMode) == "fiveHour")
 }
 
 @Test("Disabled or unavailable Antigravity falls back to Codex")

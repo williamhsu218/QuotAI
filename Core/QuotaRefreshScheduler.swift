@@ -21,7 +21,7 @@ final class QuotaRefreshScheduler {
         loop = Task {
             while !Task.isCancelled {
                 let configured = interval()
-                do { try await Task.sleep(for: .seconds(configured > 0 && configured.isFinite ? configured : 300)) }
+                do { try await Task.sleep(for: .seconds(RefreshInterval.normalized(configured))) }
                 catch { return }
                 guard !Task.isCancelled else { return }
                 tick()

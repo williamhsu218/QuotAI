@@ -68,7 +68,6 @@ public enum QuotaKind: String, Codable, CaseIterable, Sendable {
 }
 
 public enum MenuBarQuotaDisplayMode: String, Codable, CaseIterable, Sendable {
-    public static let defaultsKey = "menuBarQuotaDisplayMode"
 
     case fiveHour
     case sevenDay

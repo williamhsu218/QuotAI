@@ -17,17 +17,19 @@ public enum LocalSnapshotStore {
                 let legacyURL = supportURL
                     .appendingPathComponent(legacyName, isDirectory: true)
                     .appendingPathComponent(filename, isDirectory: false)
-                if fileManager.fileExists(atPath: legacyURL.path) {
-                    let data = try Data(contentsOf: legacyURL)
-                    let decoder = JSONDecoder()
-                    decoder.dateDecodingStrategy = .iso8601
-                    let snapshot = try decoder.decode(UsageSnapshot.self, from: data)
+                if let snapshot = try load(from: legacyURL, fileManager: fileManager) {
                     try save(snapshot, fileManager: fileManager)
                     return snapshot
                 }
             }
             return nil
         }
+        return try load(from: fileURL, fileManager: fileManager)
+    }
+
+    /// Reads a snapshot from an explicit location; nil when the file is absent.
+    public static func load(from fileURL: URL, fileManager: FileManager = .default) throws -> UsageSnapshot? {
+        guard fileManager.fileExists(atPath: fileURL.path) else { return nil }
         let data = try Data(contentsOf: fileURL)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -35,7 +37,11 @@ public enum LocalSnapshotStore {
     }
 
     public static func save(_ snapshot: UsageSnapshot, fileManager: FileManager = .default) throws {
-        let fileURL = try snapshotURL(fileManager: fileManager)
+        try save(snapshot, to: snapshotURL(fileManager: fileManager), fileManager: fileManager)
+    }
+
+    /// Writes a snapshot atomically to an explicit location.
+    public static func save(_ snapshot: UsageSnapshot, to fileURL: URL, fileManager: FileManager = .default) throws {
         try fileManager.createDirectory(
             at: fileURL.deletingLastPathComponent(),
             withIntermediateDirectories: true

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AntigravityQuotaView: View {
-    @AppStorage(AntigravityQuotaGroup.panelGroupDefaultsKey)
+    @AppStorage(DefaultsKey.panelAntigravityGroup)
     private var selectedGroupID = "gemini"
     let store: AntigravityUsageStore
 

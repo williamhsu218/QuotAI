@@ -88,10 +88,10 @@ func antigravityQuotaTabPreferences() throws {
     let suite = "QuotAI.tab-tests." + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: suite))
     defer { defaults.removePersistentDomain(forName: suite) }
-    defaults.set("gemini", forKey: AntigravityQuotaGroup.menuBarGroupDefaultsKey)
-    defaults.set("3p", forKey: AntigravityQuotaGroup.panelGroupDefaultsKey)
-    #expect(defaults.string(forKey: AntigravityQuotaGroup.menuBarGroupDefaultsKey) == "gemini")
-    #expect(defaults.string(forKey: AntigravityQuotaGroup.panelGroupDefaultsKey) == "3p")
+    defaults.set("gemini", forKey: DefaultsKey.menuBarAntigravityGroup)
+    defaults.set("3p", forKey: DefaultsKey.panelAntigravityGroup)
+    #expect(defaults.string(forKey: DefaultsKey.menuBarAntigravityGroup) == "gemini")
+    #expect(defaults.string(forKey: DefaultsKey.panelAntigravityGroup) == "3p")
     #expect(AntigravityQuotaTab.allCases.map(\.title) == ["Gemini", "Argon", "Claude / GPT"])
     #expect(AntigravityQuotaTab.allCases.map(\.rawValue) == ["gemini", "gemini-argon-wtu", "3p"])
 }

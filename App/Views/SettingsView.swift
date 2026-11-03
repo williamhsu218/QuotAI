@@ -69,15 +69,15 @@ struct SettingsView: View {
         _selectedTab = State(initialValue: initialTab)
     }
 
-    @AppStorage("refreshIntervalSeconds") private var refreshInterval = 300.0
-    @AppStorage("codexBinaryPath") private var codexBinaryPath = ""
-    @AppStorage(QuotaProvider.menuBarDefaultsKey)
+    @AppStorage(DefaultsKey.refreshInterval) private var refreshInterval = RefreshInterval.defaultSeconds
+    @AppStorage(DefaultsKey.codexBinaryPath) private var codexBinaryPath = ""
+    @AppStorage(DefaultsKey.menuBarProvider)
     private var menuBarQuotaProvider = QuotaProvider.codex
-    @AppStorage(AntigravityQuotaGroup.menuBarGroupDefaultsKey)
+    @AppStorage(DefaultsKey.menuBarAntigravityGroup)
     private var menuBarAntigravityGroupID = ""
-    @AppStorage(MenuBarQuotaDisplayMode.defaultsKey)
+    @AppStorage(DefaultsKey.menuBarDisplayMode)
     private var menuBarQuotaDisplayMode = MenuBarQuotaDisplayMode.both
-    @AppStorage(QuotaProvider.antigravityIntegrationDefaultsKey)
+    @AppStorage(DefaultsKey.antigravityIntegration)
     private var antigravityIntegrationEnabled = true
 
     @State private var launchAtLogin = false
@@ -87,24 +87,17 @@ struct SettingsView: View {
         antigravityStore.isInstalled
     }
 
-    private var shouldShowAntigravity: Bool {
-        antigravityIntegrationEnabled && isAntigravitySupported
+    private var availability: ProviderAvailability {
+        QuotaProviderStores(codex: store, antigravity: antigravityStore, claudeCode: claudeCodeStore)
+            .availability(antigravityEnabled: antigravityIntegrationEnabled)
     }
 
     private var menuBarProviders: [QuotaProvider] {
-        QuotaProvider.visibleProviders(
-            antigravityVisible: shouldShowAntigravity,
-            claudeCodeVisible: claudeCodeStore.isEnabled && claudeCodeStore.isInstalled
-        )
+        availability.visibleProviders
     }
 
     private var effectiveMenuBarProvider: QuotaProvider {
-        menuBarQuotaProvider.effectiveProvider(
-            antigravityEnabled: antigravityIntegrationEnabled,
-            antigravityAvailable: antigravityStore.isInstalled,
-            claudeCodeEnabled: claudeCodeStore.isEnabled,
-            claudeCodeAvailable: claudeCodeStore.isInstalled
-        )
+        availability.resolve(menuBarQuotaProvider)
     }
 
     private var menuBarProviderSelection: Binding<QuotaProvider> {
@@ -625,18 +618,15 @@ struct SettingsView: View {
     private var menuBarPreviewPresentation: MenuBarPresentation {
         MenuBarPresentation(
             provider: menuBarQuotaProvider,
-            antigravityEnabled: antigravityIntegrationEnabled,
-            antigravityAvailable: antigravityStore.isInstalled,
+            availability: availability,
             selectedGroupID: menuBarAntigravityGroupID,
             mode: menuBarQuotaDisplayMode,
             codexSnapshot: store.snapshot,
             antigravitySnapshot: antigravityStore.snapshot,
-            isStayAwakeActive: stayAwakeStore.isActive,
-            now: effectiveMenuBarProvider == .claudeCode ? Date() : store.expiryReferenceDate,
             claudeCodeSnapshot: claudeCodeStore.snapshot,
-            claudeCodeEnabled: claudeCodeStore.isEnabled,
-            claudeCodeAvailable: claudeCodeStore.isInstalled,
-            claudeCodeHistorical: claudeCodeStore.isHistorical(at: Date())
+            claudeCodeHistorical: claudeCodeStore.isHistorical(at: Date()),
+            isStayAwakeActive: stayAwakeStore.isActive,
+            now: effectiveMenuBarProvider == .claudeCode ? Date() : store.expiryReferenceDate
         )
     }
 

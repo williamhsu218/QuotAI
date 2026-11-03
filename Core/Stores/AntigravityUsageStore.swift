@@ -2,18 +2,6 @@ import Foundation
 import Observation
 import OSLog
 
-extension Notification.Name {
-    static let antigravityUsageSnapshotDidChange = Notification.Name(
-        "com.willhsu.QuotAI.antigravityUsageSnapshotDidChange"
-    )
-    static let menuBarQuotaPreferencesDidChange = Notification.Name(
-        "com.willhsu.QuotAI.menuBarQuotaPreferencesDidChange"
-    )
-    static let antigravityIntegrationPreferenceDidChange = Notification.Name(
-        "com.willhsu.QuotAI.antigravityIntegrationPreferenceDidChange"
-    )
-}
-
 @MainActor
 @Observable
 final class AntigravityUsageStore: QuotaProviderStore {
@@ -29,7 +17,7 @@ final class AntigravityUsageStore: QuotaProviderStore {
     @ObservationIgnored private let fetchSnapshot: @Sendable () async throws -> AntigravityQuotaSnapshot
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private lazy var refreshScheduler = QuotaRefreshScheduler(
-        interval: { [defaults] in defaults.double(forKey: "refreshIntervalSeconds") },
+        interval: { [defaults] in RefreshInterval.seconds(in: defaults) },
         tick: { [weak self] in Task { await self?.refresh() } }
     )
     @ObservationIgnored private var generation: UInt64 = 0
@@ -84,7 +72,6 @@ final class AntigravityUsageStore: QuotaProviderStore {
         isInstalled = detected
         snapshot = nil
         phase = .idle
-        NotificationCenter.default.post(name: .antigravityUsageSnapshotDidChange, object: self)
     }
 
     var statusMessage: String {
@@ -127,18 +114,11 @@ final class AntigravityUsageStore: QuotaProviderStore {
 
     func stop() {
         guard !previewMode else { return }
-        let shouldNotify = snapshot != nil || phase != .idle
         generation &+= 1
         isEnabled = false
         refreshScheduler.stop()
         snapshot = nil
         phase = .idle
-        if shouldNotify {
-            NotificationCenter.default.post(
-                name: .antigravityUsageSnapshotDidChange,
-                object: self
-            )
-        }
         logger.info("Stopped Antigravity quota refresh loop")
     }
 
@@ -156,10 +136,6 @@ final class AntigravityUsageStore: QuotaProviderStore {
             snapshot = refreshedSnapshot
             refreshedSnapshot.reconcileUnavailableSelections(in: defaults)
             phase = .ready
-            NotificationCenter.default.post(
-                name: .antigravityUsageSnapshotDidChange,
-                object: self
-            )
         } catch {
             reloadInstallation()
             guard isEnabled, isInstalled, generation == expectedGeneration else { return }
@@ -167,10 +143,6 @@ final class AntigravityUsageStore: QuotaProviderStore {
             // failed refresh. Unavailable must never look like a zero balance.
             snapshot = nil
             phase = .failed(error.localizedDescription)
-            NotificationCenter.default.post(
-                name: .antigravityUsageSnapshotDidChange,
-                object: self
-            )
             logger.error(
                 "Antigravity quota refresh failed: \(String(describing: type(of: error)), privacy: .public)"
             )

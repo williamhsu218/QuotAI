@@ -121,6 +121,39 @@ public struct MenuBarPresentation: Equatable, Sendable {
         }
     }
 
+    /// Builds the presentation from the availability shared with the panel
+    /// and the settings window.
+    public init(
+        provider: QuotaProvider,
+        availability: ProviderAvailability,
+        selectedGroupID: String?,
+        mode: MenuBarQuotaDisplayMode,
+        codexSnapshot: UsageSnapshot?,
+        antigravitySnapshot: AntigravityQuotaSnapshot?,
+        claudeCodeSnapshot: ClaudeCodeQuotaSnapshot?,
+        claudeCodeHistorical: Bool,
+        isStayAwakeActive: Bool,
+        now: Date?,
+        staleAfter: [QuotaProvider: TimeInterval] = [:]
+    ) {
+        self.init(
+            provider: provider,
+            antigravityEnabled: availability.antigravityEnabled,
+            antigravityAvailable: availability.antigravityInstalled,
+            selectedGroupID: selectedGroupID,
+            mode: mode,
+            codexSnapshot: codexSnapshot,
+            antigravitySnapshot: antigravitySnapshot,
+            isStayAwakeActive: isStayAwakeActive,
+            now: now,
+            staleAfter: staleAfter,
+            claudeCodeSnapshot: claudeCodeSnapshot,
+            claudeCodeEnabled: availability.claudeCodeEnabled,
+            claudeCodeAvailable: availability.claudeCodeInstalled,
+            claudeCodeHistorical: claudeCodeHistorical
+        )
+    }
+
     public var accessibilityLabel: String {
         var base = "QuotAI · \(detail)"
         if isStale {

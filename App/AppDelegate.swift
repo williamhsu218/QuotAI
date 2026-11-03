@@ -1,7 +1,7 @@
 import AppKit
+import Observation
 import OSLog
 import SwiftUI
-
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopoverDelegate {
@@ -9,12 +9,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
     private lazy var antigravityStore = AntigravityUsageStore.shared
     private lazy var claudeCodeStore = ClaudeCodeUsageStore.shared
     private lazy var stayAwakeStore = StayAwakeStore.shared
+    private lazy var providerStores = QuotaProviderStores(
+        codex: store,
+        antigravity: antigravityStore,
+        claudeCode: claudeCodeStore
+    )
     private let popover = NSPopover()
     private let panelVisibility = QuotaPanelVisibility()
     private var statusItem: NSStatusItem?
     private var outsideClickMonitor: Any?
     /// Re-renders the status item so reset windows and stale snapshots are
-    /// reflected even when no provider posts a change.
+    /// reflected even when no store value changes.
     private var statusItemClock: Timer?
 
     private lazy var quickMenu: NSMenu = {
@@ -76,30 +81,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         configurePopover()
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(usageSnapshotDidChange),
-            name: .codexUsageSnapshotDidChange,
-            object: store
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(stayAwakeStateDidChange),
-            name: .stayAwakeStateDidChange,
-            object: stayAwakeStore
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(antigravityUsageSnapshotDidChange),
-            name: .antigravityUsageSnapshotDidChange,
-            object: antigravityStore
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(claudeCodeUsageSnapshotDidChange),
-            name: .claudeCodeUsageSnapshotDidChange,
-            object: claudeCodeStore
-        )
-        NotificationCenter.default.addObserver(
-            self,
             selector: #selector(menuBarQuotaPreferencesDidChange),
             name: .menuBarQuotaPreferencesDidChange,
             object: nil
@@ -111,7 +92,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
             object: nil
         )
         stayAwakeStore.start()
-        updateStatusItemAppearance()
+        observeMenuBarState()
         store.start()
         if antigravityIntegrationEnabled {
             antigravityStore.start()
@@ -266,7 +247,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
     }
 
     @objc private func refreshFromQuickMenu() {
-        let target = providerStore(for: effectiveMenuBarQuotaProvider)
+        let target = providerStores.store(for: effectiveMenuBarQuotaProvider)
         Task { await target.userRefresh() }
         logger.info(
             "Requested quota refresh from quick menu; provider=\(self.effectiveMenuBarQuotaProvider.rawValue, privacy: .public)"
@@ -358,16 +339,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         logger.info("Closed quota popover after outside click")
     }
 
-    @objc private func usageSnapshotDidChange() {
-        updateStatusItemAppearance()
-    }
-
-    @objc private func antigravityUsageSnapshotDidChange() {
-        updateStatusItemAppearance()
-    }
-
-    @objc private func claudeCodeUsageSnapshotDidChange() {
-        updateStatusItemAppearance()
+    /// Renders the status item and renders it again whenever a store value it
+    /// read changes, so no store has to announce its changes. Preference
+    /// changes arrive through their notifications, and the clock covers time
+    /// passing; a Claude display deadline advances `displayRevision`.
+    private func observeMenuBarState() {
+        withObservationTracking {
+            updateStatusItemAppearance()
+            _ = claudeCodeStore.displayRevision
+        } onChange: { [weak self] in
+            // onChange runs before the new value is stored; render afterwards.
+            Task { @MainActor [weak self] in
+                self?.observeMenuBarState()
+            }
+        }
     }
 
     private func reloadProviderInstallations() {
@@ -386,13 +371,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         timer.tolerance = 10
         RunLoop.main.add(timer, forMode: .common)
         statusItemClock = timer
-    }
-
-    @objc private func stayAwakeStateDidChange() {
-        updateStatusItemAppearance()
-        logger.info(
-            "Updated Stay Awake menu bar indicator; visible=\(self.stayAwakeStore.isActive, privacy: .public)"
-        )
     }
 
     @objc private func menuBarQuotaPreferencesDidChange() {
@@ -447,50 +425,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
 
     private var menuBarQuotaDisplayMode: MenuBarQuotaDisplayMode {
         let rawValue = UserDefaults.standard.string(
-            forKey: MenuBarQuotaDisplayMode.defaultsKey
+            forKey: DefaultsKey.menuBarDisplayMode
         )
         return rawValue.flatMap(MenuBarQuotaDisplayMode.init(rawValue:)) ?? .both
     }
 
     private var menuBarQuotaProvider: QuotaProvider {
         let rawValue = UserDefaults.standard.string(
-            forKey: QuotaProvider.menuBarDefaultsKey
+            forKey: DefaultsKey.menuBarProvider
         )
         return rawValue.flatMap(QuotaProvider.init(rawValue:)) ?? .codex
     }
 
     private var antigravityIntegrationEnabled: Bool {
-        let defaults = UserDefaults.standard
-        let key = QuotaProvider.antigravityIntegrationDefaultsKey
-        guard defaults.object(forKey: key) != nil else { return true }
-        return defaults.bool(forKey: key)
+        ProviderAvailability.antigravityIntegrationEnabled()
+    }
+
+    private var availability: ProviderAvailability {
+        providerStores.availability(antigravityEnabled: antigravityIntegrationEnabled)
     }
 
     private var effectiveMenuBarQuotaProvider: QuotaProvider {
-        menuBarQuotaProvider.effectiveProvider(
-            antigravityEnabled: antigravityIntegrationEnabled,
-            antigravityAvailable: antigravityStore.isInstalled,
-            claudeCodeEnabled: claudeCodeStore.isEnabled,
-            claudeCodeAvailable: claudeCodeStore.isInstalled
-        )
-    }
-
-    private func providerStore(for provider: QuotaProvider) -> any QuotaProviderStore {
-        switch provider {
-        case .codex: store
-        case .antigravity: antigravityStore
-        case .claudeCode: claudeCodeStore
-        }
+        availability.resolve(menuBarQuotaProvider)
     }
 
     private var isEffectiveMenuBarProviderLoading: Bool {
-        providerStore(for: effectiveMenuBarQuotaProvider).isLoading
+        providerStores.store(for: effectiveMenuBarQuotaProvider).isLoading
     }
 
     /// How old a snapshot may be before its tooltip reports stale data.
     private var menuBarStaleAfter: [QuotaProvider: TimeInterval] {
-        let configured = UserDefaults.standard.double(forKey: "refreshIntervalSeconds")
-        let interval = configured > 0 ? configured : 300
+        let interval = RefreshInterval.seconds()
         let polled = max(2 * interval, 600)
         return [
             .codex: polled,
@@ -501,19 +466,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
     private var menuBarPresentation: MenuBarPresentation {
         MenuBarPresentation(
             provider: menuBarQuotaProvider,
-            antigravityEnabled: antigravityIntegrationEnabled,
-            antigravityAvailable: antigravityStore.isInstalled,
-            selectedGroupID: UserDefaults.standard.string(forKey: AntigravityQuotaGroup.menuBarGroupDefaultsKey),
+            availability: availability,
+            selectedGroupID: UserDefaults.standard.string(forKey: DefaultsKey.menuBarAntigravityGroup),
             mode: menuBarQuotaDisplayMode,
             codexSnapshot: store.snapshot,
             antigravitySnapshot: antigravityStore.snapshot,
+            claudeCodeSnapshot: claudeCodeStore.snapshot,
+            claudeCodeHistorical: claudeCodeStore.isHistorical(at: Date()),
             isStayAwakeActive: stayAwakeStore.isActive,
             now: Date(),
-            staleAfter: menuBarStaleAfter,
-            claudeCodeSnapshot: claudeCodeStore.snapshot,
-            claudeCodeEnabled: claudeCodeStore.isEnabled,
-            claudeCodeAvailable: claudeCodeStore.isInstalled,
-            claudeCodeHistorical: claudeCodeStore.isHistorical(at: Date())
+            staleAfter: menuBarStaleAfter
         )
     }
 }

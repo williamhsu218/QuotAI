@@ -117,8 +117,9 @@ build_preview() {
     -target arm64-apple-macosx14.0 \
     -o "$preview_binary" \
     "$ROOT_DIR"/Core/*.swift \
-    "$ROOT_DIR"/App/Services/*.swift \
-    "$ROOT_DIR"/App/Stores/*.swift \
+    "$ROOT_DIR"/Core/Services/*.swift \
+    "$ROOT_DIR"/Core/Stores/*.swift \
+    "$ROOT_DIR"/Core/Support/*.swift \
     "$ROOT_DIR"/App/Support/*.swift \
     "$ROOT_DIR"/App/Views/*.swift \
     "$ROOT_DIR"/Preview/*.swift \
@@ -261,8 +262,9 @@ render_preview() {
     -target arm64-apple-macosx14.0 \
     -o "$renderer" \
     "$ROOT_DIR"/Core/*.swift \
-    "$ROOT_DIR"/App/Services/*.swift \
-    "$ROOT_DIR"/App/Stores/*.swift \
+    "$ROOT_DIR"/Core/Services/*.swift \
+    "$ROOT_DIR"/Core/Stores/*.swift \
+    "$ROOT_DIR"/Core/Support/*.swift \
     "$ROOT_DIR"/App/Support/*.swift \
     "$ROOT_DIR"/App/Views/*.swift \
     "$ROOT_DIR"/Tools/RenderDesignPreview.swift \

@@ -60,7 +60,6 @@ public enum ClaudeCodeConfigurationStatus: Equatable, Sendable {
 }
 
 public enum ClaudeCodeStatusLineConfiguration {
-    public static let enabledDefaultsKey = "claudeCodeRateLimitBridgeEnabled"
     public static let bridgeEnvironmentKey = "QUOTAI_CLAUDE_BRIDGE"
     public static let helperName = "quotai-claude-statusline"
     public static let settingsLimit = 1_048_576
