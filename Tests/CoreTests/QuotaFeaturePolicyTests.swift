@@ -125,4 +125,32 @@ struct QuotaFeaturePolicyTests {
         try PrivateJSONFile.write(SharedWidgetSnapshot(version: 1, generatedAt: now, rows: []), to: url)
         #expect(try WidgetSharedStore.read(from: url).rows.isEmpty)
     }
+    @Test("Widget rings preserve preferred provider order and never borrow a missing window")
+    func ringProviderIsolation() {
+        func row(_ id: String, _ name: String, _ window: String, _ percent: Int) -> WidgetQuotaRow {
+            .init(
+                id: id + window, providerID: id, title: name, window: window, remainingPercent: percent,
+                resetsAt: now.addingTimeInterval(600), fetchedAt: now, historical: id == "claudeCode")
+        }
+        let snapshot = SharedWidgetSnapshot(
+            version: 1, generatedAt: now,
+            rows: [
+                row("claudeCode", "Claude Code", "7d", 63), row("codex", "Codex", "5h", 0),
+                row("codex", "Codex", "7d", 40), row("antigravity", "Antigravity · Gemini 4 Argon", "7d", 2)
+            ])
+        let providers = snapshot.providerQuotas
+        #expect(providers.map(\.id) == ["claudeCode", "codex", "antigravity"])
+        #expect(providers[0].fiveHour == nil && providers[0].sevenDay?.historical == true)
+        #expect(providers[1].fiveHour?.remainingPercent == 0 && providers[1].sevenDay?.remainingPercent == 40)
+        #expect(providers[2].fiveHour == nil && providers[2].detail == "Gemini 4 Argon")
+    }
+
+    @Test("Unsupported widget windows cannot turn into a five-hour or seven-day ring")
+    func unknownWidgetWindow() {
+        let row = WidgetQuotaRow(
+            id: "future/month", providerID: "future", title: "Future", window: "month",
+            remainingPercent: 50, resetsAt: nil, fetchedAt: now, historical: false)
+        #expect(SharedWidgetSnapshot(version: 1, generatedAt: now, rows: [row]).providerQuotas.isEmpty)
+    }
+
 }

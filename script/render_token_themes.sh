@@ -19,6 +19,7 @@ cp -R "$QUOTAI_ROOT/Resources/en.lproj" "$PREVIEW_CONTENTS/Resources/"
 cp -R "$QUOTAI_ROOT/Resources/zh-Hans.lproj" "$PREVIEW_CONTENTS/Resources/"
 cp "$QUOTAI_ROOT/Design/AppMark-master.png" "$PREVIEW_CONTENTS/Resources/"
 cp "$QUOTAI_ROOT/Design/CodexMark-master.png" "$PREVIEW_CONTENTS/Resources/"
+cp "$QUOTAI_ROOT"/Widgets/ProviderAssets/*.png "$PREVIEW_CONTENTS/Resources/"
 
 xcrun swiftc \
   -parse-as-library \

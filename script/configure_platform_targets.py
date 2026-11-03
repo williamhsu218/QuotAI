@@ -94,15 +94,28 @@ locale_build = uid("widget-locale-build")
 insert("PBXBuildFile", locale_build, "isa = PBXBuildFile; fileRef = 80000000000000000000000A; ")
 insert("PBXResourcesBuildPhase", resources_phase, f"isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = ({locale_build}, ); runOnlyForDeploymentPostprocessing = 0; ")
 
+# Provider marks are shared by the native app and the WidgetKit extension.
+provider_assets_group = uid("provider-assets-group")
+insert("PBXGroup", provider_assets_group, 'isa = PBXGroup; children = (); path = ProviderAssets; sourceTree = "<group>"; ')
+append_list(widget_group, "children", provider_assets_group)
+for name in ["CodexProviderMark.png", "ClaudeProviderMark.png", "AntigravityProviderMark.png"]:
+    file_id = uid("provider-asset-" + name)
+    insert("PBXFileReference", file_id, f'isa = PBXFileReference; lastKnownFileType = image.png; path = "{name}"; sourceTree = "<group>"; ')
+    append_list(provider_assets_group, "children", file_id)
+    for target, phase in [("app", "300000000000000000000003"), ("widget", resources_phase)]:
+        build_id = uid(target + "-provider-asset-" + name)
+        insert("PBXBuildFile", build_id, f"isa = PBXBuildFile; fileRef = {file_id}; ")
+        append_list(phase, "files", build_id)
+
 configurations = []
 for configuration in ["Debug", "Release"]:
     identifier = uid("widget-" + configuration)
     configurations.append(identifier)
     settings = {
         "APPLICATION_EXTENSION_API_ONLY": "YES", "CODE_SIGN_STYLE": "Automatic",
-        "CODE_SIGN_ENTITLEMENTS": "Widgets/QuotAIWidget.entitlements", "CURRENT_PROJECT_VERSION": "53",
+        "CODE_SIGN_ENTITLEMENTS": "Widgets/QuotAIWidget.entitlements", "CURRENT_PROJECT_VERSION": "54",
         "ENABLE_APP_SANDBOX": "YES", "ENABLE_HARDENED_RUNTIME": "YES", "GENERATE_INFOPLIST_FILE": "NO",
-        "INFOPLIST_FILE": "Widgets/Info.plist", "MACOSX_DEPLOYMENT_TARGET": "14.0", "MARKETING_VERSION": "3.0.0",
+        "INFOPLIST_FILE": "Widgets/Info.plist", "MACOSX_DEPLOYMENT_TARGET": "14.0", "MARKETING_VERSION": "3.0.1",
         "PRODUCT_BUNDLE_IDENTIFIER": "$(QUOTAI_APP_BUNDLE_ID).QuotaWidget", "PRODUCT_NAME": "QuotAIWidget", "SKIP_INSTALL": "YES",
         "SWIFT_STRICT_CONCURRENCY": "complete", "SWIFT_VERSION": "6.0", "QUOTAI_APP_BUNDLE_ID": "com.willhsu.QuotAI",
         "QUOTAI_APP_GROUP": "$(DEVELOPMENT_TEAM).com.willhsu.QuotAI", "QUOTAI_URL_SCHEME": "quotai", "QUOTAI_DISPLAY_NAME": "QuotAI",

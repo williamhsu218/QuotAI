@@ -78,10 +78,12 @@ struct RenderDesignPreview {
                     remainingPercent: percent, resetsAt: now.addingTimeInterval(expired ? -1 : 3_600),
                     fetchedAt: now.addingTimeInterval(stale ? -2_000 : 0), historical: stale)
             }
+            let displayRows =
+                CommandLine.arguments.contains("--widget-weekly") ? rows.filter { $0.window == "7d" } : rows
             let size = CGSize(width: medium ? 344 : 164, height: 164)
             try write(
                 WidgetQuotaContent(
-                    snapshot: .init(version: 1, generatedAt: now, rows: rows), date: now, compact: !medium
+                    snapshot: .init(version: 1, generatedAt: now, rows: displayRows), date: now, compact: !medium
                 )
                 .padding(14).frame(width: size.width, height: size.height)
                 .background(Color(nsColor: .windowBackgroundColor))

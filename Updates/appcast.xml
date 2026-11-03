@@ -1,9 +1,18 @@
-<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+<?xml version='1.0' encoding='utf-8'?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
   <channel>
     <title>QuotAI Updates</title>
     <link>https://github.com/williamhsu218/QuotAI/releases</link>
     <description>Signed QuotAI updates</description>
+    <item>
+      <title>QuotAI 3.0.0</title>
+      <pubDate>Tue, 03 Nov 2026 09:04:37 +0000</pubDate>
+      <sparkle:version>53</sparkle:version>
+      <sparkle:shortVersionString>3.0.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:releaseNotesLink>https://github.com/williamhsu218/QuotAI/releases/tag/v3.0.0</sparkle:releaseNotesLink>
+      <enclosure url="https://github.com/williamhsu218/QuotAI/releases/download/v3.0.0/QuotAI-3.0.0-macos-universal.zip" length="5853995" type="application/octet-stream" sparkle:edSignature="Fg476CbwL5YgAC4bglJW5jn2c+FLrM+rOB2fWr2dUJU4MbN+HglJ9ybsywwXVgqAnqvtgs9RbUPKYIfaA/dgCA==" />
+    </item>
     <language>en</language>
   </channel>
 </rss>

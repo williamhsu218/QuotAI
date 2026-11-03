@@ -308,7 +308,7 @@
 "updates.automatic_checks" = "Check for updates automatically";
 "updates.automatic_installation" = "Download and install updates automatically";
 "updates.privacy" = "Update checks contact GitHub. Quota data and account details are never included.";
-"widget.detail" = "Add QuotAI from Edit Widgets on your desktop. It shows the last query; open QuotAI to refresh. Expired values disappear.";
+"widget.detail" = "7d is the outer ring; 5h is the inner ring. Small follows the menu bar source; medium shows three providers. Dashed rings mean unavailable data.";
 "widget.empty" = "Open QuotAI and enable widget sharing.";
 "widget.enable" = "Share quota with the desktop widget";
 "widget.expired" = "Reset time passed; refresh QuotAI";
@@ -323,3 +323,5 @@
 "notifications.test_title" = "QuotAI notification test";
 "notifications.test_body" = "Notifications are working. This is a test, not a quota change. Click to open QuotAI.";
 "notifications.test_accepted" = "Test submitted to macOS. It appears shortly; check Notification Center if banners are disabled.";
+
+"widget.historical" = "Previous query";

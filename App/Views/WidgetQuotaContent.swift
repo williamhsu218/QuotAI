@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct WidgetQuotaContent: View {
@@ -5,75 +6,133 @@ struct WidgetQuotaContent: View {
     let date: Date
     let compact: Bool
 
-    private var rows: [WidgetQuotaRow] {
-        Array(snapshot.rows.prefix(compact ? 2 : 6))
-    }
+    private var providers: [WidgetProviderQuota] { Array(snapshot.providerQuotas.prefix(compact ? 1 : 3)) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: compact ? 10 : 5) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Label("QuotAI", systemImage: "chart.bar.fill").font(.caption.bold())
+                Text("QuotAI").font(.caption.weight(.semibold))
                 Spacer()
                 if snapshot.generatedAt != .distantPast {
                     Text(snapshot.generatedAt, style: .time).font(.caption2).foregroundStyle(.secondary)
                 }
             }
-            if rows.isEmpty {
+            if providers.isEmpty {
                 Spacer()
                 Text(L10n.text("widget.empty", fallback: "Open QuotAI and enable widget sharing."))
                     .font(.caption).foregroundStyle(.secondary)
                 Spacer()
             } else {
-                ForEach(rows) { row in
-                    if compact {
-                        VStack(alignment: .leading, spacing: 3) {
-                            HStack {
-                                Text("\(row.title) · \(row.window)").font(.caption2).lineLimit(1)
-                                Spacer(minLength: 2)
-                                value(row, large: true)
-                            }
-                            bar(row)
+                GeometryReader { geometry in
+                    let diameter = max(
+                        40,
+                        min(
+                            compact ? 88 : 76, geometry.size.height - 40,
+                            (geometry.size.width - Double(providers.count - 1) * 8) / Double(providers.count) - 8))
+                    HStack(alignment: .top, spacing: 8) {
+                        ForEach(providers) { provider in
+                            WidgetProviderRings(provider: provider, date: date, diameter: diameter)
+                                .frame(maxWidth: .infinity)
                         }
-                    } else {
-                        HStack(spacing: 8) {
-                            Text("\(row.title) · \(row.window)").font(.caption2).lineLimit(1).frame(
-                                maxWidth: .infinity, alignment: .leading)
-                            bar(row).frame(width: 60)
-                            value(row, large: false).frame(width: 34, alignment: .trailing)
-                        }
-                    }
+                    }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 }
-                Spacer(minLength: 0)
             }
         }
+    }
+}
 
+private struct WidgetProviderRings: View {
+    let provider: WidgetProviderQuota
+    let date: Date
+    let diameter: Double
+
+    var body: some View {
+        VStack(spacing: 4) {
+            ZStack {
+                ring(provider.sevenDay, width: 5).frame(width: diameter, height: diameter)
+                ring(provider.fiveHour, width: 4).frame(width: diameter * 0.71, height: diameter * 0.71)
+                logo.frame(width: diameter * 0.29, height: diameter * 0.29).accessibilityHidden(true)
+            }.frame(width: diameter, height: diameter)
+            VStack(spacing: 2) {
+                Text(provider.name).font(.system(size: 10, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.8)
+                Text(provider.detail ?? " ").font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                HStack(spacing: 6) {
+                    metric("7d", provider.sevenDay)
+                    metric("5h", provider.fiveHour)
+                }.font(.system(size: 9, weight: .medium, design: .rounded)).monospacedDigit()
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            [provider.name, provider.detail, spoken("7d", provider.sevenDay), spoken("5h", provider.fiveHour)]
+                .compactMap { $0 }.joined(separator: ", "))
+    }
+
+    private func ring(_ row: WidgetQuotaRow?, width: Double) -> some View {
+        let available = row?.displayable(at: date) == true
+        return ZStack {
+            Circle().stroke(
+                .secondary.opacity(available ? 0.16 : 0.12),
+                style: StrokeStyle(lineWidth: width, dash: available ? [] : [2, 3]))
+            if let row, available, row.remainingPercent > 0 {
+                Circle().trim(from: 0, to: Double(row.remainingPercent) / 100)
+                    .stroke(color(row), style: StrokeStyle(lineWidth: width, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+            }
+        }
     }
 
     @ViewBuilder
-    private func value(_ row: WidgetQuotaRow, large: Bool) -> some View {
-        Text(row.displayable(at: date) ? "\(row.remainingPercent)%" : "--")
-            .font(large ? .system(.body, design: .rounded).bold() : .caption.bold())
-            .monospacedDigit()
-            .foregroundStyle(color(row))
-            .accessibilityLabel(
-                row.displayable(at: date)
-                    ? "\(row.title) \(row.window) \(row.remainingPercent)%"
-                    : L10n.text("widget.expired", fallback: "Reset time passed; refresh QuotAI"))
+    private var logo: some View {
+        if let image = WidgetProviderMarks.image(for: provider.id) {
+            Image(nsImage: image).renderingMode(provider.id == "antigravity" ? .original : .template)
+                .resizable().interpolation(.high).scaledToFit().foregroundStyle(.primary)
+        } else {
+            Image(systemName: "sparkles").resizable().scaledToFit().foregroundStyle(.primary)
+        }
     }
 
-    private func bar(_ row: WidgetQuotaRow) -> some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                Capsule().fill(.secondary.opacity(0.16))
-                if row.displayable(at: date) && row.remainingPercent > 0 {
-                    Capsule().fill(color(row)).frame(width: geometry.size.width * Double(row.remainingPercent) / 100)
-                }
-            }
-        }.frame(height: 5)
+    private func metric(_ window: String, _ row: WidgetQuotaRow?) -> some View {
+        HStack(spacing: 2) {
+            Text(window).foregroundStyle(.secondary)
+            Text(value(row)).foregroundStyle(color(row))
+        }
     }
 
-    private func color(_ row: WidgetQuotaRow) -> Color {
-        if !row.displayable(at: date) || row.isStale(at: date) { return .secondary }
+    private func value(_ row: WidgetQuotaRow?) -> String {
+        guard let row, row.displayable(at: date) else { return "--" }
+        return "\(row.remainingPercent)%"
+    }
+
+    private func spoken(_ window: String, _ row: WidgetQuotaRow?) -> String {
+        let historical =
+            row?.isStale(at: date) == true
+            ? L10n.text("widget.historical", fallback: "Previous query") : ""
+        return [window, value(row), historical].filter { !$0.isEmpty }.joined(separator: " ")
+    }
+
+    private func color(_ row: WidgetQuotaRow?) -> Color {
+        guard let row, row.displayable(at: date), !row.isStale(at: date) else { return .secondary }
         return row.remainingPercent < 20 ? .red : row.remainingPercent < 50 ? .orange : .green
     }
+}
+
+@MainActor
+private enum WidgetProviderMarks {
+    static let images: [String: NSImage] = {
+        var result: [String: NSImage] = [:]
+        for (id, name) in [
+            ("codex", "CodexProviderMark"), ("antigravity", "AntigravityProviderMark"),
+            ("claudeCode", "ClaudeProviderMark")
+        ] {
+            if let url = Bundle.main.url(forResource: name, withExtension: "png"), let image = NSImage(contentsOf: url)
+            {
+                result[id] = image
+            }
+        }
+        return result
+    }()
+
+    static func image(for provider: String) -> NSImage? { images[provider] }
 }
