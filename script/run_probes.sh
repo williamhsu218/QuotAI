@@ -3,6 +3,8 @@
 # Every probe uses synthetic processes, responses and temporary files; none
 # reads a real account, credential or user configuration. Live modes and the
 # picker motion probe (which needs an unlocked graphical session) are not run.
+# The Claude store probe needs a detectable `claude` CLI on PATH; it is only
+# located, never executed (CI provides a placeholder that fails if run).
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

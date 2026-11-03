@@ -20,7 +20,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Select the newest stable Xcode
         run: |
@@ -41,7 +41,18 @@ jobs:
             CODE_SIGNING_ALLOWED=NO build
 
       - name: Isolated probes
-        run: ./script/run_probes.sh
+        run: |
+          # The Claude store probe injects every query, but the store only
+          # queries when a CLI is installed. Runners have none, so detection
+          # gets a placeholder that fails loudly if anything executes it.
+          if ! command -v claude >/dev/null 2>&1; then
+            placeholder="$RUNNER_TEMP/claude-placeholder"
+            mkdir -p "$placeholder"
+            printf '#!/bin/sh\necho "placeholder claude must never run" >&2\nexit 97\n' > "$placeholder/claude"
+            chmod 755 "$placeholder/claude"
+            export PATH="$placeholder:$PATH"
+          fi
+          ./script/run_probes.sh
 
       - name: Universal Release package
         run: |
