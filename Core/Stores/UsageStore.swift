@@ -2,12 +2,6 @@ import Foundation
 import Observation
 import OSLog
 
-extension Notification.Name {
-    static let codexUsageSnapshotDidChange = Notification.Name(
-        "com.willhsu.QuotAI.usageSnapshotDidChange"
-    )
-}
-
 @MainActor
 @Observable
 final class UsageStore: QuotaProviderStore {
@@ -129,10 +123,6 @@ final class UsageStore: QuotaProviderStore {
             let latest = fetched.preservingResetCredits(from: snapshot)
             snapshot = latest
             phase = .ready
-            NotificationCenter.default.post(
-                name: .codexUsageSnapshotDidChange,
-                object: self
-            )
             let snapshotURL = self.snapshotURL
             try await Task.detached(priority: .utility) {
                 if let snapshotURL {

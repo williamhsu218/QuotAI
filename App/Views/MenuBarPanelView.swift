@@ -52,40 +52,24 @@ struct MenuBarPanelView: View {
         self.stayAwakeStore = stayAwakeStore
     }
 
-    private var shouldShowAntigravity: Bool {
-        antigravityIntegrationEnabled && antigravityStore.isInstalled
+    private var providerStores: QuotaProviderStores {
+        QuotaProviderStores(codex: store, antigravity: antigravityStore, claudeCode: claudeCodeStore)
+    }
+
+    private var availability: ProviderAvailability {
+        providerStores.availability(antigravityEnabled: antigravityIntegrationEnabled)
     }
 
     private var visibleProviders: [QuotaProvider] {
-        QuotaProvider.visibleProviders(
-            antigravityVisible: shouldShowAntigravity,
-            claudeCodeVisible: shouldShowClaudeCode
-        )
-    }
-
-    private var shouldShowClaudeCode: Bool {
-        claudeCodeStore.isEnabled && claudeCodeStore.isInstalled
+        availability.visibleProviders
     }
 
     private var effectiveQuotaProvider: QuotaProvider {
-        quotaProvider.effectiveProvider(
-            antigravityEnabled: antigravityIntegrationEnabled,
-            antigravityAvailable: shouldShowAntigravity,
-            claudeCodeEnabled: claudeCodeStore.isEnabled,
-            claudeCodeAvailable: claudeCodeStore.isInstalled
-        )
-    }
-
-    private func providerStore(for provider: QuotaProvider) -> any QuotaProviderStore {
-        switch provider {
-        case .codex: store
-        case .antigravity: antigravityStore
-        case .claudeCode: claudeCodeStore
-        }
+        availability.resolve(quotaProvider)
     }
 
     private var selectedStore: any QuotaProviderStore {
-        providerStore(for: effectiveQuotaProvider)
+        providerStores.store(for: effectiveQuotaProvider)
     }
 
     var body: some View {
@@ -118,10 +102,10 @@ struct MenuBarPanelView: View {
         .appPanelSurface()
         .task {
             store.start()
-            if shouldShowAntigravity {
+            if availability.showsAntigravity {
                 antigravityStore.start()
             }
-            if shouldShowClaudeCode {
+            if availability.showsClaudeCode {
                 claudeCodeStore.start()
             }
         }

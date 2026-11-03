@@ -2,12 +2,6 @@ import Foundation
 import Observation
 import OSLog
 
-extension Notification.Name {
-    static let stayAwakeStateDidChange = Notification.Name(
-        "com.willhsu.QuotAI.stayAwakeStateDidChange"
-    )
-}
-
 @MainActor
 @Observable
 final class StayAwakeStore {
@@ -100,7 +94,6 @@ final class StayAwakeStore {
         expiresAt = nil
         defaults.set(false, forKey: DefaultsKey.stayAwakeEnabled)
         defaults.removeObject(forKey: DefaultsKey.stayAwakeExpiration)
-        postStateChange()
         logger.info("Stay Awake stopped")
     }
 
@@ -144,7 +137,6 @@ final class StayAwakeStore {
             )
         }
         scheduleExpiration(expiration)
-        postStateChange()
         logger.info(
             "Stay Awake started; duration=\(duration.rawValue, privacy: .public), mode=\(self.selectedMode.rawValue, privacy: .public), finite=\(expiration != nil, privacy: .public)"
         )
@@ -171,9 +163,5 @@ final class StayAwakeStore {
             processInfo.endActivity(activityToken)
             self.activityToken = nil
         }
-    }
-
-    private func postStateChange() {
-        NotificationCenter.default.post(name: .stayAwakeStateDidChange, object: self)
     }
 }

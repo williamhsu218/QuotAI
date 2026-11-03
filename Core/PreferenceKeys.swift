@@ -47,3 +47,14 @@ public enum RefreshInterval {
         seconds > 0 && seconds.isFinite ? seconds : defaultSeconds
     }
 }
+
+extension Notification.Name {
+    /// Posted by the settings window after it changes a menu bar preference.
+    static let menuBarQuotaPreferencesDidChange = Notification.Name(
+        "com.willhsu.QuotAI.menuBarQuotaPreferencesDidChange"
+    )
+    /// Posted by the settings window after it turns Antigravity on or off.
+    static let antigravityIntegrationPreferenceDidChange = Notification.Name(
+        "com.willhsu.QuotAI.antigravityIntegrationPreferenceDidChange"
+    )
+}
