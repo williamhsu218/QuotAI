@@ -51,7 +51,10 @@ struct CodexBinaryLocatorProbe {
             try process.run()
             process.waitUntilExit()
             let data = output.fileHandleForReading.readDataToEndOfFile()
-            return (process.terminationStatus, String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
+            return (
+                process.terminationStatus,
+                String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+            )
         }
 
         try executable(desktop, contents: "#!/bin/sh\n/bin/echo mock-desktop\n")

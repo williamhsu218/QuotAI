@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import QuotAICore
 
 @Test("Migrates the actual CodexQuota preferences into QuotAI")
@@ -11,13 +12,15 @@ func migratesActualLegacyPreferences() throws {
 
     let migrated = QuotAIPreferenceMigration.migrate(
         defaults: defaults,
-        legacyDomains: [[
-            DefaultsKey.menuBarDisplayMode: MenuBarQuotaDisplayMode.sevenDay.rawValue,
-            DefaultsKey.menuBarProvider: QuotaProvider.antigravity.rawValue,
-            DefaultsKey.panelProvider: QuotaProvider.codex.rawValue,
-            DefaultsKey.menuBarAntigravityGroup: "gemini",
-            "stayAwakeDuration": "indefinitely"
-        ]]
+        legacyDomains: [
+            [
+                DefaultsKey.menuBarDisplayMode: MenuBarQuotaDisplayMode.sevenDay.rawValue,
+                DefaultsKey.menuBarProvider: QuotaProvider.antigravity.rawValue,
+                DefaultsKey.panelProvider: QuotaProvider.codex.rawValue,
+                DefaultsKey.menuBarAntigravityGroup: "gemini",
+                "stayAwakeDuration": "indefinitely"
+            ]
+        ]
     )
 
     #expect(migrated)
@@ -37,15 +40,17 @@ func preservesExistingQuotAIPreferences() throws {
     defer { defaults.removePersistentDomain(forName: suiteName) }
     defaults.set(MenuBarQuotaDisplayMode.fiveHour.rawValue, forKey: DefaultsKey.menuBarDisplayMode)
 
-    #expect(QuotAIPreferenceMigration.migrate(
-        defaults: defaults,
-        legacyDomains: [[DefaultsKey.menuBarDisplayMode: MenuBarQuotaDisplayMode.sevenDay.rawValue]]
-    ))
+    #expect(
+        QuotAIPreferenceMigration.migrate(
+            defaults: defaults,
+            legacyDomains: [[DefaultsKey.menuBarDisplayMode: MenuBarQuotaDisplayMode.sevenDay.rawValue]]
+        ))
     #expect(defaults.string(forKey: DefaultsKey.menuBarDisplayMode) == "fiveHour")
-    #expect(!QuotAIPreferenceMigration.migrate(
-        defaults: defaults,
-        legacyDomains: [[DefaultsKey.menuBarDisplayMode: MenuBarQuotaDisplayMode.both.rawValue]]
-    ))
+    #expect(
+        !QuotAIPreferenceMigration.migrate(
+            defaults: defaults,
+            legacyDomains: [[DefaultsKey.menuBarDisplayMode: MenuBarQuotaDisplayMode.both.rawValue]]
+        ))
     #expect(defaults.string(forKey: DefaultsKey.menuBarDisplayMode) == "fiveHour")
 }
 

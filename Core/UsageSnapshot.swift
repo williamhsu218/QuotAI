@@ -5,7 +5,8 @@ public struct SubscriptionPlan: Codable, Equatable, Sendable {
 
     public init?(identifier: String?) {
         guard let identifier else { return nil }
-        let normalized = identifier
+        let normalized =
+            identifier
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
         guard !normalized.isEmpty, normalized != "unknown" else { return nil }
@@ -26,13 +27,15 @@ public struct SubscriptionPlan: Codable, Equatable, Sendable {
             "Pro 100"
         case "g1-pro-tier", "google_ai_pro", "google ai pro", "ai_pro", "ai pro", "teams_tier_pro":
             "Pro"
-        case "ultra", "ai_ultra", "ai ultra", "g1-ultra-tier", "google_ai_ultra", "google ai ultra", "teams_tier_pro_ultimate", "teams_tier_ultra":
+        case "ultra", "ai_ultra", "ai ultra", "g1-ultra-tier", "google_ai_ultra", "google ai ultra",
+            "teams_tier_pro_ultimate", "teams_tier_ultra":
             "Ultra"
         case "team", "teams_tier_teams":
             "Team"
         case "self_serve_business_usage_based", "business":
             "Business"
-        case "enterprise_cbp_usage_based", "enterprise", "teams_tier_enterprise_self_hosted", "teams_tier_enterprise_saas":
+        case "enterprise_cbp_usage_based", "enterprise", "teams_tier_enterprise_self_hosted",
+            "teams_tier_enterprise_saas":
             "Enterprise"
         case "edu":
             "Edu"
@@ -279,7 +282,8 @@ public struct UsageSnapshot: Codable, Equatable, Sendable {
         self.hasCurrentResetCreditData = hasCurrentResetCreditData
         self.dailyUsageBuckets = dailyUsageBuckets
         self.tokenUsageSummary = tokenUsageSummary
-        self.hasCurrentTokenUsageData = hasCurrentTokenUsageData ?? (!dailyUsageBuckets.isEmpty || tokenUsageSummary != nil)
+        self.hasCurrentTokenUsageData =
+            hasCurrentTokenUsageData ?? (!dailyUsageBuckets.isEmpty || tokenUsageSummary != nil)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -309,19 +313,22 @@ public struct UsageSnapshot: Codable, Equatable, Sendable {
             try container.decode(Int.self, forKey: .availableResetCount)
         )
         resetCredits = try container.decode([ResetCredit].self, forKey: .resetCredits)
-        hasCurrentResetCreditData = try container.decodeIfPresent(
-            Bool.self,
-            forKey: .hasCurrentResetCreditData
-        ) ?? true
-        dailyUsageBuckets = try container.decodeIfPresent(
-            [DailyUsageBucket].self,
-            forKey: .dailyUsageBuckets
-        ) ?? []
+        hasCurrentResetCreditData =
+            try container.decodeIfPresent(
+                Bool.self,
+                forKey: .hasCurrentResetCreditData
+            ) ?? true
+        dailyUsageBuckets =
+            try container.decodeIfPresent(
+                [DailyUsageBucket].self,
+                forKey: .dailyUsageBuckets
+            ) ?? []
         tokenUsageSummary = try container.decodeIfPresent(
             AccountTokenUsageSummary.self,
             forKey: .tokenUsageSummary
         )
-        hasCurrentTokenUsageData = try container.decodeIfPresent(Bool.self, forKey: .hasCurrentTokenUsageData)
+        hasCurrentTokenUsageData =
+            try container.decodeIfPresent(Bool.self, forKey: .hasCurrentTokenUsageData)
             ?? (!dailyUsageBuckets.isEmpty || tokenUsageSummary != nil)
     }
 
@@ -371,12 +378,14 @@ public struct UsageSnapshot: Codable, Equatable, Sendable {
         MenuBarQuotaLines.lines(for: orderedQuotas, mode: mode, now: now)
     }
 
-    public func activityWeeks(count: Int = 18, endingOn date: Date = Date(), calendar: Calendar = .current) -> [ActivityWeek] {
+    public func activityWeeks(
+        count: Int = 18, endingOn date: Date = Date(), calendar: Calendar = .current
+    ) -> [ActivityWeek] {
         guard count > 0 else { return [] }
 
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = calendar.timeZone
-        cal.firstWeekday = 2 // Monday
+        cal.firstWeekday = 2  // Monday
 
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -391,7 +400,8 @@ public struct UsageSnapshot: Codable, Equatable, Sendable {
 
         let todayDateStr = formatter.string(from: date)
         guard let startOfCurrentWeek = cal.dateInterval(of: .weekOfYear, for: date)?.start,
-              let startMonday = cal.date(byAdding: .weekOfYear, value: -(count - 1), to: startOfCurrentWeek) else {
+            let startMonday = cal.date(byAdding: .weekOfYear, value: -(count - 1), to: startOfCurrentWeek)
+        else {
             return []
         }
 
@@ -459,9 +469,12 @@ public extension UsageSnapshot {
             subscriptionPlan: SubscriptionPlan(identifier: "prolite"),
             availableResetCount: 4,
             resetCredits: [
-                ResetCredit(grantedAt: date(2026, 6, 18, 8, 31), expiresAt: date(2026, 7, 18, 8, 31), status: "available"),
-                ResetCredit(grantedAt: date(2026, 6, 27, 8, 0), expiresAt: date(2026, 7, 27, 8, 0), status: "available"),
-                ResetCredit(grantedAt: date(2026, 7, 2, 4, 17), expiresAt: date(2026, 8, 1, 4, 17), status: "available"),
+                ResetCredit(
+                    grantedAt: date(2026, 6, 18, 8, 31), expiresAt: date(2026, 7, 18, 8, 31), status: "available"),
+                ResetCredit(
+                    grantedAt: date(2026, 6, 27, 8, 0), expiresAt: date(2026, 7, 27, 8, 0), status: "available"),
+                ResetCredit(
+                    grantedAt: date(2026, 7, 2, 4, 17), expiresAt: date(2026, 8, 1, 4, 17), status: "available"),
                 ResetCredit(grantedAt: date(2026, 7, 14, 2, 0), expiresAt: date(2026, 8, 13, 2, 0), status: "available")
             ],
             dailyUsageBuckets: [

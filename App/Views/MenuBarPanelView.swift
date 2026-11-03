@@ -1,9 +1,9 @@
 import AppKit
-import SwiftUI
 import Observation
+import SwiftUI
 
 private struct QuotaPanelVisibleKey: EnvironmentKey {
-    static let defaultValue = true // Standalone preview windows are visible.
+    static let defaultValue = true  // Standalone preview windows are visible.
 }
 
 extension EnvironmentValues {
@@ -131,7 +131,8 @@ struct MenuBarPanelView: View {
             } else if effectiveQuotaProvider == .antigravity, let plan = antigravityStore.snapshot?.subscriptionPlan {
                 SubscriptionPlanBadge(displayName: plan.displayName)
             } else if effectiveQuotaProvider == .claudeCode, claudeCodeStore.isConnected,
-                      let plan = claudeCodeStore.subscriptionPlan {
+                let plan = claudeCodeStore.subscriptionPlan
+            {
                 SubscriptionPlanBadge(displayName: plan.displayName)
                     .help(claudeCodeStore.subscriptionStatusMessage)
             }
@@ -189,11 +190,10 @@ struct MenuBarPanelView: View {
         if let bundledImage = NSImage(named: "AppMark") {
             return bundledImage
         }
-        if
-            let previewURL = Bundle.main.url(
-                forResource: "AppMark-master",
-                withExtension: "png"
-            ),
+        if let previewURL = Bundle.main.url(
+            forResource: "AppMark-master",
+            withExtension: "png"
+        ),
             let previewImage = NSImage(contentsOf: previewURL)
         {
             return previewImage
@@ -244,8 +244,8 @@ struct MenuBarPanelView: View {
                     Image(systemName: statusIcon)
                         .foregroundStyle(statusColor)
                 }
-                    .font(.system(size: AppTheme.TypeSize.caption))
-                    .lineLimit(1)
+                .font(.system(size: AppTheme.TypeSize.caption))
+                .lineLimit(1)
             }
 
             Spacer(minLength: AppTheme.Spacing.small)
@@ -277,17 +277,21 @@ struct MenuBarPanelView: View {
                 } else {
                     Label(
                         effectiveQuotaProvider == .claudeCode && claudeCodeStore.isLoading
-                            ? L10n.text("action.cancel", fallback: "Cancel") : L10n.text("action.refresh", fallback: "Refresh"),
-                        systemImage: effectiveQuotaProvider == .claudeCode && claudeCodeStore.isLoading ? "xmark" : "arrow.clockwise"
+                            ? L10n.text("action.cancel", fallback: "Cancel")
+                            : L10n.text("action.refresh", fallback: "Refresh"),
+                        systemImage: effectiveQuotaProvider == .claudeCode && claudeCodeStore.isLoading
+                            ? "xmark" : "arrow.clockwise"
                     )
-                .frame(width: 28, height: 22)
+                    .frame(width: 28, height: 22)
                 }
             }
             .disabled(isSelectedProviderLoading && effectiveQuotaProvider != .claudeCode)
-            .help(effectiveQuotaProvider == .claudeCode
-                ? claudeCodeStore.isLoading ? L10n.text("action.cancel", fallback: "Cancel")
-                    : L10n.text("claude.query.refresh_help", fallback: "Query Claude usage once; no model response")
-                : L10n.text("action.refresh", fallback: "Refresh"))
+            .help(
+                effectiveQuotaProvider == .claudeCode
+                    ? claudeCodeStore.isLoading
+                        ? L10n.text("action.cancel", fallback: "Cancel")
+                        : L10n.text("claude.query.refresh_help", fallback: "Query Claude usage once; no model response")
+                    : L10n.text("action.refresh", fallback: "Refresh"))
 
             Button {
                 openSettings()
@@ -350,14 +354,18 @@ struct MenuBarPanelView: View {
     }
 
     private var statusIcon: String {
-        if effectiveQuotaProvider == .claudeCode, selectedStore.phase == .ready, (!hasDisplayableClaudeReport || claudeCodeStore.isHistorical(at: Date())) {
+        if effectiveQuotaProvider == .claudeCode, selectedStore.phase == .ready,
+            !hasDisplayableClaudeReport || claudeCodeStore.isHistorical(at: Date())
+        {
             return "clock"
         }
         return selectedStore.phase.statusSymbolName
     }
 
     private var statusColor: Color {
-        if effectiveQuotaProvider == .claudeCode, selectedStore.phase == .ready, (!hasDisplayableClaudeReport || claudeCodeStore.isHistorical(at: Date())) {
+        if effectiveQuotaProvider == .claudeCode, selectedStore.phase == .ready,
+            !hasDisplayableClaudeReport || claudeCodeStore.isHistorical(at: Date())
+        {
             return AppTheme.secondaryText
         }
         return switch selectedStore.phase {
@@ -380,15 +388,20 @@ struct MenuBarPanelView: View {
     }
 
     private func refreshSelectedProvider() {
-        if effectiveQuotaProvider == .claudeCode, claudeCodeStore.isLoading { claudeCodeStore.cancelRefresh(); return }
+        if effectiveQuotaProvider == .claudeCode, claudeCodeStore.isLoading {
+            claudeCodeStore.cancelRefresh()
+            return
+        }
         let target = selectedStore
         Task { await target.userRefresh() }
     }
 
     private func openLatestRelease() {
-        guard let url = URL(
-            string: "https://github.com/williamhsu218/QuotAI/releases/latest"
-        ) else { return }
+        guard
+            let url = URL(
+                string: "https://github.com/williamhsu218/QuotAI/releases/latest"
+            )
+        else { return }
         NSWorkspace.shared.open(url)
     }
 

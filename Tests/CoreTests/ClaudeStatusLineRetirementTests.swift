@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import QuotAICore
 
 @Suite("Retired Claude status-line compatibility")
@@ -18,8 +19,9 @@ struct ClaudeStatusLineRetirementTests {
         }
     }
 
-    @Test("Restoration keeps unrelated settings, original bytes, private permissions and state",
-          arguments: [0o600, 0o640])
+    @Test(
+        "Restoration keeps unrelated settings, original bytes, private permissions and state",
+        arguments: [0o600, 0o640])
     func restoresPreviousStatusLine(permissions: Int) throws {
         let fixture = try RetirementFixture()
         defer { fixture.remove() }
@@ -29,10 +31,12 @@ struct ClaudeStatusLineRetirementTests {
 
         #expect(try fixture.retire())
         let restored = try fixture.readSettings()
-        #expect(NSDictionary(dictionary: try #require(restored["statusLine"] as? [String: Any]))
-            .isEqual(to: previous))
-        #expect(NSDictionary(dictionary: restored.filter { $0.key != "statusLine" })
-            .isEqual(to: RetirementFixture.unrelatedSettings))
+        #expect(
+            NSDictionary(dictionary: try #require(restored["statusLine"] as? [String: Any]))
+                .isEqual(to: previous))
+        #expect(
+            NSDictionary(dictionary: restored.filter { $0.key != "statusLine" })
+                .isEqual(to: RetirementFixture.unrelatedSettings))
         #expect(try fixture.permissions(fixture.settings) == permissions)
         let backup = try #require(fixture.backups().onlyElement)
         #expect(try Data(contentsOf: backup) == original)
@@ -88,8 +92,12 @@ struct ClaudeStatusLineRetirementTests {
             try RetirementFixture.json(["previousStatusLine": "custom"]),
             try RetirementFixture.json(["previousStatusLine": ["not", "a", "dictionary"]]),
             try RetirementFixture.json(["previousStatusLine": 4]),
-            try RetirementFixture.json(["previousStatusLine": ["type": "command", "command": RetirementFixture.ownedCommand]]),
-            try RetirementFixture.json(["previousStatusLine": ["type": "command", "command": "wrapper --claude-statusline --extra"]]),
+            try RetirementFixture.json([
+                "previousStatusLine": ["type": "command", "command": RetirementFixture.ownedCommand]
+            ]),
+            try RetirementFixture.json([
+                "previousStatusLine": ["type": "command", "command": "wrapper --claude-statusline --extra"]
+            ]),
             Data(repeating: 0x20, count: 65_537)
         ]
         for state in invalidStates {
@@ -131,7 +139,8 @@ struct ClaudeStatusLineRetirementTests {
             ["command": "  printf '%s' 'kept spaces'  "]
         ] {
             try fixture.writeState(["previousStatusLine": previous])
-            #expect(ClaudeStatusLineRetirement.previousCommand(stateURL: fixture.state) == previous["command"] as? String)
+            #expect(
+                ClaudeStatusLineRetirement.previousCommand(stateURL: fixture.state) == previous["command"] as? String)
         }
         for previous: Any in [
             NSNull(), "plain string", [String: Any](),
@@ -194,11 +203,13 @@ private struct RetirementFixture {
     var settings: URL { root.appendingPathComponent("settings.json") }
     var state: URL { root.appendingPathComponent("state.json") }
     static let ownedCommand = "'/Applications/QuotAI.app/Contents/MacOS/QuotAI' --claude-statusline"
-    static var unrelatedSettings: [String: Any] { [
-        "env": ["EXAMPLE": "preserved", "SECOND": "line\nvalue"],
-        "permissions": ["allow": ["Read", "Bash(swift test:*)"], "deny": ["Write(private/**)"]],
-        "enabled": true, "retryCount": 3, "nothing": NSNull()
-    ] }
+    static var unrelatedSettings: [String: Any] {
+        [
+            "env": ["EXAMPLE": "preserved", "SECOND": "line\nvalue"],
+            "permissions": ["allow": ["Read", "Bash(swift test:*)"], "deny": ["Write(private/**)"]],
+            "enabled": true, "retryCount": 3, "nothing": NSNull()
+        ]
+    }
 
     init() throws {
         root = FileManager.default.temporaryDirectory

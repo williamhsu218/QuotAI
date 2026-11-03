@@ -42,7 +42,9 @@ struct QuotaRowView: View {
                 .opacity(isExpired ? 0.4 : 1)
 
                 Text(resetText)
-                    .font(.system(size: compact ? AppTheme.TypeSize.small : AppTheme.TypeSize.caption, weight: .regular))
+                    .font(
+                        .system(size: compact ? AppTheme.TypeSize.small : AppTheme.TypeSize.caption, weight: .regular)
+                    )
                     .monospacedDigit()
                     .foregroundStyle(AppTheme.secondaryText)
                     .lineLimit(1)
@@ -65,7 +67,9 @@ struct QuotaRowView: View {
         if L10n.isSimplifiedChinese {
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text(L10n.text("quota.remaining_prefix", fallback: "剩余"))
-                    .font(.system(size: compact ? AppTheme.TypeSize.small : AppTheme.TypeSize.caption, weight: .regular))
+                    .font(
+                        .system(size: compact ? AppTheme.TypeSize.small : AppTheme.TypeSize.caption, weight: .regular)
+                    )
                     .foregroundStyle(AppTheme.secondaryText)
                 Text("\(quota.remainingPercent)")
                     .font(.system(size: compact ? AppTheme.TypeSize.body : 16, weight: .bold, design: .rounded))
@@ -74,7 +78,11 @@ struct QuotaRowView: View {
                     .contentTransition(.numericText(value: Double(quota.remainingPercent)))
                     .animation(refreshAnimation, value: quota.remainingPercent)
                 Text("%")
-                    .font(.system(size: compact ? AppTheme.TypeSize.small : AppTheme.TypeSize.caption, weight: .semibold, design: .rounded))
+                    .font(
+                        .system(
+                            size: compact ? AppTheme.TypeSize.small : AppTheme.TypeSize.caption, weight: .semibold,
+                            design: .rounded)
+                    )
                     .foregroundStyle(quotaPalette.accent.opacity(0.85))
             }
             .fixedSize()
@@ -87,7 +95,11 @@ struct QuotaRowView: View {
                     .contentTransition(.numericText(value: Double(quota.remainingPercent)))
                     .animation(refreshAnimation, value: quota.remainingPercent)
                 Text("% left")
-                    .font(.system(size: compact ? AppTheme.TypeSize.small : AppTheme.TypeSize.caption, weight: .medium, design: .rounded))
+                    .font(
+                        .system(
+                            size: compact ? AppTheme.TypeSize.small : AppTheme.TypeSize.caption, weight: .medium,
+                            design: .rounded)
+                    )
                     .foregroundStyle(AppTheme.secondaryText)
             }
             .fixedSize()

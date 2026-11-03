@@ -1,13 +1,14 @@
 import Foundation
 import Testing
+
 @testable import QuotAICore
 
 @Test("Parses 5-hour and 7-day windows by duration, not field position")
 func parsesBothQuotaWindows() throws {
     let payload = """
-    {"id":1,"result":{"userAgent":"test"}}
-    {"id":2,"result":{"rateLimits":{"planType":"free","primary":{"usedPercent":18,"windowDurationMins":300,"resetsAt":1784122800},"secondary":{"usedPercent":7,"windowDurationMins":10080,"resetsAt":1784682166}},"rateLimitsByLimitId":{"codex":{"planType":"plus","primary":{"usedPercent":7,"windowDurationMins":10080,"resetsAt":1784682166},"secondary":{"usedPercent":18,"windowDurationMins":300,"resetsAt":1784122800}}},"rateLimitResetCredits":{"availableCount":4,"credits":[{"grantedAt":1781742705,"expiresAt":1784334705,"status":"available"}]}}}
-    """
+        {"id":1,"result":{"userAgent":"test"}}
+        {"id":2,"result":{"rateLimits":{"planType":"free","primary":{"usedPercent":18,"windowDurationMins":300,"resetsAt":1784122800},"secondary":{"usedPercent":7,"windowDurationMins":10080,"resetsAt":1784682166}},"rateLimitsByLimitId":{"codex":{"planType":"plus","primary":{"usedPercent":7,"windowDurationMins":10080,"resetsAt":1784682166},"secondary":{"usedPercent":18,"windowDurationMins":300,"resetsAt":1784122800}}},"rateLimitResetCredits":{"availableCount":4,"credits":[{"grantedAt":1781742705,"expiresAt":1784334705,"status":"available"}]}}}
+        """
 
     let snapshot = try CodexRateLimitParser.parse(jsonLines: payload)
 
@@ -25,8 +26,8 @@ func parsesBothQuotaWindows() throws {
 @Test("Hides the 5-hour quota when Codex omits it")
 func omitsMissingFiveHourWindow() throws {
     let payload = """
-    {"id":2,"result":{"rateLimits":{"primary":{"usedPercent":7,"windowDurationMins":10080,"resetsAt":1784682166},"secondary":null},"rateLimitResetCredits":{"availableCount":4,"credits":null}}}
-    """
+        {"id":2,"result":{"rateLimits":{"primary":{"usedPercent":7,"windowDurationMins":10080,"resetsAt":1784682166},"secondary":null},"rateLimitResetCredits":{"availableCount":4,"credits":null}}}
+        """
 
     let snapshot = try CodexRateLimitParser.parse(jsonLines: payload)
 
@@ -43,8 +44,8 @@ func omitsMissingFiveHourWindow() throws {
 @Test("Uses available reset detail rows when the summary count lags")
 func derivesResetCountFromAvailableRows() throws {
     let payload = """
-    {"id":2,"result":{"rateLimits":{"primary":{"usedPercent":7,"windowDurationMins":10080,"resetsAt":1784682166},"secondary":null},"rateLimitResetCredits":{"availableCount":0,"credits":[{"grantedAt":1781742705,"expiresAt":1784334705,"status":"available"},{"grantedAt":1781742706,"expiresAt":1784334706,"status":"available"},{"grantedAt":1781742707,"expiresAt":1784334707,"status":"redeemed"}]}}}
-    """
+        {"id":2,"result":{"rateLimits":{"primary":{"usedPercent":7,"windowDurationMins":10080,"resetsAt":1784682166},"secondary":null},"rateLimitResetCredits":{"availableCount":0,"credits":[{"grantedAt":1781742705,"expiresAt":1784334705,"status":"available"},{"grantedAt":1781742706,"expiresAt":1784334706,"status":"available"},{"grantedAt":1781742707,"expiresAt":1784334707,"status":"redeemed"}]}}}
+        """
 
     let snapshot = try CodexRateLimitParser.parse(jsonLines: payload)
 
@@ -55,11 +56,11 @@ func derivesResetCountFromAvailableRows() throws {
 @Test("Distinguishes unavailable reset details from a confirmed zero count")
 func distinguishesUnavailableResetDetails() throws {
     let unavailablePayload = """
-    {"id":2,"result":{"rateLimits":{"primary":{"usedPercent":7,"windowDurationMins":10080,"resetsAt":1784682166}},"rateLimitResetCredits":null}}
-    """
+        {"id":2,"result":{"rateLimits":{"primary":{"usedPercent":7,"windowDurationMins":10080,"resetsAt":1784682166}},"rateLimitResetCredits":null}}
+        """
     let zeroPayload = """
-    {"id":2,"result":{"rateLimits":{"primary":{"usedPercent":7,"windowDurationMins":10080,"resetsAt":1784682166}},"rateLimitResetCredits":{"availableCount":0,"credits":[]}}}
-    """
+        {"id":2,"result":{"rateLimits":{"primary":{"usedPercent":7,"windowDurationMins":10080,"resetsAt":1784682166}},"rateLimitResetCredits":{"availableCount":0,"credits":[]}}}
+        """
 
     let unavailable = try CodexRateLimitParser.parse(jsonLines: unavailablePayload)
     let zero = try CodexRateLimitParser.parse(jsonLines: zeroPayload)
@@ -173,8 +174,8 @@ func decodesLegacySnapshotCache() throws {
 @Test("Clamps malformed percentages into a display-safe range")
 func clampsRemainingPercentage() throws {
     let payload = """
-    {"id":2,"result":{"rateLimits":{"primary":{"usedPercent":130,"windowDurationMins":300,"resetsAt":null},"secondary":null},"rateLimitResetCredits":{"availableCount":0,"credits":[]}}}
-    """
+        {"id":2,"result":{"rateLimits":{"primary":{"usedPercent":130,"windowDurationMins":300,"resetsAt":null},"secondary":null},"rateLimitResetCredits":{"availableCount":0,"credits":[]}}}
+        """
 
     let snapshot = try CodexRateLimitParser.parse(jsonLines: payload)
 
@@ -209,9 +210,9 @@ func readsAccountAuthModes() {
 @Test("Falls back to the account plan when quota data omits it")
 func readsPlanFromAccountFallback() throws {
     let payload = """
-    {"id":2,"result":{"account":{"type":"chatgpt","planType":"business"}}}
-    {"id":3,"result":{"rateLimits":{"primary":{"usedPercent":7,"windowDurationMins":10080,"resetsAt":1784682166},"secondary":null},"rateLimitResetCredits":{"availableCount":0,"credits":[]}}}
-    """
+        {"id":2,"result":{"account":{"type":"chatgpt","planType":"business"}}}
+        {"id":3,"result":{"rateLimits":{"primary":{"usedPercent":7,"windowDurationMins":10080,"resetsAt":1784682166},"secondary":null},"rateLimitResetCredits":{"availableCount":0,"credits":[]}}}
+        """
 
     let snapshot = try CodexRateLimitParser.parse(jsonLines: payload, requestID: 3)
 
@@ -230,9 +231,9 @@ func formatsSubscriptionPlans() {
 @Test("Parses account token usage and daily buckets when present")
 func parsesAccountTokenUsage() throws {
     let payload = """
-    {"id":3,"result":{"rateLimits":{"planType":"plus","primary":{"usedPercent":18,"windowDurationMins":300,"resetsAt":1784122800},"secondary":{"usedPercent":7,"windowDurationMins":10080,"resetsAt":1784682166}},"rateLimitResetCredits":{"availableCount":1,"credits":[]}}}
-    {"id":4,"result":{"summary":{"currentStreakDays":76,"lifetimeTokens":11601258469,"longestRunningTurnSec":20701,"longestStreakDays":76,"peakDailyTokens":361809076},"dailyUsageBuckets":[{"startDate":"2026-09-04","tokens":154358560},{"startDate":"2026-09-05","tokens":60975604}]}}
-    """
+        {"id":3,"result":{"rateLimits":{"planType":"plus","primary":{"usedPercent":18,"windowDurationMins":300,"resetsAt":1784122800},"secondary":{"usedPercent":7,"windowDurationMins":10080,"resetsAt":1784682166}},"rateLimitResetCredits":{"availableCount":1,"credits":[]}}}
+        {"id":4,"result":{"summary":{"currentStreakDays":76,"lifetimeTokens":11601258469,"longestRunningTurnSec":20701,"longestStreakDays":76,"peakDailyTokens":361809076},"dailyUsageBuckets":[{"startDate":"2026-09-04","tokens":154358560},{"startDate":"2026-09-05","tokens":60975604}]}}
+        """
 
     let snapshot = try CodexRateLimitParser.parse(
         jsonLines: payload,
@@ -256,7 +257,8 @@ func parsesAccountTokenUsage() throws {
 
 @Test("Explicit empty usage clears cached data; unsupported usage preserves it")
 func emptyAndUnavailableUsageAreDistinct() throws {
-    let quota = #"{"id":3,"result":{"rateLimits":{"primary":{"usedPercent":18,"windowDurationMins":300,"resetsAt":1784122800}}}}"#
+    let quota =
+        #"{"id":3,"result":{"rateLimits":{"primary":{"usedPercent":18,"windowDurationMins":300,"resetsAt":1784122800}}}}"#
     for (response, isCurrent) in [
         (#"{"id":4,"result":{"dailyUsageBuckets":[]}}"#, true),
         (#"{"id":4,"error":{"code":-32601,"message":"Method not found"}}"#, false),
@@ -277,8 +279,10 @@ func dailyUsageDateBoundaries() throws {
     var calendar = Calendar(identifier: .buddhist)
     calendar.timeZone = TimeZone(secondsFromGMT: 8 * 3600)!
     let date = ISO8601DateFormatter().date(from: "2026-09-07T01:00:00+08:00")!
-    let snapshot = UsageSnapshot(fetchedAt: date, fiveHour: nil, sevenDay: nil,
-        availableResetCount: 0, resetCredits: [], dailyUsageBuckets: [
+    let snapshot = UsageSnapshot(
+        fetchedAt: date, fiveHour: nil, sevenDay: nil,
+        availableResetCount: 0, resetCredits: [],
+        dailyUsageBuckets: [
             DailyUsageBucket(startDate: "2026-09-06", tokens: 100)
         ])
     let days = snapshot.activityWeeks(count: 1, endingOn: date, calendar: calendar).flatMap(\.days)
@@ -302,7 +306,7 @@ func generatesActivityWeeks() {
     components.calendar = calendar
     components.year = 2026
     components.month = 9
-    components.day = 2 // Wednesday
+    components.day = 2  // Wednesday
     let date = components.date!
 
     let snapshot = UsageSnapshot(

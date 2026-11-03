@@ -20,8 +20,10 @@ public enum ProviderInstallationDetector {
     }
 
     private static func defaultApplicationDirectories(_ homeDirectory: URL) -> [URL] {
-        [URL(fileURLWithPath: "/Applications", isDirectory: true),
-         homeDirectory.appendingPathComponent("Applications", isDirectory: true)]
+        [
+            URL(fileURLWithPath: "/Applications", isDirectory: true),
+            homeDirectory.appendingPathComponent("Applications", isDirectory: true)
+        ]
     }
 
     private static func containsApplication(
@@ -51,11 +53,13 @@ public enum ProviderInstallationDetector {
         in directory: URL,
         fileManager: FileManager
     ) -> URL? {
-        guard let applications = try? fileManager.contentsOfDirectory(
-            at: directory,
-            includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles]
-        ) else { return nil }
+        guard
+            let applications = try? fileManager.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )
+        else { return nil }
         return applications.first {
             isApplication($0, bundleIdentifier: bundleIdentifier, fileManager: fileManager)
         }
@@ -67,14 +71,15 @@ public enum ProviderInstallationDetector {
         fileManager: FileManager
     ) -> Bool {
         guard application.pathExtension.lowercased() == "app",
-              (try? application.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true,
-              let data = try? Data(contentsOf: application.appendingPathComponent("Contents/Info.plist")),
-              let info = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
-              info["CFBundleIdentifier"] as? String == bundleIdentifier,
-              let executable = info["CFBundleExecutable"] as? String,
-              !executable.isEmpty,
-              !executable.contains("/"),
-              executable != ".", executable != ".." else { return false }
+            (try? application.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true,
+            let data = try? Data(contentsOf: application.appendingPathComponent("Contents/Info.plist")),
+            let info = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+            info["CFBundleIdentifier"] as? String == bundleIdentifier,
+            let executable = info["CFBundleExecutable"] as? String,
+            !executable.isEmpty,
+            !executable.contains("/"),
+            executable != ".", executable != ".."
+        else { return false }
         return isExecutableFile(
             application.appendingPathComponent("Contents/MacOS", isDirectory: true)
                 .appendingPathComponent(executable),
@@ -86,7 +91,8 @@ public enum ProviderInstallationDetector {
         guard url.isFileURL else { return false }
         let resolved = url.resolvingSymlinksInPath()
         guard let attributes = try? fileManager.attributesOfItem(atPath: resolved.path),
-              attributes[.type] as? FileAttributeType == .typeRegular else { return false }
+            attributes[.type] as? FileAttributeType == .typeRegular
+        else { return false }
         return fileManager.isExecutableFile(atPath: resolved.path)
     }
 }

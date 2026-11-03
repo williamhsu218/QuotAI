@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import QuotAICore
 
 private func presentation(
@@ -40,7 +41,9 @@ func menuBarSelectedGroup() {
 func menuBarMissingSelection() {
     let snapshot = AntigravityQuotaSnapshot.preview
     for group in snapshot.groups {
-        let onlyGroup = AntigravityQuotaSnapshot(fetchedAt: snapshot.fetchedAt, groups: [group], thirdPartyAvailability: group.id == "gemini" ? .unavailable : .available)
+        let onlyGroup = AntigravityQuotaSnapshot(
+            fetchedAt: snapshot.fetchedAt, groups: [group],
+            thirdPartyAvailability: group.id == "gemini" ? .unavailable : .available)
         for savedID: String? in [nil, "", "removed", group.id == "gemini" ? "3p" : "gemini"] {
             let value = presentation(groupID: savedID, antigravity: onlyGroup)
             #expect(value.groupID == group.id)
@@ -53,7 +56,8 @@ func menuBarMissingSelection() {
 
 @Test("Unknown pools never borrow a Gemini or Claude icon")
 func menuBarUnknownPool() {
-    let group = AntigravityQuotaGroup(id: "future", displayName: "Future pool",
+    let group = AntigravityQuotaGroup(
+        id: "future", displayName: "Future pool",
         fiveHour: .init(kind: .fiveHour, remainingPercent: 21, resetsAt: nil), sevenDay: nil)
     let snapshot = AntigravityQuotaSnapshot(fetchedAt: Date(), groups: [group])
     let value = presentation(groupID: "3p", antigravity: snapshot)
@@ -70,10 +74,11 @@ func menuBarNoData(mode: MenuBarQuotaDisplayMode) {
         #expect(value.lines == ["--"])
         #expect(!value.detail.contains("%"))
         #expect(value.groupID == nil)
-        let expectedIcon: MenuBarPresentation.Icon = switch provider {
-        case .codex, .claudeCode: .codex // An unenabled Claude source falls back.
-        case .antigravity: .antigravity
-        }
+        let expectedIcon: MenuBarPresentation.Icon =
+            switch provider {
+            case .codex, .claudeCode: .codex  // An unenabled Claude source falls back.
+            case .antigravity: .antigravity
+            }
         #expect(value.icon == expectedIcon)
     }
     let empty = AntigravityQuotaSnapshot(fetchedAt: Date(), groups: [])
@@ -95,8 +100,9 @@ func menuBarProviderFallback() {
 @Test("All available quotas omit missing windows; explicit selection keeps its placeholder")
 func menuBarSparseWindows() {
     let weekly = QuotaWindow(kind: .sevenDay, remainingPercent: 100, resetsAt: nil)
-    let codex = UsageSnapshot(fetchedAt: Date(), fiveHour: nil, sevenDay: weekly,
-                             availableResetCount: 0, resetCredits: [])
+    let codex = UsageSnapshot(
+        fetchedAt: Date(), fiveHour: nil, sevenDay: weekly,
+        availableResetCount: 0, resetCredits: [])
     let group = AntigravityQuotaGroup(id: "3p", displayName: "Claude", fiveHour: nil, sevenDay: weekly)
     let ag = AntigravityQuotaSnapshot(fetchedAt: Date(), groups: [group], thirdPartyAvailability: .available)
     for provider in QuotaProvider.allCases {
@@ -158,10 +164,11 @@ func menuBarExpiredWindows() {
     let now = Date(timeIntervalSince1970: 2_000_000)
     let expired = QuotaWindow(kind: .fiveHour, remainingPercent: 3, resetsAt: now.addingTimeInterval(-1))
     let current = QuotaWindow(kind: .sevenDay, remainingPercent: 40, resetsAt: now.addingTimeInterval(3_600))
-    let codex = UsageSnapshot(fetchedAt: now, fiveHour: expired, sevenDay: current,
-                              availableResetCount: 0, resetCredits: [])
+    let codex = UsageSnapshot(
+        fetchedAt: now, fiveHour: expired, sevenDay: current,
+        availableResetCount: 0, resetCredits: [])
     let value = presentation(provider: .codex, codex: codex)
-    #expect(value.lines == ["5h 3%", "7d 40%"]) // No reference time: fixtures unchanged.
+    #expect(value.lines == ["5h 3%", "7d 40%"])  // No reference time: fixtures unchanged.
     let live = MenuBarPresentation(
         provider: .codex, antigravityEnabled: false, antigravityAvailable: false,
         selectedGroupID: nil, mode: .both, codexSnapshot: codex, antigravitySnapshot: nil,
@@ -187,7 +194,9 @@ func menuBarStaleSnapshots() {
     #expect(!codex(age: 60, budget: [.codex: 600]).isStale)
     #expect(codex(age: 601, budget: [.codex: 600]).isStale)
     #expect(!codex(age: 601, budget: [:]).isStale)
-    #expect(codex(age: 601, budget: [.codex: 600]).accessibilityLabel != codex(age: 60, budget: [.codex: 600]).accessibilityLabel)
+    #expect(
+        codex(age: 601, budget: [.codex: 600]).accessibilityLabel
+            != codex(age: 60, budget: [.codex: 600]).accessibilityLabel)
     let noData = MenuBarPresentation(
         provider: .codex, antigravityEnabled: false, antigravityAvailable: false,
         selectedGroupID: nil, mode: .both, codexSnapshot: nil, antigravitySnapshot: nil,

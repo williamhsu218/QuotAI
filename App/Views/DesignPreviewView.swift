@@ -41,7 +41,7 @@ struct DesignPreviewView: View {
                 stayAwakeStore: stayAwakeStore,
                 claudeCodeStore: claudeCodeStore
             )
-                .shadow(color: .black.opacity(0.18), radius: 22, y: 12)
+            .shadow(color: .black.opacity(0.18), radius: 22, y: 12)
         }
         .padding(44)
         .foregroundStyle(AppTheme.primaryText)

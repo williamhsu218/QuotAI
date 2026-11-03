@@ -1,13 +1,21 @@
 import Foundation
 import Testing
+
 @testable import QuotAICore
 
 private let allAvailabilities: [ProviderAvailability] = {
     let flags = [false, true]
-    return flags.flatMap { agEnabled in flags.flatMap { agInstalled in flags.flatMap { ccEnabled in flags.map { ccInstalled in
-        ProviderAvailability(antigravityEnabled: agEnabled, antigravityInstalled: agInstalled,
-                             claudeCodeEnabled: ccEnabled, claudeCodeInstalled: ccInstalled)
-    } } } }
+    return flags.flatMap { agEnabled in
+        flags.flatMap { agInstalled in
+            flags.flatMap { ccEnabled in
+                flags.map { ccInstalled in
+                    ProviderAvailability(
+                        antigravityEnabled: agEnabled, antigravityInstalled: agInstalled,
+                        claudeCodeEnabled: ccEnabled, claudeCodeInstalled: ccInstalled)
+                }
+            }
+        }
+    }
 }()
 
 @Test("A saved source always resolves to one that is offered", arguments: allAvailabilities)
@@ -23,11 +31,13 @@ func resolvedProviderIsVisible(availability: ProviderAvailability) {
 
 @Test("Sources are offered only when enabled and installed")
 func visibilityRequiresBoth() {
-    let none = ProviderAvailability(antigravityEnabled: false, antigravityInstalled: true,
-                                    claudeCodeEnabled: true, claudeCodeInstalled: false)
+    let none = ProviderAvailability(
+        antigravityEnabled: false, antigravityInstalled: true,
+        claudeCodeEnabled: true, claudeCodeInstalled: false)
     #expect(none.visibleProviders == [.codex])
-    let all = ProviderAvailability(antigravityEnabled: true, antigravityInstalled: true,
-                                   claudeCodeEnabled: true, claudeCodeInstalled: true)
+    let all = ProviderAvailability(
+        antigravityEnabled: true, antigravityInstalled: true,
+        claudeCodeEnabled: true, claudeCodeInstalled: true)
     #expect(all.visibleProviders == [.codex, .antigravity, .claudeCode])
     #expect(all.showsAntigravity && all.showsClaudeCode)
 }

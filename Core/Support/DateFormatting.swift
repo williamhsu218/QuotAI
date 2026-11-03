@@ -26,7 +26,9 @@ enum DisplayDateFormatter {
     }()
     static func activityDate(_ date: Date) -> String { activityFormatter.string(from: date) }
     static func activityMonth(_ date: Date) -> String { monthFormatter.string(from: date) }
-    static func exactTokens(_ count: Int64) -> String { tokenFormatter.string(from: NSNumber(value: count)) ?? "\(count)" }
+    static func exactTokens(_ count: Int64) -> String {
+        tokenFormatter.string(from: NSNumber(value: count)) ?? "\(count)"
+    }
 
     /// Reset and expiry times follow the Mac's current time zone, including
     /// later system changes, so "Today" matches the user's own calendar day.

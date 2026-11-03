@@ -180,10 +180,13 @@ struct SettingsView: View {
                             set: { setLaunchAtLogin($0) }
                         )
                     )
-                    .help(L10n.text("settings.launch_at_login_help", fallback: "Automatically start QuotAI when you log in."))
+                    .help(
+                        L10n.text(
+                            "settings.launch_at_login_help", fallback: "Automatically start QuotAI when you log in."))
                 }
 
-                SettingsSection(title: L10n.text("settings.section.token_activity", fallback: "Token Activity Colors")) {
+                SettingsSection(title: L10n.text("settings.section.token_activity", fallback: "Token Activity Colors"))
+                {
                     TokenActivityThemePicker()
                 }
 
@@ -260,10 +263,16 @@ struct SettingsView: View {
                         HStack {
                             Text(L10n.text("settings.antigravity_group", fallback: "Antigravity group"))
                             Spacer()
-                            Picker("", selection: Binding(
-                                get: { antigravityStore.snapshot?.group(id: menuBarAntigravityGroupID)?.id ?? menuBarAntigravityGroupID },
-                                set: { menuBarAntigravityGroupID = $0 }
-                            )) {
+                            Picker(
+                                "",
+                                selection: Binding(
+                                    get: {
+                                        antigravityStore.snapshot?.group(id: menuBarAntigravityGroupID)?.id
+                                            ?? menuBarAntigravityGroupID
+                                    },
+                                    set: { menuBarAntigravityGroupID = $0 }
+                                )
+                            ) {
                                 if antigravityGroups.isEmpty {
                                     Text(L10n.text("settings.antigravity_unavailable", fallback: "Unavailable"))
                                         .tag(menuBarAntigravityGroupID)
@@ -272,8 +281,10 @@ struct SettingsView: View {
                                         .tag(group.id)
                                 } else {
                                     ForEach(antigravityGroups) { group in
-                                        Text(AntigravityQuotaTab(rawValue: group.id)?.title ?? group.localizedDisplayName)
-                                            .tag(group.id)
+                                        Text(
+                                            AntigravityQuotaTab(rawValue: group.id)?.title ?? group.localizedDisplayName
+                                        )
+                                        .tag(group.id)
                                     }
                                 }
                             }
@@ -294,9 +305,12 @@ struct SettingsView: View {
                     Text(L10n.text("settings.menu_bar_windows", fallback: "Menu bar windows"))
                     Spacer()
                     Picker("", selection: $menuBarQuotaDisplayMode) {
-                        Text(L10n.text("settings.menu_bar_quota_5h", fallback: "5h only")).tag(MenuBarQuotaDisplayMode.fiveHour)
-                        Text(L10n.text("settings.menu_bar_quota_7d", fallback: "7d only")).tag(MenuBarQuotaDisplayMode.sevenDay)
-                        Text(L10n.text("settings.menu_bar_quota_both", fallback: "All available quotas")).tag(MenuBarQuotaDisplayMode.both)
+                        Text(L10n.text("settings.menu_bar_quota_5h", fallback: "5h only")).tag(
+                            MenuBarQuotaDisplayMode.fiveHour)
+                        Text(L10n.text("settings.menu_bar_quota_7d", fallback: "7d only")).tag(
+                            MenuBarQuotaDisplayMode.sevenDay)
+                        Text(L10n.text("settings.menu_bar_quota_both", fallback: "All available quotas")).tag(
+                            MenuBarQuotaDisplayMode.both)
                     }
                     .labelsHidden()
                     .accessibilityLabel(L10n.text("settings.menu_bar_windows", fallback: "Menu bar windows"))
@@ -354,13 +368,19 @@ struct SettingsView: View {
                     }
                 }
 
-                SettingsSection(title: L10n.text("settings.section.antigravity_service", fallback: "Antigravity Service")) {
+                SettingsSection(
+                    title: L10n.text("settings.section.antigravity_service", fallback: "Antigravity Service")
+                ) {
                     if isAntigravitySupported {
                         Toggle(
                             L10n.text("settings.enable_antigravity", fallback: "Enable Antigravity integration"),
                             isOn: $antigravityIntegrationEnabled
                         )
-                        .help(L10n.text("settings.enable_antigravity_help", fallback: "Show Antigravity model quota alongside Codex when Antigravity is running."))
+                        .help(
+                            L10n.text(
+                                "settings.enable_antigravity_help",
+                                fallback: "Show Antigravity model quota alongside Codex when Antigravity is running.")
+                        )
                         .onChange(of: antigravityIntegrationEnabled) {
                             NotificationCenter.default.post(
                                 name: .antigravityIntegrationPreferenceDidChange,
@@ -382,7 +402,8 @@ struct SettingsView: View {
 
                                 Text(
                                     antigravityIsConnected
-                                        ? L10n.text("settings.antigravity_status_connected", fallback: "Connected & Active")
+                                        ? L10n.text(
+                                            "settings.antigravity_status_connected", fallback: "Connected & Active")
                                         : L10n.text("settings.antigravity_status_idle", fallback: "Idle / Not Running")
                                 )
                                 .font(.system(size: 12, weight: .medium))
@@ -397,8 +418,8 @@ struct SettingsView: View {
                                             antigravityGroups.count
                                         )
                                     )
-                                        .font(.system(size: 11, weight: .regular))
-                                        .foregroundStyle(AppTheme.secondaryText)
+                                    .font(.system(size: 11, weight: .regular))
+                                    .foregroundStyle(AppTheme.secondaryText)
                                 }
                             }
                         }
@@ -427,7 +448,8 @@ struct SettingsView: View {
                 Text(
                     L10n.text(
                         "settings.privacy_note",
-                        fallback: "Codex cache and Claude reports stay on this Mac. Claude credentials and conversations are not read; Antigravity quota and authentication are not saved."
+                        fallback:
+                            "Codex cache and Claude reports stay on this Mac. Claude credentials and conversations are not read; Antigravity quota and authentication are not saved."
                     )
                 )
                 .font(.system(size: 11))
@@ -516,10 +538,12 @@ struct SettingsView: View {
     private var claudeCodeProviderSection: some View {
         SettingsSection(title: L10n.text("claude.query.title", fallback: "Claude usage")) {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.small) {
-                Text(claudeCodeStore.isInstalled
-                    ? L10n.text("claude.settings.cli_available", fallback: "Claude CLI available")
-                    : L10n.text("claude.settings.cli_unavailable", fallback: "Claude CLI not found"))
-                    .font(.system(size: AppTheme.TypeSize.caption, weight: .medium))
+                Text(
+                    claudeCodeStore.isInstalled
+                        ? L10n.text("claude.settings.cli_available", fallback: "Claude CLI available")
+                        : L10n.text("claude.settings.cli_unavailable", fallback: "Claude CLI not found")
+                )
+                .font(.system(size: AppTheme.TypeSize.caption, weight: .medium))
 
                 Label(
                     claudeCodeStore.configurationStatusMessage,
@@ -536,18 +560,29 @@ struct SettingsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Text(L10n.text("claude.query.settings_detail", fallback: "Refresh runs the local Claude /usage command once, without generating a model response. Startup only loads the last query. Old results are gray; a window's numbers disappear at reset. CLI handles its own login; QuotAI does not read credentials or conversations."))
-                    .font(.system(size: AppTheme.TypeSize.small))
-                    .foregroundStyle(AppTheme.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
+                Text(
+                    L10n.text(
+                        "claude.query.settings_detail",
+                        fallback:
+                            "Refresh runs the local Claude /usage command once, without generating a model response. Startup only loads the last query. Old results are gray; a window's numbers disappear at reset. CLI handles its own login; QuotAI does not read credentials or conversations."
+                    )
+                )
+                .font(.system(size: AppTheme.TypeSize.small))
+                .foregroundStyle(AppTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
 
                 HStack(spacing: AppTheme.Spacing.small) {
                     if claudeCodeStore.isEnabled {
-                        Button(claudeCodeStore.isLoading
-                            ? L10n.text("action.cancel", fallback: "Cancel")
-                            : L10n.text("action.refresh", fallback: "Refresh")) {
-                            if claudeCodeStore.isLoading { claudeCodeStore.cancelRefresh() }
-                            else { Task { await claudeCodeStore.userRefresh() } }
+                        Button(
+                            claudeCodeStore.isLoading
+                                ? L10n.text("action.cancel", fallback: "Cancel")
+                                : L10n.text("action.refresh", fallback: "Refresh")
+                        ) {
+                            if claudeCodeStore.isLoading {
+                                claudeCodeStore.cancelRefresh()
+                            } else {
+                                Task { await claudeCodeStore.userRefresh() }
+                            }
                         }
                         .disabled(!claudeCodeStore.isInstalled && !claudeCodeStore.isLoading)
 
@@ -599,7 +634,8 @@ struct SettingsView: View {
             return bundledImage
         }
         if let previewURL = Bundle.main.url(forResource: "AppMark-master", withExtension: "png"),
-           let previewImage = NSImage(contentsOf: previewURL) {
+            let previewImage = NSImage(contentsOf: previewURL)
+        {
             return previewImage
         }
         return NSApplication.shared.applicationIconImage
@@ -657,7 +693,8 @@ struct SettingsView: View {
 
     private func normalizeAntigravityGroupSelection() {
         guard let firstID = antigravityGroupIDs.first,
-              menuBarAntigravityGroupID.isEmpty else {
+            menuBarAntigravityGroupID.isEmpty
+        else {
             return
         }
         menuBarAntigravityGroupID = firstID
@@ -714,12 +751,14 @@ struct SettingsView: View {
     }
 
     private var versionText: String {
-        let version = Bundle.main.object(
-            forInfoDictionaryKey: "CFBundleShortVersionString"
-        ) as? String ?? "—"
-        let build = Bundle.main.object(
-            forInfoDictionaryKey: "CFBundleVersion"
-        ) as? String ?? "—"
+        let version =
+            Bundle.main.object(
+                forInfoDictionaryKey: "CFBundleShortVersionString"
+            ) as? String ?? "—"
+        let build =
+            Bundle.main.object(
+                forInfoDictionaryKey: "CFBundleVersion"
+            ) as? String ?? "—"
 
         return L10n.format(
             "settings.version_format",

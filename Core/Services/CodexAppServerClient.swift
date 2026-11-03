@@ -22,27 +22,30 @@ enum CodexAppServerClientError: LocalizedError {
                 "error.client.invalid_output",
                 fallback: "Codex returned unrecognized quota data."
             )
-        case let .protocolMismatch(summary):
+        case .protocolMismatch(let summary):
             L10n.format(
                 "error.client.protocol_format",
                 fallback: "The Codex protocol response is incompatible (%@).",
                 summary
             )
-        case let .networkUnavailable(summary):
+        case .networkUnavailable(let summary):
             L10n.format(
                 "error.client.network_unavailable",
-                fallback: "Codex could not connect to ChatGPT. Check this Mac’s network, proxy, or TLS certificate settings (%@).",
+                fallback:
+                    "Codex could not connect to ChatGPT. Check this Mac’s network, proxy, or TLS certificate settings (%@).",
                 summary
             )
         case .updateRequired:
             L10n.text(
                 "error.client.update_required",
-                fallback: "This Mac’s Codex version cannot provide quota data. Update ChatGPT or Codex CLI, then try again."
+                fallback:
+                    "This Mac’s Codex version cannot provide quota data. Update ChatGPT or Codex CLI, then try again."
             )
         case .chatGPTLoginRequired:
             L10n.text(
                 "error.client.chatgpt_login_required",
-                fallback: "Quota data requires a ChatGPT Codex login. Sign in with ChatGPT instead of an API key, then try again."
+                fallback:
+                    "Quota data requires a ChatGPT Codex login. Sign in with ChatGPT instead of an API key, then try again."
             )
         }
     }
@@ -72,9 +75,10 @@ actor CodexAppServerClient {
                 }
                 try Task.checkCancellation()
                 guard confirmsEmptyResetCredits,
-                      snapshot.hasCurrentResetCreditData,
-                      snapshot.availableResetCount == 0,
-                      snapshot.resetCredits.isEmpty else {
+                    snapshot.hasCurrentResetCreditData,
+                    snapshot.availableResetCount == 0,
+                    snapshot.resetCredits.isEmpty
+                else {
                     return snapshot
                 }
 
@@ -90,16 +94,15 @@ actor CodexAppServerClient {
                     Self.logger.info(
                         "Reset credit confirmation completed; resetCount=\(confirmed.availableResetCount, privacy: .public), current=\(confirmed.hasCurrentResetCreditData, privacy: .public)"
                     )
-                    return confirmed.hasCurrentResetCreditData ? confirmed.preservingResetCredits(from: snapshot) : snapshot
-                } catch is CancellationError { throw CancellationError() }
-                catch {
+                    return confirmed.hasCurrentResetCreditData
+                        ? confirmed.preservingResetCredits(from: snapshot) : snapshot
+                } catch is CancellationError { throw CancellationError() } catch {
                     Self.logger.info(
                         "Reset credit confirmation failed; retaining the initial quota snapshot"
                     )
                     return snapshot
                 }
-            } catch is CancellationError { throw CancellationError() }
-            catch let error as CodexAppServerClientError {
+            } catch is CancellationError { throw CancellationError() } catch let error as CodexAppServerClientError {
                 failures.append(error)
             } catch {
                 failures.append(.protocolMismatch(error.localizedDescription))
@@ -131,9 +134,10 @@ actor CodexAppServerClient {
             "Launching Codex App Server; proxySource=\(processEnvironment.proxySource.rawValue, privacy: .public), customCA=\(processEnvironment.hasCustomCertificate, privacy: .public)"
         )
 
-        let clientVersion = Bundle.main.object(
-            forInfoDictionaryKey: "CFBundleShortVersionString"
-        ) as? String ?? "0.1.1"
+        let clientVersion =
+            Bundle.main.object(
+                forInfoDictionaryKey: "CFBundleShortVersionString"
+            ) as? String ?? "0.1.1"
         let messages: [[String: Any]] = [
             [
                 "method": "initialize",
@@ -212,7 +216,9 @@ actor CodexAppServerClient {
                 firstRateLimitFoundTime = Date()
             }
 
-            let usageTimedOut = hasRateLimits && (firstRateLimitFoundTime.map { Date().timeIntervalSince($0) >= usageGracePeriod } ?? false)
+            let usageTimedOut =
+                hasRateLimits
+                && (firstRateLimitFoundTime.map { Date().timeIntervalSince($0) >= usageGracePeriod } ?? false)
             let shouldAttemptParse = hasRateLimits && (hasUsage || usageTimedOut || streamEnded || Date() >= deadline)
 
             guard shouldAttemptParse else {
@@ -229,7 +235,9 @@ actor CodexAppServerClient {
                 try? inputPipe.fileHandleForWriting.close()
                 stop(process)
                 if hasUsage {
-                    logger.info("Parsed Codex snapshot; optional usage response received (\(snapshot.dailyUsageBuckets.count, privacy: .public) buckets)")
+                    logger.info(
+                        "Parsed Codex snapshot; optional usage response received (\(snapshot.dailyUsageBuckets.count, privacy: .public) buckets)"
+                    )
                 } else if usageTimedOut {
                     logger.info("Codex token usage response timed out after grace period; parsed rate limits only")
                 }
@@ -280,7 +288,8 @@ actor CodexAppServerClient {
         if code == -32_601
             || normalized.contains("method not found")
             || normalized.contains("unknown method")
-            || normalized.contains("experimentalapi capability") {
+            || normalized.contains("experimentalapi capability")
+        {
             return .updateRequired
         }
 
@@ -290,7 +299,8 @@ actor CodexAppServerClient {
             || normalized.contains("login required")
             || normalized.contains("requires chatgpt")
             || normalized.contains("not authenticated")
-            || normalized.contains("authentication required") {
+            || normalized.contains("authentication required")
+        {
             return .chatGPTLoginRequired
         }
 
@@ -299,15 +309,18 @@ actor CodexAppServerClient {
             || normalized.contains("dns error")
             || normalized.contains("certificate")
             || normalized.contains("tls")
-            || normalized.contains("proxy error") {
-            let safeMessage = message
+            || normalized.contains("proxy error")
+        {
+            let safeMessage =
+                message
                 .replacingOccurrences(of: "\n", with: " ")
                 .prefix(180)
             let summary = code.map { "\($0): \(safeMessage)" } ?? String(safeMessage)
             return .networkUnavailable(summary)
         }
 
-        let safeMessage = message
+        let safeMessage =
+            message
             .replacingOccurrences(of: "\n", with: " ")
             .prefix(180)
         let summary = code.map { "\($0): \(safeMessage)" } ?? String(safeMessage)
@@ -326,7 +339,8 @@ actor CodexAppServerClient {
     private nonisolated static func safeSummary(for text: String) -> String {
         text.split(whereSeparator: \.isNewline).compactMap { line -> String? in
             guard let data = String(line).data(using: .utf8),
-                  let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            else {
                 return nil
             }
             let id = object["id"].map { String(describing: $0) } ?? "notification"
@@ -339,8 +353,9 @@ actor CodexAppServerClient {
     private nonisolated static func jsonLinesContainResponse(for requestID: Int, in text: String) -> Bool {
         for line in text.split(whereSeparator: \.isNewline) {
             guard let data = String(line).data(using: .utf8),
-                  let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let id = object["id"] as? Int else {
+                let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let id = object["id"] as? Int
+            else {
                 continue
             }
             if id == requestID {

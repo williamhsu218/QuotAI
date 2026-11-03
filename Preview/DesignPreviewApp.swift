@@ -12,7 +12,8 @@ private final class NativeSettingsPreviewWindow {
 
         let content = SettingsView(
             store: UsageStore(previewMode: true),
-            antigravityStore: AntigravityUsageStore(previewMode: true,
+            antigravityStore: AntigravityUsageStore(
+                previewMode: true,
                 previewSnapshot: AntigravityQuotaFixtures.snapshot(antigravityScenario),
                 previewFailure: AntigravityQuotaFixtures.failure(antigravityScenario)),
             stayAwakeStore: StayAwakeStore(previewMode: true),
@@ -59,24 +60,30 @@ struct DesignPreviewApp: App {
 
     init() {
         let arguments = CommandLine.arguments
-        let agScenario = arguments.first { $0.hasPrefix("--ag-state=") }
+        let agScenario =
+            arguments.first { $0.hasPrefix("--ag-state=") }
             .map { String($0.dropFirst("--ag-state=".count)) } ?? "available"
         if arguments.contains("--antigravity") {
             for key in [DefaultsKey.panelProvider, DefaultsKey.menuBarProvider] {
                 UserDefaults.standard.set(QuotaProvider.antigravity.rawValue, forKey: key)
             }
             for key in [DefaultsKey.panelAntigravityGroup, DefaultsKey.menuBarAntigravityGroup] {
-                UserDefaults.standard.set(agScenario.hasPrefix("argon") ? AntigravityQuotaTab.argon.rawValue : "3p", forKey: key)
+                UserDefaults.standard.set(
+                    agScenario.hasPrefix("argon") ? AntigravityQuotaTab.argon.rawValue : "3p", forKey: key)
             }
         }
-        _antigravityStore = State(initialValue: AntigravityUsageStore(previewMode: true,
-            previewSnapshot: AntigravityQuotaFixtures.snapshot(agScenario),
-            previewFailure: AntigravityQuotaFixtures.failure(agScenario)))
-        let claudeScenario = arguments.first { $0.hasPrefix("--claude-state=") }
+        _antigravityStore = State(
+            initialValue: AntigravityUsageStore(
+                previewMode: true,
+                previewSnapshot: AntigravityQuotaFixtures.snapshot(agScenario),
+                previewFailure: AntigravityQuotaFixtures.failure(agScenario)))
+        let claudeScenario =
+            arguments.first { $0.hasPrefix("--claude-state=") }
             .map { String($0.dropFirst("--claude-state=".count)) } ?? "recent"
-        _claudeCodeStore = State(initialValue: ClaudeCodeUsageStore(
-            previewMode: true, previewScenario: claudeScenario
-        ))
+        _claudeCodeStore = State(
+            initialValue: ClaudeCodeUsageStore(
+                previewMode: true, previewScenario: claudeScenario
+            ))
         if arguments.contains("--claude") {
             UserDefaults.standard.set(QuotaProvider.claudeCode.rawValue, forKey: DefaultsKey.panelProvider)
             UserDefaults.standard.set(QuotaProvider.claudeCode.rawValue, forKey: DefaultsKey.menuBarProvider)
@@ -105,8 +112,9 @@ struct DesignPreviewApp: App {
             }
             NSApplication.shared.activate(ignoringOtherApps: true)
             if shouldRenderSettings {
-                NativeSettingsPreviewWindow.shared.show(tab: tab, claudeScenario: claudeScenario,
-                                                       antigravityScenario: agScenario)
+                NativeSettingsPreviewWindow.shared.show(
+                    tab: tab, claudeScenario: claudeScenario,
+                    antigravityScenario: agScenario)
             }
         }
     }
@@ -131,14 +139,17 @@ struct DesignPreviewApp: App {
                     )
                 }
             }
-            .environment(\.pickerAnimationDuration, CommandLine.arguments.contains("--slow-picker") ? 2 : AppTheme.Motion.quick)
+            .environment(
+                \.pickerAnimationDuration, CommandLine.arguments.contains("--slow-picker") ? 2 : AppTheme.Motion.quick
+            )
             .environment(\.pickerReduceMotionOverride, CommandLine.arguments.contains("--reduce-motion"))
         }
         .windowResizability(.contentSize)
 
         Settings {
-            SettingsView(store: store, antigravityStore: antigravityStore,
-                         stayAwakeStore: stayAwakeStore, claudeCodeStore: claudeCodeStore)
+            SettingsView(
+                store: store, antigravityStore: antigravityStore,
+                stayAwakeStore: stayAwakeStore, claudeCodeStore: claudeCodeStore)
         }
     }
 }

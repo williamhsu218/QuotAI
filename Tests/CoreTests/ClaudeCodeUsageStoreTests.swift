@@ -1,13 +1,16 @@
 import Foundation
 import Testing
+
 @testable import QuotAICore
 
 private func usageSnapshot(at now: Date, usedFive: Double = 15) -> ClaudeCodeQuotaSnapshot {
     ClaudeCodeQuotaSnapshot(
-        fiveHour: ClaudeCodeQuotaReport(kind: .fiveHour, usedPercentage: usedFive,
-                                        resetsAt: now.addingTimeInterval(3_600), firstObservedAt: now),
-        sevenDay: ClaudeCodeQuotaReport(kind: .sevenDay, usedPercentage: 9,
-                                        resetsAt: now.addingTimeInterval(3 * 86_400), firstObservedAt: now),
+        fiveHour: ClaudeCodeQuotaReport(
+            kind: .fiveHour, usedPercentage: usedFive,
+            resetsAt: now.addingTimeInterval(3_600), firstObservedAt: now),
+        sevenDay: ClaudeCodeQuotaReport(
+            kind: .sevenDay, usedPercentage: 9,
+            resetsAt: now.addingTimeInterval(3 * 86_400), firstObservedAt: now),
         sessionFingerprint: "usage-query",
         lastCallbackAt: now,
         source: .usageQuery
@@ -68,10 +71,12 @@ struct ClaudeCodeUsageStoreTests {
         defer { defaults.remove() }
         let result = usageSnapshot(at: Date(), usedFive: 40)
         let queries = CallLog<Bool>()
-        let store = makeStore(defaults: defaults, directory: directory, subscription: { .max }) {
-            await queries.append(true)
-            return result
-        }
+        let store = makeStore(
+            defaults: defaults, directory: directory, subscription: { .max },
+            query: {
+                await queries.append(true)
+                return result
+            })
         store.start()
         defer { store.stop() }
 
@@ -111,7 +116,7 @@ struct ClaudeCodeUsageStoreTests {
         defer { defaults.remove() }
         let gate = Gate()
         let store = makeStore(defaults: defaults, directory: directory) {
-            await gate.wait() // Ignores cancellation, like a slow CLI.
+            await gate.wait()  // Ignores cancellation, like a slow CLI.
             return usageSnapshot(at: Date())
         }
         store.start()

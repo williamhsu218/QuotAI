@@ -83,7 +83,8 @@ enum CodexProcessEnvironment {
             }
 
             if type == kCFProxyTypeAutoConfigurationURL as String
-                || type == kCFProxyTypeAutoConfigurationJavaScript as String {
+                || type == kCFProxyTypeAutoConfigurationJavaScript as String
+            {
                 return resolution(
                     environment: baseEnvironment,
                     proxySource: .autoConfiguration
@@ -91,7 +92,8 @@ enum CodexProcessEnvironment {
             }
 
             if type == kCFProxyTypeSOCKS as String,
-               let proxyURL = proxyURL(from: proxy, scheme: "socks5h") {
+                let proxyURL = proxyURL(from: proxy, scheme: "socks5h")
+            {
                 var environment = baseEnvironment
                 set(proxyURL, names: ["ALL_PROXY", "all_proxy"], in: &environment)
                 return resolution(
@@ -101,7 +103,8 @@ enum CodexProcessEnvironment {
             }
 
             if type == kCFProxyTypeHTTPS as String,
-               let proxyURL = proxyURL(from: proxy, scheme: "http") {
+                let proxyURL = proxyURL(from: proxy, scheme: "http")
+            {
                 var environment = baseEnvironment
                 set(proxyURL, names: ["HTTPS_PROXY", "https_proxy"], in: &environment)
                 return resolution(
@@ -111,7 +114,8 @@ enum CodexProcessEnvironment {
             }
 
             if type == kCFProxyTypeHTTP as String,
-               let proxyURL = proxyURL(from: proxy, scheme: "http") {
+                let proxyURL = proxyURL(from: proxy, scheme: "http")
+            {
                 var environment = baseEnvironment
                 set(
                     proxyURL,
@@ -139,7 +143,8 @@ enum CodexProcessEnvironment {
         scheme: String
     ) -> String? {
         guard let host = dictionary[kCFProxyHostNameKey as String] as? String,
-              !host.isEmpty else {
+            !host.isEmpty
+        else {
             return nil
         }
 
@@ -147,7 +152,8 @@ enum CodexProcessEnvironment {
         components.scheme = scheme
         components.host = host
         if let port = dictionary[kCFProxyPortNumberKey as String] as? NSNumber,
-           port.intValue > 0 {
+            port.intValue > 0
+        {
             components.port = port.intValue
         }
         components.user = dictionary[kCFProxyUsernameKey as String] as? String

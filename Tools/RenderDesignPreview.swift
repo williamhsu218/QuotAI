@@ -6,7 +6,9 @@ import SwiftUI
 struct RenderDesignPreview {
     static func main() throws {
         guard CommandLine.arguments.count >= 2 else {
-            fputs("usage: RenderDesignPreview <output.png> [--token-theme=ocean|emerald|violet|amber] [--token-themes] [--dark]\n", stderr)
+            fputs(
+                "usage: RenderDesignPreview <output.png> [--token-theme=ocean|emerald|violet|amber] [--token-themes] [--dark]\n",
+                stderr)
             exit(2)
         }
 
@@ -19,24 +21,29 @@ struct RenderDesignPreview {
         // The renderer is packaged with a dedicated bundle ID, separate from the live app.
         UserDefaults.standard.set(tokenTheme, forKey: DefaultsKey.tokenActivityTheme)
 
-        let provider: QuotaProvider = CommandLine.arguments.contains("--claude")
+        let provider: QuotaProvider =
+            CommandLine.arguments.contains("--claude")
             ? .claudeCode
             : CommandLine.arguments.contains("--antigravity") ? .antigravity : .codex
         UserDefaults.standard.set(provider.rawValue, forKey: DefaultsKey.panelProvider)
         UserDefaults.standard.set(provider.rawValue, forKey: DefaultsKey.menuBarProvider)
         if provider == .antigravity {
             let argon = CommandLine.arguments.contains { $0.hasPrefix("--ag-state=argon") }
-            let groupID = argon ? AntigravityQuotaTab.argon.rawValue : CommandLine.arguments.contains("--ag-claude") ? "3p" : "gemini"
-            UserDefaults.standard.set(groupID,
-                                      forKey: DefaultsKey.panelAntigravityGroup)
+            let groupID =
+                argon
+                ? AntigravityQuotaTab.argon.rawValue : CommandLine.arguments.contains("--ag-claude") ? "3p" : "gemini"
+            UserDefaults.standard.set(
+                groupID,
+                forKey: DefaultsKey.panelAntigravityGroup)
             UserDefaults.standard.set(
                 groupID,
                 forKey: DefaultsKey.menuBarAntigravityGroup
             )
         }
         UserDefaults.standard.set(true, forKey: DefaultsKey.antigravityIntegration)
-        UserDefaults.standard.set(MenuBarQuotaDisplayMode.both.rawValue,
-                                  forKey: DefaultsKey.menuBarDisplayMode)
+        UserDefaults.standard.set(
+            MenuBarQuotaDisplayMode.both.rawValue,
+            forKey: DefaultsKey.menuBarDisplayMode)
 
         let store = UsageStore(
             previewMode: true,
@@ -44,12 +51,15 @@ struct RenderDesignPreview {
                 ? sparseCodexSnapshot
                 : nil
         )
-        let agScenario = CommandLine.arguments.first { $0.hasPrefix("--ag-state=") }
+        let agScenario =
+            CommandLine.arguments.first { $0.hasPrefix("--ag-state=") }
             .map { String($0.dropFirst("--ag-state=".count)) } ?? "available"
-        let antigravityStore = AntigravityUsageStore(previewMode: true,
+        let antigravityStore = AntigravityUsageStore(
+            previewMode: true,
             previewSnapshot: AntigravityQuotaFixtures.snapshot(agScenario),
             previewFailure: AntigravityQuotaFixtures.failure(agScenario))
-        let claudeScenario = CommandLine.arguments.first { $0.hasPrefix("--claude-state=") }
+        let claudeScenario =
+            CommandLine.arguments.first { $0.hasPrefix("--claude-state=") }
             .map { String($0.dropFirst("--claude-state=".count)) } ?? "recent"
         let claudeCodeStore = ClaudeCodeUsageStore(previewMode: true, previewScenario: claudeScenario)
         let stayAwakeStore = StayAwakeStore(previewMode: true)
@@ -66,9 +76,12 @@ struct RenderDesignPreview {
             try write(menuBarMatrix(colorScheme: colorScheme), size: CGSize(width: 480, height: 400))
         } else if CommandLine.arguments.contains("--settings") {
             let size = CGSize(width: 480, height: 420)
-            let initialTab: SettingsTab = CommandLine.arguments.contains("--about") ? .about
-                : CommandLine.arguments.contains("--menu-bar") ? .menuBar
-                : CommandLine.arguments.contains("--providers") ? .providers : .general
+            let initialTab: SettingsTab =
+                CommandLine.arguments.contains("--about")
+                ? .about
+                : CommandLine.arguments.contains("--menu-bar")
+                    ? .menuBar
+                    : CommandLine.arguments.contains("--providers") ? .providers : .general
             try write(
                 SettingsView(
                     store: store,
@@ -77,9 +90,9 @@ struct RenderDesignPreview {
                     initialTab: initialTab,
                     claudeCodeStore: claudeCodeStore
                 )
-                    .environment(\.colorScheme, colorScheme)
-                    .environment(\.nativeGlassRenderingEnabled, false)
-                    .frame(width: size.width, height: size.height),
+                .environment(\.colorScheme, colorScheme)
+                .environment(\.nativeGlassRenderingEnabled, false)
+                .frame(width: size.width, height: size.height),
                 size: size
             )
         } else {
@@ -91,10 +104,10 @@ struct RenderDesignPreview {
                     stayAwakeStore: stayAwakeStore,
                     claudeCodeStore: claudeCodeStore
                 )
-                    .environment(\.colorScheme, colorScheme)
-                    .environment(\.nativeGlassRenderingEnabled, false)
-                    .environment(\.designPreviewRendering, true)
-                    .frame(width: size.width, height: size.height),
+                .environment(\.colorScheme, colorScheme)
+                .environment(\.nativeGlassRenderingEnabled, false)
+                .environment(\.designPreviewRendering, true)
+                .frame(width: size.width, height: size.height),
                 size: size
             )
         }
@@ -163,16 +176,23 @@ struct RenderDesignPreview {
     /// Synthetic states only; uses the production renderer, never live provider reads.
     private static func menuBarMatrix(colorScheme: ColorScheme) -> some View {
         let ag = AntigravityQuotaSnapshot.preview
-        let onlyGemini = AntigravityQuotaSnapshot(fetchedAt: ag.fetchedAt, groups: [ag.groups[0]], thirdPartyAvailability: .unavailable)
-        let unknown = AntigravityQuotaSnapshot(fetchedAt: ag.fetchedAt, groups: [
-            .init(id: "future", displayName: "Future pool",
-                  fiveHour: .init(kind: .fiveHour, remainingPercent: 100, resetsAt: nil),
-                  sevenDay: .init(kind: .sevenDay, remainingPercent: 0, resetsAt: nil))
-        ])
-        func value(_ provider: QuotaProvider, group: String? = "gemini",
-                   codex: UsageSnapshot? = .preview, snapshot: AntigravityQuotaSnapshot? = .preview,
-                   awake: Bool = true) -> MenuBarPresentation {
-            MenuBarPresentation(provider: provider, antigravityEnabled: true, antigravityAvailable: true,
+        let onlyGemini = AntigravityQuotaSnapshot(
+            fetchedAt: ag.fetchedAt, groups: [ag.groups[0]], thirdPartyAvailability: .unavailable)
+        let unknown = AntigravityQuotaSnapshot(
+            fetchedAt: ag.fetchedAt,
+            groups: [
+                .init(
+                    id: "future", displayName: "Future pool",
+                    fiveHour: .init(kind: .fiveHour, remainingPercent: 100, resetsAt: nil),
+                    sevenDay: .init(kind: .sevenDay, remainingPercent: 0, resetsAt: nil))
+            ])
+        func value(
+            _ provider: QuotaProvider, group: String? = "gemini",
+            codex: UsageSnapshot? = .preview, snapshot: AntigravityQuotaSnapshot? = .preview,
+            awake: Bool = true
+        ) -> MenuBarPresentation {
+            MenuBarPresentation(
+                provider: provider, antigravityEnabled: true, antigravityAvailable: true,
                 selectedGroupID: group, mode: .both, codexSnapshot: codex, antigravitySnapshot: snapshot,
                 isStayAwakeActive: awake)
         }

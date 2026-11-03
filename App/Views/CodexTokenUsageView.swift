@@ -16,8 +16,9 @@ struct CodexTokenUsageView: View {
     private let cornerRadius: CGFloat = 2.2
 
     private var palette: TokenActivityPalette {
-        TokenActivityPalette(theme: TokenActivityTheme(storedValue: storedTheme),
-                             colorScheme: colorScheme, increasedContrast: contrast == .increased)
+        TokenActivityPalette(
+            theme: TokenActivityTheme(storedValue: storedTheme),
+            colorScheme: colorScheme, increasedContrast: contrast == .increased)
     }
 
     private var summary: AccountTokenUsageSummary? {
@@ -30,8 +31,9 @@ struct CodexTokenUsageView: View {
     init(snapshot: UsageSnapshot) {
         self.snapshot = snapshot
         weeks = snapshot.activityWeeks(count: 18)
-        maxTokens = max(1, snapshot.dailyUsageBuckets.map(\.tokens).max() ?? 0,
-                        snapshot.tokenUsageSummary?.peakDailyTokens ?? 0)
+        maxTokens = max(
+            1, snapshot.dailyUsageBuckets.map(\.tokens).max() ?? 0,
+            snapshot.tokenUsageSummary?.peakDailyTokens ?? 0)
     }
 
     var body: some View {
@@ -138,8 +140,11 @@ struct CodexTokenUsageView: View {
             Color.clear.frame(width: 17, height: 12)
             ZStack(alignment: .leading) {
                 ForEach(Array(weeks.enumerated()), id: \.element.id) { index, week in
-                    if let day = week.days.first(where: { Calendar(identifier: .gregorian).component(.day, from: $0.date) == 1 }),
-                       index <= weeksCount - 3 {
+                    if let day = week.days.first(where: {
+                        Calendar(identifier: .gregorian).component(.day, from: $0.date) == 1
+                    }),
+                        index <= weeksCount - 3
+                    {
                         Text(DisplayDateFormatter.activityMonth(day.date))
                             .font(.system(size: 9, weight: .medium))
                             .foregroundStyle(AppTheme.secondaryText)
@@ -147,7 +152,9 @@ struct CodexTokenUsageView: View {
                     }
                 }
             }
-            .frame(width: CGFloat(weeksCount) * cellSize + CGFloat(weeksCount - 1) * cellGap, height: 12, alignment: .leading)
+            .frame(
+                width: CGFloat(weeksCount) * cellSize + CGFloat(weeksCount - 1) * cellGap, height: 12,
+                alignment: .leading)
         }
         .accessibilityHidden(true)
     }
@@ -211,24 +218,26 @@ struct CodexTokenUsageView: View {
             let isHovered = hoveredDay?.id == day.id
             let level = levelForTokens(day.tokens)
 
-            TokenActivitySwatch(level: level, palette: palette, cornerRadius: cornerRadius,
-                                emphasized: isHovered || day.isToday)
-                .frame(width: cellSize, height: cellSize)
-                .scaleEffect(isHovered ? 1.25 : 1.0)
-                .zIndex(isHovered ? 10 : 0)
-                .animation(reduceMotion ? nil : .easeInOut(duration: 0.10), value: isHovered)
-                .contentShape(Rectangle())
-                .onHover { hovering in
-                    if hovering {
-                        hoveredDay = day
-                    } else if hoveredDay?.id == day.id {
-                        hoveredDay = nil
-                    }
+            TokenActivitySwatch(
+                level: level, palette: palette, cornerRadius: cornerRadius,
+                emphasized: isHovered || day.isToday
+            )
+            .frame(width: cellSize, height: cellSize)
+            .scaleEffect(isHovered ? 1.25 : 1.0)
+            .zIndex(isHovered ? 10 : 0)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.10), value: isHovered)
+            .contentShape(Rectangle())
+            .onHover { hovering in
+                if hovering {
+                    hoveredDay = day
+                } else if hoveredDay?.id == day.id {
+                    hoveredDay = nil
                 }
-                .help(helpText(for: day))
-                .accessibilityElement(children: .ignore)
-                .accessibilityHidden(false)
-                .accessibilityLabel(helpText(for: day))
+            }
+            .help(helpText(for: day))
+            .accessibilityElement(children: .ignore)
+            .accessibilityHidden(false)
+            .accessibilityLabel(helpText(for: day))
         }
     }
 

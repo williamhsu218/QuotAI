@@ -14,7 +14,8 @@ public enum LocalSnapshotStore {
                 create: false
             )
             for legacyName in ["Codexcator", "CodexIndicator"] {
-                let legacyURL = supportURL
+                let legacyURL =
+                    supportURL
                     .appendingPathComponent(legacyName, isDirectory: true)
                     .appendingPathComponent(filename, isDirectory: false)
                 if let snapshot = try load(from: legacyURL, fileManager: fileManager) {
@@ -60,7 +61,8 @@ public enum LocalSnapshotStore {
             appropriateFor: nil,
             create: true
         )
-        return supportURL
+        return
+            supportURL
             .appendingPathComponent("QuotAI", isDirectory: true)
             .appendingPathComponent(filename, isDirectory: false)
     }

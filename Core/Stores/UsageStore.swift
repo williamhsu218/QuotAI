@@ -1,6 +1,6 @@
 import Foundation
-import Observation
 import OSLog
+import Observation
 
 @MainActor
 @Observable
@@ -88,7 +88,7 @@ final class UsageStore: QuotaProviderStore {
                 DisplayDateFormatter.updatedText(for: $0.fetchedAt, now: now)
             }
                 ?? L10n.text("status.waiting", fallback: "Waiting to refresh")
-        case let .failed(message):
+        case .failed(let message):
             return snapshot == nil
                 ? message
                 : L10n.format(
@@ -117,7 +117,8 @@ final class UsageStore: QuotaProviderStore {
         phase = .loading
         do {
             let customPath = defaults.string(forKey: DefaultsKey.codexBinaryPath)
-            let hadResetCredits = (snapshot?.availableResetCount ?? 0) > 0
+            let hadResetCredits =
+                (snapshot?.availableResetCount ?? 0) > 0
                 || snapshot?.resetCredits.isEmpty == false
             let fetched = try await fetchSnapshot(customPath, hadResetCredits)
             let latest = fetched.preservingResetCredits(from: snapshot)

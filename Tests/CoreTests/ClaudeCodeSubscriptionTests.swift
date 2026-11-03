@@ -1,12 +1,15 @@
 import Darwin
 import Foundation
 import Testing
+
 @testable import QuotAICore
 
 @Suite struct ClaudeCodeSubscriptionTests {
     private func status(_ changes: [String: Any] = [:]) throws -> Data {
-        var fields: [String: Any] = ["loggedIn": true, "authMethod": "claude.ai", "apiProvider": "firstParty", "subscriptionType": "pro",
-            "email": "fixture@example.invalid", "orgId": "fixture-private-id"]
+        var fields: [String: Any] = [
+            "loggedIn": true, "authMethod": "claude.ai", "apiProvider": "firstParty", "subscriptionType": "pro",
+            "email": "fixture@example.invalid", "orgId": "fixture-private-id"
+        ]
         fields.merge(changes) { _, new in new }
         return try JSONSerialization.data(withJSONObject: fields)
     }
@@ -18,7 +21,7 @@ import Testing
         #expect(pro.displayName != SubscriptionPlan(identifier: "pro")?.displayName)
         let reportedMax = try ClaudeCodeSubscriptionParser.parse(status(["subscriptionType": "max"]))
         let max = try #require(reportedMax)
-        #expect(max.displayName == "Max") // auth status does not report a 5x/20x tier.
+        #expect(max.displayName == "Max")  // auth status does not report a 5x/20x tier.
         #expect(try ClaudeCodeSubscriptionParser.parse(status(["subscriptionType": " enterprise "])) == .enterprise)
         #expect(try ClaudeCodeSubscriptionParser.parse(status(["subscriptionType": "team"])) == .team)
     }
@@ -43,12 +46,15 @@ import Testing
             }
         }
         #expect(throws: ClaudeUsageQueryError.oversizedOutput) {
-            try ClaudeCodeSubscriptionParser.parse(Data(repeating: 65, count: ClaudeCodeSubscriptionParser.outputLimit + 1))
+            try ClaudeCodeSubscriptionParser.parse(
+                Data(repeating: 65, count: ClaudeCodeSubscriptionParser.outputLimit + 1))
         }
     }
 
     @Test func cachePersistsOnlyThePlanAndRejectsSymlinks() throws {
-        guard let resolved = realpath(FileManager.default.temporaryDirectory.path, nil) else { throw CocoaError(.fileReadUnknown) }
+        guard let resolved = realpath(FileManager.default.temporaryDirectory.path, nil) else {
+            throw CocoaError(.fileReadUnknown)
+        }
         let directory = URL(fileURLWithPath: String(cString: resolved)).appendingPathComponent(UUID().uuidString)
         free(resolved)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

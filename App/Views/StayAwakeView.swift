@@ -36,12 +36,12 @@ struct StayAwakeView: View {
 
             if store.isActive {
                 HStack(spacing: AppTheme.Spacing.small) {
-                Label(statusText, systemImage: store.isActive ? "bolt.fill" : "moon.zzz")
-                    .font(.system(size: AppTheme.TypeSize.small, weight: .medium))
-                    .foregroundStyle(store.isActive ? AppTheme.awakeAccent : AppTheme.secondaryText)
-                    .lineLimit(1)
+                    Label(statusText, systemImage: store.isActive ? "bolt.fill" : "moon.zzz")
+                        .font(.system(size: AppTheme.TypeSize.small, weight: .medium))
+                        .foregroundStyle(store.isActive ? AppTheme.awakeAccent : AppTheme.secondaryText)
+                        .lineLimit(1)
 
-                Spacer(minLength: AppTheme.Spacing.small)
+                    Spacer(minLength: AppTheme.Spacing.small)
                 }
             }
 

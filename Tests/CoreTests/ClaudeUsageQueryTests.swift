@@ -1,14 +1,21 @@
-import Foundation
 import Darwin
+import Foundation
 import Testing
+
 @testable import QuotAICore
 
 @Suite struct ClaudeUsageQueryTests {
     private let now = ISO8601DateFormatter().date(from: "2026-10-01T15:30:00Z")!
-    private let lines = "Current session: 15% used · resets Oct 2 at 2:29am (Asia/Shanghai)\nCurrent week (all models): 9% used · resets Oct 7 at 9:59pm (Asia/Shanghai)"
+    private let lines =
+        "Current session: 15% used · resets Oct 2 at 2:29am (Asia/Shanghai)\nCurrent week (all models): 9% used · resets Oct 7 at 9:59pm (Asia/Shanghai)"
     private func input(_ text: String, changes: [String: Any] = [:]) throws -> Data {
-        var value: [String: Any] = ["type": "result", "subtype": "success", "is_error": false, "num_turns": 0, "total_cost_usd": 0, "modelUsage": [String: Any](), "result": text,
-            "usage": ["input_tokens": 0, "output_tokens": 0, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0]]
+        var value: [String: Any] = [
+            "type": "result", "subtype": "success", "is_error": false, "num_turns": 0, "total_cost_usd": 0,
+            "modelUsage": [String: Any](), "result": text,
+            "usage": [
+                "input_tokens": 0, "output_tokens": 0, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0
+            ]
+        ]
         value.merge(changes) { _, new in new }
         return try JSONSerialization.data(withJSONObject: value)
     }
@@ -39,46 +46,58 @@ import Testing
         #expect(entries.contains(reset.addingTimeInterval(0.01)))
     }
     @Test func partialAndFractionalOutputIsNeverFilledFromOtherReports() throws {
-        let single = try ClaudeUsageQueryParser.parse(input("Current session: 23.5% used · resets Oct 2 at 2:29am (Asia/Shanghai)"), at: now)
+        let single = try ClaudeUsageQueryParser.parse(
+            input("Current session: 23.5% used · resets Oct 2 at 2:29am (Asia/Shanghai)"), at: now)
         #expect(single.fiveHour?.quota.remainingPercent == 76)
         #expect(single.sevenDay == nil)
-        let other = try ClaudeUsageQueryParser.parse(input("Current week (all models): 100% used · resets Oct 7 at 9:59pm (Asia/Shanghai)\nCurrent week (Opus): 90% used · resets Oct 7 at 9:59pm (Asia/Shanghai)"), at: now)
+        let other = try ClaudeUsageQueryParser.parse(
+            input(
+                "Current week (all models): 100% used · resets Oct 7 at 9:59pm (Asia/Shanghai)\nCurrent week (Opus): 90% used · resets Oct 7 at 9:59pm (Asia/Shanghai)"
+            ), at: now)
         #expect(other.fiveHour == nil)
         #expect(other.sevenDay?.quota.remainingPercent == 0)
     }
     @Test func zeroTurnCLI287OutputSupportsHourWithoutMinutes() throws {
         let queried = ISO8601DateFormatter().date(from: "2026-10-02T09:28:52Z")!
-        let text = "You are currently using your subscription to power your Claude Code usage\n\nCurrent session: 0% used · resets Oct 2 at 10:20pm (Asia/Shanghai)\nCurrent week (all models): 10% used · resets Oct 7 at 10pm (Asia/Shanghai)"
+        let text =
+            "You are currently using your subscription to power your Claude Code usage\n\nCurrent session: 0% used · resets Oct 2 at 10:20pm (Asia/Shanghai)\nCurrent week (all models): 10% used · resets Oct 7 at 10pm (Asia/Shanghai)"
         let value = try ClaudeUsageQueryParser.parse(input(text), at: queried)
         #expect(value.fiveHour?.quota.remainingPercent == 100)
         #expect(value.fiveHour?.resetsAt == ISO8601DateFormatter().date(from: "2026-10-02T14:20:00Z"))
         #expect(value.sevenDay?.resetsAt == ISO8601DateFormatter().date(from: "2026-10-07T14:00:00Z"))
     }
     @Test func missingResetDoesNotDiscardTheIndependentWindow() throws {
-        let missingFive = lines.replacingOccurrences(of: "15% used · resets Oct 2 at 2:29am (Asia/Shanghai)", with: "0% used")
+        let missingFive = lines.replacingOccurrences(
+            of: "15% used · resets Oct 2 at 2:29am (Asia/Shanghai)", with: "0% used")
         let weekly = try ClaudeUsageQueryParser.parse(input(missingFive), at: now)
         #expect(weekly.fiveHour == nil)
         #expect(weekly.sevenDay?.quota.remainingPercent == 91)
         #expect(weekly.menuBarLines(for: .fiveHour, now: now) == ["5h --"])
-        let missingSeven = lines.replacingOccurrences(of: "9% used · resets Oct 7 at 9:59pm (Asia/Shanghai)", with: "0% used")
+        let missingSeven = lines.replacingOccurrences(
+            of: "9% used · resets Oct 7 at 9:59pm (Asia/Shanghai)", with: "0% used")
         let session = try ClaudeUsageQueryParser.parse(input(missingSeven), at: now)
         #expect(session.fiveHour?.quota.remainingPercent == 85)
         #expect(session.sevenDay == nil)
     }
     @Test func expiredWindowsAreOmittedWithoutRollingResetForward() throws {
         for oldReset in ["Oct 1 at 9pm", "Today at 9pm", "Oct 1 at 1am", "Today at 1am"] {
-            let value = try ClaudeUsageQueryParser.parse(input(lines.replacingOccurrences(of: "Oct 2 at 2:29am", with: oldReset)), at: now)
+            let value = try ClaudeUsageQueryParser.parse(
+                input(lines.replacingOccurrences(of: "Oct 2 at 2:29am", with: oldReset)), at: now)
             #expect(value.fiveHour == nil)
             #expect(value.sevenDay?.quota.remainingPercent == 91)
             #expect(value.displayableQuotas(at: now).map(\.kind) == [.sevenDay])
         }
     }
     @Test func noActiveWindowsIsAValidEmptySnapshotAndClearsCache() throws {
-        let empty = try ClaudeUsageQueryParser.parse(input("Current session: 0% used\nCurrent week (all models): 0% used"), at: now)
+        let empty = try ClaudeUsageQueryParser.parse(
+            input("Current session: 0% used\nCurrent week (all models): 0% used"), at: now)
         #expect(empty.orderedReports.isEmpty)
         #expect(empty.menuBarLines(for: .both, now: now) == ["--"])
-        guard let resolved = realpath(FileManager.default.temporaryDirectory.path, nil) else { throw CocoaError(.fileReadUnknown) }
-        let folder = URL(fileURLWithPath: String(cString: resolved), isDirectory: true).appendingPathComponent(UUID().uuidString)
+        guard let resolved = realpath(FileManager.default.temporaryDirectory.path, nil) else {
+            throw CocoaError(.fileReadUnknown)
+        }
+        let folder = URL(fileURLWithPath: String(cString: resolved), isDirectory: true).appendingPathComponent(
+            UUID().uuidString)
         free(resolved)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -95,53 +114,88 @@ import Testing
         }
     }
     @Test func modelRepliesAndCostAreRejected() throws {
-        for changes: [String: Any] in [["num_turns": 1], ["num_turns": false], ["total_cost_usd": 0.1], ["modelUsage": ["claude-opus-5-5": ["inputTokens": 1]]], ["usage": ["output_tokens": 1]]] {
-            #expect(throws: ClaudeUsageQueryError.modelResponse) { try ClaudeUsageQueryParser.parse(input(lines, changes: changes), at: now) }
+        for changes: [String: Any] in [
+            ["num_turns": 1], ["num_turns": false], ["total_cost_usd": 0.1],
+            ["modelUsage": ["claude-opus-5-5": ["inputTokens": 1]]], ["usage": ["output_tokens": 1]]
+        ] {
+            #expect(throws: ClaudeUsageQueryError.modelResponse) {
+                try ClaudeUsageQueryParser.parse(input(lines, changes: changes), at: now)
+            }
         }
-        #expect(throws: ClaudeUsageQueryError.noQuota) { try ClaudeUsageQueryParser.parse(input("You are currently using your subscription to power your Claude Code usage"), at: now) }
-        #expect(throws: ClaudeUsageQueryError.loginRequired) { try ClaudeUsageQueryParser.parse(input("Please log in", changes: ["is_error": true]), at: now) }
+        #expect(throws: ClaudeUsageQueryError.noQuota) {
+            try ClaudeUsageQueryParser.parse(
+                input("You are currently using your subscription to power your Claude Code usage"), at: now)
+        }
+        #expect(throws: ClaudeUsageQueryError.loginRequired) {
+            try ClaudeUsageQueryParser.parse(input("Please log in", changes: ["is_error": true]), at: now)
+        }
     }
     @Test func invalidAndUnexpectedTextFailsClosed() throws {
-        for text in [lines + "\n" + lines, lines.replacingOccurrences(of: "15%", with: "101%"), lines.replacingOccurrences(of: "resets", with: "unknown")] {
-            #expect(throws: ClaudeUsageQueryError.invalidOutput) { try ClaudeUsageQueryParser.parse(input(text), at: now) }
+        for text in [
+            lines + "\n" + lines, lines.replacingOccurrences(of: "15%", with: "101%"),
+            lines.replacingOccurrences(of: "resets", with: "unknown")
+        ] {
+            #expect(throws: ClaudeUsageQueryError.invalidOutput) {
+                try ClaudeUsageQueryParser.parse(input(text), at: now)
+            }
         }
-        for text in [lines.replacingOccurrences(of: "Asia/Shanghai", with: "Unknown/Zone"), lines.replacingOccurrences(of: "2:29am", with: "25:29am"), lines.replacingOccurrences(of: "Oct 2", with: "Feb 30"), lines.replacingOccurrences(of: "Oct 2", with: "Oct 12")] {
-            #expect(throws: ClaudeUsageQueryError.invalidResetTime) { try ClaudeUsageQueryParser.parse(input(text), at: now) }
+        for text in [
+            lines.replacingOccurrences(of: "Asia/Shanghai", with: "Unknown/Zone"),
+            lines.replacingOccurrences(of: "2:29am", with: "25:29am"),
+            lines.replacingOccurrences(of: "Oct 2", with: "Feb 30"),
+            lines.replacingOccurrences(of: "Oct 2", with: "Oct 12")
+        ] {
+            #expect(throws: ClaudeUsageQueryError.invalidResetTime) {
+                try ClaudeUsageQueryParser.parse(input(text), at: now)
+            }
         }
-        #expect(throws: ClaudeUsageQueryError.invalidOutput) { try ClaudeUsageQueryParser.parse(Data("not JSON".utf8), at: now) }
-        #expect(throws: ClaudeUsageQueryError.oversizedOutput) { try ClaudeUsageQueryParser.parse(Data(repeating: 65, count: ClaudeUsageQueryParser.outputLimit + 1), at: now) }
+        #expect(throws: ClaudeUsageQueryError.invalidOutput) {
+            try ClaudeUsageQueryParser.parse(Data("not JSON".utf8), at: now)
+        }
+        #expect(throws: ClaudeUsageQueryError.oversizedOutput) {
+            try ClaudeUsageQueryParser.parse(
+                Data(repeating: 65, count: ClaudeUsageQueryParser.outputLimit + 1), at: now)
+        }
     }
     @Test func loggedInCLIWithOnlyLocalActivityIsNotSubscriptionQuota() throws {
         // Claude Code 2.1.312 returns a successful zero-turn envelope even
         // when its separate subscription-usage request times out.
         let text = """
-        You are currently using your subscription to power your Claude Code usage
+            You are currently using your subscription to power your Claude Code usage
 
-        What's contributing to your usage?
-        Approximate · sessions on this machine only · shares overlap
+            What's contributing to your usage?
+            Approximate · sessions on this machine only · shares overlap
 
-        Last 24h · 12 requests · 1 session
-          100%  Stop sessions you no longer need
-        Last 7d · 24 requests · 2 sessions
-          95%  Start fresh when you switch tasks
-        """
+            Last 24h · 12 requests · 1 session
+              100%  Stop sessions you no longer need
+            Last 7d · 24 requests · 2 sessions
+              95%  Start fresh when you switch tasks
+            """
         #expect(throws: ClaudeUsageQueryError.noQuota) {
             try ClaudeUsageQueryParser.parse(input(text, changes: ["local_command": "usage"]), at: now)
         }
-        let partial = try ClaudeUsageQueryParser.parse(input(text + "\n" + lines.components(separatedBy: .newlines)[1]), at: now)
+        let partial = try ClaudeUsageQueryParser.parse(
+            input(text + "\n" + lines.components(separatedBy: .newlines)[1]), at: now)
         #expect(partial.fiveHour == nil)
         #expect(partial.sevenDay?.quota.remainingPercent == 91)
     }
     @Test func yearRolloverAndAmbiguousDST() throws {
         let december = ISO8601DateFormatter().date(from: "2026-12-31T15:40:00Z")!
-        let next = try ClaudeUsageQueryParser.parse(input("Current session: 15% used · resets Jan 1 at 12:05am (Asia/Shanghai)"), at: december)
+        let next = try ClaudeUsageQueryParser.parse(
+            input("Current session: 15% used · resets Jan 1 at 12:05am (Asia/Shanghai)"), at: december)
         #expect(next.fiveHour?.resetsAt == ISO8601DateFormatter().date(from: "2026-12-31T16:05:00Z"))
         let autumn = ISO8601DateFormatter().date(from: "2026-11-01T04:30:00Z")!
-        #expect(throws: ClaudeUsageQueryError.invalidResetTime) { try ClaudeUsageQueryParser.parse(input("Current session: 15% used · resets Nov 1 at 1:30am (America/New_York)"), at: autumn) }
+        #expect(throws: ClaudeUsageQueryError.invalidResetTime) {
+            try ClaudeUsageQueryParser.parse(
+                input("Current session: 15% used · resets Nov 1 at 1:30am (America/New_York)"), at: autumn)
+        }
     }
     @Test func privateCacheContainsOnlyQueryWindows() throws {
-        guard let resolved = realpath(FileManager.default.temporaryDirectory.path, nil) else { throw CocoaError(.fileReadUnknown) }
-        let folder = URL(fileURLWithPath: String(cString: resolved), isDirectory: true).appendingPathComponent(UUID().uuidString)
+        guard let resolved = realpath(FileManager.default.temporaryDirectory.path, nil) else {
+            throw CocoaError(.fileReadUnknown)
+        }
+        let folder = URL(fileURLWithPath: String(cString: resolved), isDirectory: true).appendingPathComponent(
+            UUID().uuidString)
         free(resolved)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }

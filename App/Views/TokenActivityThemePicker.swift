@@ -15,16 +15,21 @@ struct TokenActivityThemePicker: View {
                 }
             }
 
-            Text(L10n.text("settings.token_theme_help", fallback: "Applies to Codex token activity. Colors adapt to Light and Dark Mode."))
-                .font(.system(size: AppTheme.TypeSize.small))
-                .foregroundStyle(AppTheme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
+            Text(
+                L10n.text(
+                    "settings.token_theme_help",
+                    fallback: "Applies to Codex token activity. Colors adapt to Light and Dark Mode.")
+            )
+            .font(.system(size: AppTheme.TypeSize.small))
+            .foregroundStyle(AppTheme.secondaryText)
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 
     private func themeButton(_ theme: TokenActivityTheme) -> some View {
         let selected = selection == theme
-        let palette = TokenActivityPalette(theme: theme, colorScheme: colorScheme, increasedContrast: contrast == .increased)
+        let palette = TokenActivityPalette(
+            theme: theme, colorScheme: colorScheme, increasedContrast: contrast == .increased)
         return Button {
             storedTheme = theme.rawValue
         } label: {

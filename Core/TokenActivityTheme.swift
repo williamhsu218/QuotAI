@@ -87,9 +87,10 @@ public struct TokenActivityRGB: Equatable, Sendable {
         func channel(_ start: Double, _ end: Double) -> UInt32 {
             UInt32(((start * (1 - amount) + end * amount) * 255).rounded())
         }
-        return Self(hex: channel(red, other.red) << 16
-            | channel(green, other.green) << 8
-            | channel(blue, other.blue))
+        return Self(
+            hex: channel(red, other.red) << 16
+                | channel(green, other.green) << 8
+                | channel(blue, other.blue))
     }
 }
 
