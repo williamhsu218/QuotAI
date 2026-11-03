@@ -56,18 +56,7 @@ jobs:
           if-no-files-found: error
 
       - name: Isolated probes
-        run: |
-          # The Claude store probe injects every query, but the store only
-          # queries when a CLI is installed. Runners have none, so detection
-          # gets a placeholder that fails loudly if anything executes it.
-          if ! command -v claude >/dev/null 2>&1; then
-            placeholder="$RUNNER_TEMP/claude-placeholder"
-            mkdir -p "$placeholder"
-            printf '#!/bin/sh\necho "placeholder claude must never run" >&2\nexit 97\n' > "$placeholder/claude"
-            chmod 755 "$placeholder/claude"
-            export PATH="$placeholder:$PATH"
-          fi
-          ./script/run_probes.sh
+        run: ./script/run_probes.sh
 
       - name: Universal Release package
         run: |

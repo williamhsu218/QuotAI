@@ -104,7 +104,7 @@ actor SubscriptionCounter {
         let inactiveCache = directory.appendingPathComponent("inactive-cache.json")
         try ClaudeUsageQueryCache.write(snapshot, to: inactiveCache)
         let inactiveStore = ClaudeCodeUsageStore(defaults: defaults, cacheURL: inactiveCache, migrateBridge: false,
-            subscriptionCacheURL: directory.appendingPathComponent("inactive-plan.json"), subscriptionQuery: { nil },
+            subscriptionCacheURL: directory.appendingPathComponent("inactive-plan.json"), locateExecutable: { inactiveCLI }, subscriptionQuery: { nil },
             query: { try await ClaudeUsageQueryClient.fetch(executable: inactiveCLI) })
         inactiveStore.start()
         precondition(inactiveStore.snapshot?.fiveHour != nil && inactiveStore.isCached)
@@ -118,7 +118,7 @@ actor SubscriptionCounter {
         let counter = QueryCounter(), cache = directory.appendingPathComponent("cache.json")
         let plans = SubscriptionCounter(), planCache = directory.appendingPathComponent("plan.json")
         let store = ClaudeCodeUsageStore(defaults: defaults, cacheURL: cache, migrateBridge: false,
-            subscriptionCacheURL: planCache, subscriptionQuery: { try await plans.fetch() }, query: { await counter.fetch(snapshot) })
+            subscriptionCacheURL: planCache, locateExecutable: { inactiveCLI }, subscriptionQuery: { try await plans.fetch() }, query: { await counter.fetch(snapshot) })
         store.start()
         try await waitUntil { store.subscriptionPlan != nil }
         let startupCount = await counter.count
@@ -164,7 +164,7 @@ actor SubscriptionCounter {
         let firstConnectPlanCache = directory.appendingPathComponent("first-connect-plan.json")
         let firstConnect = ClaudeCodeUsageStore(defaults: defaults,
             cacheURL: directory.appendingPathComponent("first-connect-usage.json"), migrateBridge: false,
-            subscriptionCacheURL: firstConnectPlanCache, subscriptionQuery: { .pro },
+            subscriptionCacheURL: firstConnectPlanCache, locateExecutable: { inactiveCLI }, subscriptionQuery: { .pro },
             query: { throw ClaudeUsageQueryError.noQuota })
         firstConnect.start()
         precondition(!firstConnect.isEnabled && firstConnect.subscriptionPlan == nil)

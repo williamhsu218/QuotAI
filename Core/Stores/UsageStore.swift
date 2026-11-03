@@ -18,9 +18,14 @@ final class UsageStore: QuotaProviderStore {
     private(set) var snapshot: UsageSnapshot?
     private(set) var phase: Phase = .idle
 
-    @ObservationIgnored private let client = CodexAppServerClient()
+    typealias Fetch = @Sendable (_ customPath: String?, _ confirmsEmptyResetCredits: Bool) async throws -> UsageSnapshot
+
+    @ObservationIgnored private let fetchSnapshot: Fetch
+    @ObservationIgnored private let defaults: UserDefaults
+    /// Nil uses the shared Application Support cache.
+    @ObservationIgnored private let snapshotURL: URL?
     @ObservationIgnored private lazy var refreshScheduler = QuotaRefreshScheduler(
-        interval: { RefreshInterval.seconds() },
+        interval: { [defaults] in RefreshInterval.seconds(in: defaults) },
         tick: { [weak self] in Task { await self?.refresh() } }
     )
     @ObservationIgnored private let previewMode: Bool
@@ -31,14 +36,34 @@ final class UsageStore: QuotaProviderStore {
 
     init(
         previewMode: Bool = false,
-        previewSnapshot: UsageSnapshot? = nil
+        previewSnapshot: UsageSnapshot? = nil,
+        defaults: UserDefaults = .standard,
+        snapshotURL: URL? = nil,
+        fetchSnapshot: Fetch? = nil
     ) {
         self.previewMode = previewMode
+        self.defaults = defaults
+        self.snapshotURL = snapshotURL
+        if let fetchSnapshot {
+            self.fetchSnapshot = fetchSnapshot
+        } else {
+            let client = CodexAppServerClient()
+            self.fetchSnapshot = { customPath, confirmsEmptyResetCredits in
+                try await client.fetch(
+                    customPath: customPath,
+                    confirmsEmptyResetCredits: confirmsEmptyResetCredits
+                )
+            }
+        }
         if previewMode {
             snapshot = previewSnapshot ?? .preview
             phase = .ready
         } else {
-            snapshot = try? LocalSnapshotStore.load()
+            if let snapshotURL {
+                snapshot = try? LocalSnapshotStore.load(from: snapshotURL)
+            } else {
+                snapshot = try? LocalSnapshotStore.load()
+            }
             phase = snapshot == nil ? .idle : .ready
         }
     }
@@ -97,13 +122,10 @@ final class UsageStore: QuotaProviderStore {
         logger.info("Refreshing Codex quota snapshot")
         phase = .loading
         do {
-            let customPath = UserDefaults.standard.string(forKey: DefaultsKey.codexBinaryPath)
+            let customPath = defaults.string(forKey: DefaultsKey.codexBinaryPath)
             let hadResetCredits = (snapshot?.availableResetCount ?? 0) > 0
                 || snapshot?.resetCredits.isEmpty == false
-            let fetched = try await client.fetch(
-                customPath: customPath,
-                confirmsEmptyResetCredits: hadResetCredits
-            )
+            let fetched = try await fetchSnapshot(customPath, hadResetCredits)
             let latest = fetched.preservingResetCredits(from: snapshot)
             snapshot = latest
             phase = .ready
@@ -111,8 +133,13 @@ final class UsageStore: QuotaProviderStore {
                 name: .codexUsageSnapshotDidChange,
                 object: self
             )
+            let snapshotURL = self.snapshotURL
             try await Task.detached(priority: .utility) {
-                try LocalSnapshotStore.save(latest)
+                if let snapshotURL {
+                    try LocalSnapshotStore.save(latest, to: snapshotURL)
+                } else {
+                    try LocalSnapshotStore.save(latest)
+                }
             }.value
             logger.info(
                 "Quota refresh succeeded; fiveHourPresent=\(latest.fiveHour != nil, privacy: .public), resetCount=\(latest.availableResetCount, privacy: .public), resetDataCurrent=\(latest.hasCurrentResetCreditData, privacy: .public), tokenBuckets=\(latest.dailyUsageBuckets.count, privacy: .public)"

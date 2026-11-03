@@ -24,6 +24,7 @@ final class ClaudeCodeUsageStore: QuotaProviderStore {
     @ObservationIgnored private let subscriptionCacheURL: URL
     @ObservationIgnored private let query: @Sendable () async throws -> ClaudeCodeQuotaSnapshot
     @ObservationIgnored private let subscriptionQuery: @Sendable () async throws -> ClaudeCodeSubscriptionPlan?
+    @ObservationIgnored private let locateExecutable: @Sendable () -> URL?
     @ObservationIgnored private var didStart = false
     @ObservationIgnored private var queryTask: Task<ClaudeCodeQuotaSnapshot, Error>?
     @ObservationIgnored private var requestID = UUID()
@@ -34,11 +35,13 @@ final class ClaudeCodeUsageStore: QuotaProviderStore {
     init(previewMode: Bool = false, previewScenario: String? = nil, defaults: UserDefaults = .standard,
          cacheURL: URL = ClaudeUsageQueryCache.url, migrateBridge: Bool = true,
          subscriptionCacheURL: URL = ClaudeCodeSubscriptionCache.url,
+         locateExecutable: @escaping @Sendable () -> URL? = { ClaudeUsageBinaryLocator.locate() },
          subscriptionQuery: @escaping @Sendable () async throws -> ClaudeCodeSubscriptionPlan? = { try await ClaudeUsageQueryClient.fetchSubscription() },
          query: @escaping @Sendable () async throws -> ClaudeCodeQuotaSnapshot = { try await ClaudeUsageQueryClient.fetch() }) {
         self.previewMode = previewMode
         self.defaults = defaults; self.cacheURL = cacheURL; self.query = query
         self.subscriptionCacheURL = subscriptionCacheURL; self.subscriptionQuery = subscriptionQuery
+        self.locateExecutable = locateExecutable
         if previewMode { configurePreview(previewScenario ?? "recent"); return }
         if defaults.object(forKey: DefaultsKey.claudeCodeUsageQuery) == nil {
             defaults.set(defaults.bool(forKey: DefaultsKey.legacyClaudeStatusLineBridge), forKey: DefaultsKey.claudeCodeUsageQuery)
@@ -88,7 +91,7 @@ final class ClaudeCodeUsageStore: QuotaProviderStore {
     }
     func reloadInstallation() {
         guard !previewMode else { return }
-        executable = ClaudeUsageBinaryLocator.locate()
+        executable = locateExecutable()
         isInstalled = executable != nil
         isEnabled = defaults.bool(forKey: DefaultsKey.claudeCodeUsageQuery)
         notify()
