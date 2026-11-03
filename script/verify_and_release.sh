@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Verify QuotAI and, only if every check passes, commit, tag, push and publish
-# the GitHub release. Usage: ./script/verify_and_release.sh 2.0.15 [--check-only]
+# Verify QuotAI and, only if every check passes, commit any working-tree
+# changes, tag, push and publish the GitHub release. When the release changes
+# are already committed (for example merged through a pull request), the
+# current commit is tagged as is.
+# Usage: ./script/verify_and_release.sh 2.0.15 [--check-only]
 set -euo pipefail
 
 VERSION="${1:?usage: $0 <version> [--check-only]}"
@@ -59,11 +62,15 @@ printf '\nRESULT: ALL CHECKS PASSED for %s\n' "$VERSION"
 
 step "Commit, tag and push"
 git add -A
-git commit -q -F - <<MSG
+if git diff --cached --quiet; then
+  echo "No uncommitted changes; tagging the current commit $(git rev-parse --short HEAD)"
+else
+  git commit -q -F - <<MSG
 Release QuotAI $VERSION
 
 See Design/release-notes-$VERSION.md for the changes and validation scope.
 MSG
+fi
 git tag -a "v$VERSION" -m "Release QuotAI $VERSION"
 git push origin HEAD
 git push origin "v$VERSION"
