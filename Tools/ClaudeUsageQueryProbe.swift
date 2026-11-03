@@ -5,7 +5,8 @@ actor QueryCounter {
     var count = 0
     func fetch(_ snapshot: ClaudeCodeQuotaSnapshot) async -> ClaudeCodeQuotaSnapshot {
         count += 1
-        try? await Task.sleep(for: .milliseconds(300))  // Deliberately ignores cancellation to test the store's generation gate.
+        // Deliberately ignores cancellation to test the store's generation gate.
+        try? await Task.sleep(for: .milliseconds(300))
         return snapshot
     }
 }
