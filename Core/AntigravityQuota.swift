@@ -1,11 +1,6 @@
 import Foundation
 
 public enum QuotaProvider: String, Codable, CaseIterable, Sendable {
-    public static let menuBarDefaultsKey = "menuBarQuotaProvider"
-    public static let panelDefaultsKey = "quotaPanelProvider"
-    public static let antigravityIntegrationDefaultsKey = "antigravityIntegrationEnabled"
-    public static let claudeCodeIntegrationDefaultsKey = "claudeCodeUsageQueryEnabled"
-
     case codex
     case antigravity
     case claudeCode
@@ -67,9 +62,6 @@ public enum AntigravityQuotaTab: String, CaseIterable, Identifiable, Sendable {
 }
 
 public struct AntigravityQuotaGroup: Codable, Equatable, Identifiable, Sendable {
-    public static let menuBarGroupDefaultsKey = "menuBarAntigravityQuotaGroup"
-    public static let panelGroupDefaultsKey = "quotaPanelAntigravityGroup"
-
     public let id: String
     public let displayName: String
     public let description: String?
@@ -220,7 +212,7 @@ public struct AntigravityQuotaSnapshot: Codable, Equatable, Sendable {
             thirdPartyAvailability == .unavailable ? "3p" : nil,
             argonAvailability == .unavailable ? AntigravityQuotaTab.argon.rawValue : nil
         ].compactMap { $0 }
-        for key in [AntigravityQuotaGroup.panelGroupDefaultsKey, AntigravityQuotaGroup.menuBarGroupDefaultsKey]
+        for key in [DefaultsKey.panelAntigravityGroup, DefaultsKey.menuBarAntigravityGroup]
             where defaults.string(forKey: key).map(denied.contains) == true {
             defaults.set("gemini", forKey: key)
         }

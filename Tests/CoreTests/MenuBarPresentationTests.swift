@@ -123,12 +123,12 @@ func menuBarRetiredClaudeProvider() throws {
     let suite = "QuotAI.tests.retired-Claude.\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suite))
     defer { defaults.removePersistentDomain(forName: suite) }
-    defaults.set("claude", forKey: QuotaProvider.menuBarDefaultsKey)
-    defaults.set("claude", forKey: QuotaProvider.panelDefaultsKey)
+    defaults.set("claude", forKey: DefaultsKey.menuBarProvider)
+    defaults.set("claude", forKey: DefaultsKey.panelProvider)
 
     #expect(QuotaProvider(rawValue: "claude") == nil)
     #expect((try? JSONDecoder().decode(QuotaProvider.self, from: Data("\"claude\"".utf8))) == nil)
-    for key in [QuotaProvider.menuBarDefaultsKey, QuotaProvider.panelDefaultsKey] {
+    for key in [DefaultsKey.menuBarProvider, DefaultsKey.panelProvider] {
         // Mirrors the app: an unknown saved value resolves to the Codex default.
         let saved = defaults.string(forKey: key).flatMap(QuotaProvider.init(rawValue:)) ?? .codex
         for (enabled, available) in [(true, true), (false, true), (true, false), (false, false)] {

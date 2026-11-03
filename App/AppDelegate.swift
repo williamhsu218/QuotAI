@@ -447,21 +447,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
 
     private var menuBarQuotaDisplayMode: MenuBarQuotaDisplayMode {
         let rawValue = UserDefaults.standard.string(
-            forKey: MenuBarQuotaDisplayMode.defaultsKey
+            forKey: DefaultsKey.menuBarDisplayMode
         )
         return rawValue.flatMap(MenuBarQuotaDisplayMode.init(rawValue:)) ?? .both
     }
 
     private var menuBarQuotaProvider: QuotaProvider {
         let rawValue = UserDefaults.standard.string(
-            forKey: QuotaProvider.menuBarDefaultsKey
+            forKey: DefaultsKey.menuBarProvider
         )
         return rawValue.flatMap(QuotaProvider.init(rawValue:)) ?? .codex
     }
 
     private var antigravityIntegrationEnabled: Bool {
         let defaults = UserDefaults.standard
-        let key = QuotaProvider.antigravityIntegrationDefaultsKey
+        let key = DefaultsKey.antigravityIntegration
         guard defaults.object(forKey: key) != nil else { return true }
         return defaults.bool(forKey: key)
     }
@@ -489,8 +489,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
 
     /// How old a snapshot may be before its tooltip reports stale data.
     private var menuBarStaleAfter: [QuotaProvider: TimeInterval] {
-        let configured = UserDefaults.standard.double(forKey: "refreshIntervalSeconds")
-        let interval = configured > 0 ? configured : 300
+        let interval = RefreshInterval.seconds()
         let polled = max(2 * interval, 600)
         return [
             .codex: polled,
@@ -503,7 +502,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
             provider: menuBarQuotaProvider,
             antigravityEnabled: antigravityIntegrationEnabled,
             antigravityAvailable: antigravityStore.isInstalled,
-            selectedGroupID: UserDefaults.standard.string(forKey: AntigravityQuotaGroup.menuBarGroupDefaultsKey),
+            selectedGroupID: UserDefaults.standard.string(forKey: DefaultsKey.menuBarAntigravityGroup),
             mode: menuBarQuotaDisplayMode,
             codexSnapshot: store.snapshot,
             antigravitySnapshot: antigravityStore.snapshot,

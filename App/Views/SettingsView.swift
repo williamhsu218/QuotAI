@@ -69,15 +69,15 @@ struct SettingsView: View {
         _selectedTab = State(initialValue: initialTab)
     }
 
-    @AppStorage("refreshIntervalSeconds") private var refreshInterval = 300.0
-    @AppStorage("codexBinaryPath") private var codexBinaryPath = ""
-    @AppStorage(QuotaProvider.menuBarDefaultsKey)
+    @AppStorage(DefaultsKey.refreshInterval) private var refreshInterval = RefreshInterval.defaultSeconds
+    @AppStorage(DefaultsKey.codexBinaryPath) private var codexBinaryPath = ""
+    @AppStorage(DefaultsKey.menuBarProvider)
     private var menuBarQuotaProvider = QuotaProvider.codex
-    @AppStorage(AntigravityQuotaGroup.menuBarGroupDefaultsKey)
+    @AppStorage(DefaultsKey.menuBarAntigravityGroup)
     private var menuBarAntigravityGroupID = ""
-    @AppStorage(MenuBarQuotaDisplayMode.defaultsKey)
+    @AppStorage(DefaultsKey.menuBarDisplayMode)
     private var menuBarQuotaDisplayMode = MenuBarQuotaDisplayMode.both
-    @AppStorage(QuotaProvider.antigravityIntegrationDefaultsKey)
+    @AppStorage(DefaultsKey.antigravityIntegration)
     private var antigravityIntegrationEnabled = true
 
     @State private var launchAtLogin = false

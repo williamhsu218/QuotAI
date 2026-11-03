@@ -30,9 +30,9 @@ struct MenuBarPanelView: View {
     @Environment(\.quotaPanelVisible) private var panelVisible
     @Environment(\.openSettings) private var openSettings
     @Environment(\.designPreviewRendering) private var designPreviewRendering
-    @AppStorage(QuotaProvider.panelDefaultsKey)
+    @AppStorage(DefaultsKey.panelProvider)
     private var quotaProvider = QuotaProvider.codex
-    @AppStorage(QuotaProvider.antigravityIntegrationDefaultsKey)
+    @AppStorage(DefaultsKey.antigravityIntegration)
     private var antigravityIntegrationEnabled = true
 
     let store: UsageStore

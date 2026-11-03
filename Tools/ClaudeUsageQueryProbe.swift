@@ -100,7 +100,7 @@ actor SubscriptionCounter {
         let suite = "QuotAIUsageProbe-" + UUID().uuidString
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
-        defaults.set(true, forKey: ClaudeCodeUsageStore.enabledDefaultsKey)
+        defaults.set(true, forKey: DefaultsKey.claudeCodeUsageQuery)
         let inactiveCache = directory.appendingPathComponent("inactive-cache.json")
         try ClaudeUsageQueryCache.write(snapshot, to: inactiveCache)
         let inactiveStore = ClaudeCodeUsageStore(defaults: defaults, cacheURL: inactiveCache, migrateBridge: false,

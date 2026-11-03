@@ -8,7 +8,6 @@ extension Notification.Name {
 @MainActor @Observable
 final class ClaudeCodeUsageStore: QuotaProviderStore {
     static let shared = ClaudeCodeUsageStore()
-    static let enabledDefaultsKey = "claudeCodeUsageQueryEnabled"
     typealias Phase = ProviderPhase
     private(set) var snapshot: ClaudeCodeQuotaSnapshot?
     private(set) var phase: Phase = .idle
@@ -41,8 +40,8 @@ final class ClaudeCodeUsageStore: QuotaProviderStore {
         self.defaults = defaults; self.cacheURL = cacheURL; self.query = query
         self.subscriptionCacheURL = subscriptionCacheURL; self.subscriptionQuery = subscriptionQuery
         if previewMode { configurePreview(previewScenario ?? "recent"); return }
-        if defaults.object(forKey: Self.enabledDefaultsKey) == nil {
-            defaults.set(defaults.bool(forKey: ClaudeCodeStatusLineConfiguration.enabledDefaultsKey), forKey: Self.enabledDefaultsKey)
+        if defaults.object(forKey: DefaultsKey.claudeCodeUsageQuery) == nil {
+            defaults.set(defaults.bool(forKey: DefaultsKey.legacyClaudeStatusLineBridge), forKey: DefaultsKey.claudeCodeUsageQuery)
         }
         // Only the bridge we own is retired. A conflicting user command is
         // preserved; recording stops before restoration is attempted.
@@ -50,7 +49,7 @@ final class ClaudeCodeUsageStore: QuotaProviderStore {
             do { try ClaudeCodeStatusLineConfiguration.disable() }
             catch { migrationWarning = error.localizedDescription }
         }
-        defaults.set(false, forKey: ClaudeCodeStatusLineConfiguration.enabledDefaultsKey)
+        defaults.set(false, forKey: DefaultsKey.legacyClaudeStatusLineBridge)
         reloadInstallation()
     }
 
@@ -91,7 +90,7 @@ final class ClaudeCodeUsageStore: QuotaProviderStore {
         guard !previewMode else { return }
         executable = ClaudeUsageBinaryLocator.locate()
         isInstalled = executable != nil
-        isEnabled = defaults.bool(forKey: Self.enabledDefaultsKey)
+        isEnabled = defaults.bool(forKey: DefaultsKey.claudeCodeUsageQuery)
         notify()
     }
     func start() {
@@ -153,13 +152,13 @@ final class ClaudeCodeUsageStore: QuotaProviderStore {
     }
     func enable() throws {
         guard !previewMode else { return }
-        defaults.set(true, forKey: Self.enabledDefaultsKey)
+        defaults.set(true, forKey: DefaultsKey.claudeCodeUsageQuery)
         reloadInstallation()
         if didStart { scheduleSubscriptionRefresh() } else { start() }
     }
     func disable() throws {
         guard !previewMode else { return }
-        defaults.set(false, forKey: Self.enabledDefaultsKey)
+        defaults.set(false, forKey: DefaultsKey.claudeCodeUsageQuery)
         stop(); reloadInstallation()
     }
     func clearReports() throws {

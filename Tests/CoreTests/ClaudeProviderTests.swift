@@ -31,7 +31,7 @@ func claudeProviderVisibility() {
     #expect(QuotaProvider.visibleProviders(antigravityVisible: false, claudeCodeVisible: true) == [.codex, .claudeCode])
     #expect(QuotaProvider.visibleProviders(antigravityVisible: true, claudeCodeVisible: true) == [.codex, .antigravity, .claudeCode])
     #expect(QuotaProvider.claudeCode.rawValue != "claude")
-    #expect(QuotaProvider.claudeCodeIntegrationDefaultsKey != "claudeIntegrationEnabled")
+    #expect(DefaultsKey.claudeCodeUsageQuery != "claudeIntegrationEnabled")
     for (enabled, installed) in [(false, true), (true, false), (false, false)] {
         let value = claudeProviderPresentation(snapshot: nil, enabled: enabled, installed: installed)
         #expect(value.provider == .codex)

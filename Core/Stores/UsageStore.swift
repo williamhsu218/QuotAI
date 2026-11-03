@@ -20,7 +20,7 @@ final class UsageStore: QuotaProviderStore {
 
     @ObservationIgnored private let client = CodexAppServerClient()
     @ObservationIgnored private lazy var refreshScheduler = QuotaRefreshScheduler(
-        interval: { UserDefaults.standard.double(forKey: "refreshIntervalSeconds") },
+        interval: { RefreshInterval.seconds() },
         tick: { [weak self] in Task { await self?.refresh() } }
     )
     @ObservationIgnored private let previewMode: Bool
@@ -97,7 +97,7 @@ final class UsageStore: QuotaProviderStore {
         logger.info("Refreshing Codex quota snapshot")
         phase = .loading
         do {
-            let customPath = UserDefaults.standard.string(forKey: "codexBinaryPath")
+            let customPath = UserDefaults.standard.string(forKey: DefaultsKey.codexBinaryPath)
             let hadResetCredits = (snapshot?.availableResetCount ?? 0) > 0
                 || snapshot?.resetCredits.isEmpty == false
             let fetched = try await client.fetch(

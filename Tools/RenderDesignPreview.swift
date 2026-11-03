@@ -17,26 +17,26 @@ struct RenderDesignPreview {
             exit(2)
         }
         // The renderer is packaged with a dedicated bundle ID, separate from the live app.
-        UserDefaults.standard.set(tokenTheme, forKey: "tokenActivityTheme")
+        UserDefaults.standard.set(tokenTheme, forKey: DefaultsKey.tokenActivityTheme)
 
         let provider: QuotaProvider = CommandLine.arguments.contains("--claude")
             ? .claudeCode
             : CommandLine.arguments.contains("--antigravity") ? .antigravity : .codex
-        UserDefaults.standard.set(provider.rawValue, forKey: QuotaProvider.panelDefaultsKey)
-        UserDefaults.standard.set(provider.rawValue, forKey: QuotaProvider.menuBarDefaultsKey)
+        UserDefaults.standard.set(provider.rawValue, forKey: DefaultsKey.panelProvider)
+        UserDefaults.standard.set(provider.rawValue, forKey: DefaultsKey.menuBarProvider)
         if provider == .antigravity {
             let argon = CommandLine.arguments.contains { $0.hasPrefix("--ag-state=argon") }
             let groupID = argon ? AntigravityQuotaTab.argon.rawValue : CommandLine.arguments.contains("--ag-claude") ? "3p" : "gemini"
             UserDefaults.standard.set(groupID,
-                                      forKey: AntigravityQuotaGroup.panelGroupDefaultsKey)
+                                      forKey: DefaultsKey.panelAntigravityGroup)
             UserDefaults.standard.set(
                 groupID,
-                forKey: AntigravityQuotaGroup.menuBarGroupDefaultsKey
+                forKey: DefaultsKey.menuBarAntigravityGroup
             )
         }
-        UserDefaults.standard.set(true, forKey: QuotaProvider.antigravityIntegrationDefaultsKey)
+        UserDefaults.standard.set(true, forKey: DefaultsKey.antigravityIntegration)
         UserDefaults.standard.set(MenuBarQuotaDisplayMode.both.rawValue,
-                                  forKey: MenuBarQuotaDisplayMode.defaultsKey)
+                                  forKey: DefaultsKey.menuBarDisplayMode)
 
         let store = UsageStore(
             previewMode: true,

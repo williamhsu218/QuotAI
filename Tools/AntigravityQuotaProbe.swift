@@ -44,7 +44,7 @@ struct AntigravityQuotaProbe {
         let suite = "QuotAI.access-probe." + UUID().uuidString
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
-        let keys = [AntigravityQuotaGroup.menuBarGroupDefaultsKey, AntigravityQuotaGroup.panelGroupDefaultsKey]
+        let keys = [DefaultsKey.menuBarAntigravityGroup, DefaultsKey.panelAntigravityGroup]
         for key in keys { defaults.set("3p", forKey: key) }
         let responses = Responses([
             .success(AntigravityQuotaFixtures.snapshot("available")), .failure(.unavailable),
