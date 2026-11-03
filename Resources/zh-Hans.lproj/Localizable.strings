@@ -317,3 +317,9 @@
 "widget.requires_signing" = "小组件需要签名安装版本，当前构建无法共享小组件数据。";
 "widget.title" = "桌面小组件";
 "widget.write_failed" = "无法更新小组件数据。";
+
+// Installed notification verification
+"notifications.send_test" = "发送测试通知";
+"notifications.test_title" = "QuotAI 通知测试";
+"notifications.test_body" = "通知功能正常。这是一条测试消息，不代表额度变化。点击可打开 QuotAI。";
+"notifications.test_accepted" = "测试已提交给 macOS，稍后显示。若横幅已关闭，请查看通知中心。";

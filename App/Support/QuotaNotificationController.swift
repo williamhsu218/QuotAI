@@ -8,6 +8,8 @@ final class QuotaNotificationController: NSObject, UNUserNotificationCenterDeleg
     private(set) var requesting = false
     private(set) var denied = false
     private(set) var deliveryFailed = false
+    private(set) var testing = false
+    private(set) var testRequestAccepted = false
     @ObservationIgnored private let center: UNUserNotificationCenter?
     @ObservationIgnored private let onOpen: @MainActor (QuotaProvider) -> Void
     @ObservationIgnored private var authorizationRevision = 0
@@ -66,6 +68,30 @@ final class QuotaNotificationController: NSObject, UNUserNotificationCenterDeleg
                 deliveryFailed = false
             } catch { deliveryFailed = true }
         }
+    }
+
+    /// Exercise the installed app's real authorization and notification delivery
+    /// without advancing quota baselines or manufacturing quota events.
+    func sendTest(sound: Bool) async {
+        guard authorized, !testing, let center else { return }
+        testing = true
+        testRequestAccepted = false
+        defer { testing = false }
+        let content = UNMutableNotificationContent()
+        content.title = L10n.text("notifications.test_title", fallback: "QuotAI notification test")
+        content.body = L10n.text(
+            "notifications.test_body",
+            fallback: "Notifications are working. This is a test, not a quota change. Click to open QuotAI.")
+        content.userInfo = ["provider": QuotaProvider.codex.rawValue]
+        if sound { content.sound = .default }
+        do {
+            try await center.add(
+                UNNotificationRequest(
+                    identifier: "quotai.notification-test", content: content,
+                    trigger: UNTimeIntervalNotificationTrigger(timeInterval: 3, repeats: false)))
+            testRequestAccepted = true
+            deliveryFailed = false
+        } catch { deliveryFailed = true }
     }
 
     nonisolated func userNotificationCenter(

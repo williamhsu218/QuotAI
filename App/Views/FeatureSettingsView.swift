@@ -35,6 +35,20 @@ struct FeatureSettingsView: View {
                             L10n.text("notifications.reset", fallback: "Notify after a confirmed reset"),
                             isOn: $notifyReset)
                         Toggle(L10n.text("notifications.sound", fallback: "Play a sound"), isOn: $sound)
+                        Button(L10n.text("notifications.send_test", fallback: "Send Test Notification")) {
+                            Task { await model.notifications.sendTest(sound: sound) }
+                        }
+                        .disabled(model.previewMode || !model.notifications.authorized || model.notifications.testing)
+                        if model.notifications.testRequestAccepted {
+                            Text(
+                                L10n.text(
+                                    "notifications.test_accepted",
+                                    fallback:
+                                        "Test submitted to macOS. It appears shortly; check Notification Center if banners are disabled."
+                                )
+                            )
+                            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        }
                         if model.notifications.deliveryFailed {
                             Text(
                                 L10n.text(
