@@ -153,4 +153,50 @@ struct QuotaFeaturePolicyTests {
         #expect(SharedWidgetSnapshot(version: 1, generatedAt: now, rows: [row]).providerQuotas.isEmpty)
     }
 
+    @Test("Widget recovery rejects unrelated, unsigned, other-user and other-host processes")
+    func widgetRecoveryScope() {
+        let path = "/Applications/QuotAI.app/Contents/PlugIns/QuotAIWidget.appex/Contents/MacOS/QuotAIWidget"
+        let policy = WidgetRecoveryPolicy(
+            executablePath: path, containerIdentifier: "com.willhsu.QuotAI",
+            identifier: "com.willhsu.QuotAI.QuotaWidget", team: "ABCDEFGHIJ", userID: 501)
+        #expect(
+            policy.allows(
+                executablePath: path, containerIdentifier: policy.containerIdentifier, identifier: policy.identifier,
+                team: policy.team, userID: 501))
+        #expect(
+            !policy.allows(
+                executablePath: path, containerIdentifier: policy.containerIdentifier, identifier: policy.identifier,
+                team: policy.team, userID: 502))
+        #expect(
+            !policy.allows(
+                executablePath: path, containerIdentifier: policy.containerIdentifier, identifier: policy.identifier,
+                team: nil, userID: 501))
+        #expect(
+            !policy.allows(
+                executablePath: path, containerIdentifier: policy.containerIdentifier, identifier: policy.identifier,
+                team: "OTHERTEAM1", userID: 501))
+        #expect(
+            !policy.allows(
+                executablePath: path, containerIdentifier: policy.containerIdentifier, identifier: "com.other.Widget",
+                team: policy.team, userID: 501))
+        #expect(
+            !policy.allows(
+                executablePath: "/tmp/QuotAIWidget", containerIdentifier: policy.containerIdentifier,
+                identifier: policy.identifier, team: policy.team, userID: 501))
+        #expect(
+            !policy.allows(
+                executablePath: path, containerIdentifier: policy.containerIdentifier, identifier: nil, team: nil,
+                userID: 501))
+        #expect(
+            policy.allows(
+                executablePath:
+                    "/Users/test/.Trash/old.app/Contents/PlugIns/QuotAIWidget.appex/Contents/MacOS/QuotAIWidget",
+                containerIdentifier: policy.containerIdentifier, identifier: policy.identifier, team: policy.team,
+                userID: 501))
+        #expect(
+            !policy.allows(
+                executablePath: path, containerIdentifier: "com.other.App", identifier: policy.identifier,
+                team: policy.team, userID: 501))
+    }
+
 }

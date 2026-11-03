@@ -28,6 +28,7 @@ public enum DefaultsKey {
     public static let notificationSound = "quotaNotificationSoundEnabled"
     public static let quotaHistory = "quotaHistoryRecordingEnabled"
     public static let quotaWidgets = "quotaWidgetSharingEnabled"
+    public static let widgetRecoveredInstallation = "widgetRecoveredInstallation"
     public static let globalShortcut = "globalPanelShortcutEnabled"
     public static let claudeAutoRefresh = "claudeAutomaticRefreshSeconds"
     public static let automaticUpdateChecks = "SUEnableAutomaticChecks"

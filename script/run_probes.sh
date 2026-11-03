@@ -13,6 +13,12 @@ cd "$ROOT_DIR"
 
 step() { printf '\n==== %s ====\n' "$*"; }
 
+step "Widget write recovery and sharing opt-out"
+xcrun swiftc -swift-version 6 -strict-concurrency=complete -parse-as-library Core/*.swift \
+  Core/Widget/*.swift Core/Features/PrivateJSONFile.swift App/Support/QuotaWidgetController.swift \
+  App/Support/WidgetExtensionRecovery.swift Tools/WidgetRecoveryProbe.swift -o "$OUT/widget-recovery-probe"
+"$OUT/widget-recovery-probe"
+
 step "Local date formatting"
 xcrun swiftc -parse-as-library Core/Localization.swift Core/Support/DateFormatting.swift \
   Tools/DateFormattingProbe.swift -o "$OUT/date-formatting-probe"

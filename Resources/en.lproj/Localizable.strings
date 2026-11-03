@@ -325,3 +325,6 @@
 "notifications.test_accepted" = "Test submitted to macOS. It appears shortly; check Notification Center if banners are disabled.";
 
 "widget.historical" = "Previous query";
+"widget.repair" = "Repair Widget";
+"widget.reload_requested" = "Requested a widget reload from macOS. Your existing desktop widget is kept.";
+"widget.repair_failed" = "Widget registration could not be updated. Try Repair Widget again.";

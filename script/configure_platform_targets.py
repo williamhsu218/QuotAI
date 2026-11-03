@@ -113,9 +113,9 @@ for configuration in ["Debug", "Release"]:
     configurations.append(identifier)
     settings = {
         "APPLICATION_EXTENSION_API_ONLY": "YES", "CODE_SIGN_STYLE": "Automatic",
-        "CODE_SIGN_ENTITLEMENTS": "Widgets/QuotAIWidget.entitlements", "CURRENT_PROJECT_VERSION": "54",
+        "CODE_SIGN_ENTITLEMENTS": "Widgets/QuotAIWidget.entitlements", "CURRENT_PROJECT_VERSION": "56",
         "ENABLE_APP_SANDBOX": "YES", "ENABLE_HARDENED_RUNTIME": "YES", "GENERATE_INFOPLIST_FILE": "NO",
-        "INFOPLIST_FILE": "Widgets/Info.plist", "MACOSX_DEPLOYMENT_TARGET": "14.0", "MARKETING_VERSION": "3.0.1",
+        "INFOPLIST_FILE": "Widgets/Info.plist", "MACOSX_DEPLOYMENT_TARGET": "14.0", "MARKETING_VERSION": "3.0.2",
         "PRODUCT_BUNDLE_IDENTIFIER": "$(QUOTAI_APP_BUNDLE_ID).QuotaWidget", "PRODUCT_NAME": "QuotAIWidget", "SKIP_INSTALL": "YES",
         "SWIFT_STRICT_CONCURRENCY": "complete", "SWIFT_VERSION": "6.0", "QUOTAI_APP_BUNDLE_ID": "com.willhsu.QuotAI",
         "QUOTAI_APP_GROUP": "$(DEVELOPMENT_TEAM).com.willhsu.QuotAI", "QUOTAI_URL_SCHEME": "quotai", "QUOTAI_DISPLAY_NAME": "QuotAI",
