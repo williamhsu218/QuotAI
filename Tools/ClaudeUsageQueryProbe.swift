@@ -26,6 +26,16 @@ actor SubscriptionCounter {
 }
 
 @main struct ClaudeUsageQueryProbe {
+    /// Polls for the awaited state instead of assuming a fixed delay, so a
+    /// loaded machine cannot run a check before that state is reached.
+    @MainActor static func waitUntil(_ condition: @MainActor () async -> Bool) async throws {
+        let deadline = ContinuousClock.now + .seconds(5)
+        while ContinuousClock.now < deadline {
+            if await condition() { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
     @MainActor static func main() async throws {
         let directory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("build/qa/query-probe-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -110,7 +120,7 @@ actor SubscriptionCounter {
         let store = ClaudeCodeUsageStore(defaults: defaults, cacheURL: cache, migrateBridge: false,
             subscriptionCacheURL: planCache, subscriptionQuery: { try await plans.fetch() }, query: { await counter.fetch(snapshot) })
         store.start()
-        try await Task.sleep(for: .milliseconds(400))
+        try await waitUntil { store.subscriptionPlan != nil }
         let startupCount = await counter.count
         precondition(startupCount == 0 && store.snapshot == nil)
         let startupPlans = await plans.count
@@ -121,7 +131,7 @@ actor SubscriptionCounter {
         store.stop(); store.start()
         precondition(store.subscriptionPlan == .pro && store.isSubscriptionCached)
         let first = Task { await store.userRefresh() }
-        try await Task.sleep(for: .milliseconds(20))
+        try await waitUntil { store.isLoading }
         await store.userRefresh()
         await first.value
         let refreshCount = await counter.count
@@ -139,12 +149,12 @@ actor SubscriptionCounter {
         precondition(store.subscriptionPlan == nil && !FileManager.default.fileExists(atPath: planCache.path))
         await plans.setPlan(.pro)
         let late = Task { await store.userRefresh() }
-        try await Task.sleep(for: .milliseconds(20)); try store.clearReports()
+        try await waitUntil { store.isLoading }; try store.clearReports()
         await late.value
         precondition(store.snapshot == nil && store.subscriptionPlan == nil && !FileManager.default.fileExists(atPath: cache.path)
             && !FileManager.default.fileExists(atPath: planCache.path))
         let disabling = Task { await store.userRefresh() }
-        try await Task.sleep(for: .milliseconds(20)); try store.disable()
+        try await waitUntil { store.isLoading }; try store.disable()
         await disabling.value
         precondition(store.snapshot == nil && store.subscriptionPlan == nil && !store.isEnabled && !FileManager.default.fileExists(atPath: cache.path))
         try ClaudeUsageQueryCache.write(snapshot, to: cache)

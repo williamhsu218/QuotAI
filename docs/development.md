@@ -148,6 +148,7 @@ build/claude-usage-query-probe --live-subscription
 
 `script/verify_and_release.sh <版本> --check-only` 执行测试和打包检查。
 去掉 `--check-only` 会提交全部工作区改动、打标签、推送并创建 GitHub Release；
+工作区没有未提交改动时（例如改动已通过 PR 合入）跳过提交，直接为当前提交打标签；
 正式发布前需要审查工作区差异、版本说明和发布动作。
 脚本依赖 `Design/release-notes-<版本>.md`。本地修复、构建或文档整理均不等于发布授权。
 
