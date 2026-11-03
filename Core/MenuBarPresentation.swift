@@ -31,6 +31,7 @@ public enum ClaudeCodeReportDisplayTimeline {
 public struct MenuBarPresentation: Equatable, Sendable {
     public enum Icon: Equatable, Sendable {
         case codex, gemini, thirdParty, antigravity, claudeCode
+        case symbol(String)
     }
 
     public let provider: QuotaProvider
@@ -114,6 +115,12 @@ public struct MenuBarPresentation: Equatable, Sendable {
             ]
             .joined(separator: " · ")
             fetchedAt = nil
+        default:
+            groupID = nil
+            icon = .symbol("chart.bar")
+            lines = ["--"]
+            detail = effectiveProvider.displayName
+            fetchedAt = nil
         }
 
         if effectiveProvider == .claudeCode, let snapshot = claudeCodeSnapshot {
@@ -173,5 +180,40 @@ public struct MenuBarPresentation: Equatable, Sendable {
         }
         guard isStayAwakeActive else { return base }
         return "\(base) · \(L10n.text("awake.menu_bar_active", fallback: "Stay Awake on"))"
+    }
+
+    public init(
+        provider: QuotaProvider, title: String, symbol: String,
+        snapshot: ProviderQuotaSnapshot?, selectedGroupID: String?,
+        mode: MenuBarQuotaDisplayMode, isStayAwakeActive: Bool, now: Date?
+    ) {
+        self.provider = provider
+        self.isStayAwakeActive = isStayAwakeActive
+        let group = snapshot?.group(id: selectedGroupID)
+        groupID = group?.id == "default" ? nil : group?.id
+        switch provider {
+        case .codex: icon = .codex
+        case .claudeCode: icon = .claudeCode
+        case .antigravity:
+            switch group?.id {
+            case "gemini", AntigravityQuotaTab.argon.rawValue: icon = .gemini
+            case "3p": icon = .thirdParty
+            default: icon = .antigravity
+            }
+        default: icon = .symbol(symbol)
+        }
+        let rawLines = MenuBarQuotaLines.lines(for: group?.quotas ?? [], mode: mode, now: now)
+        lines =
+            snapshot?.isQuerySnapshot == true
+            ? rawLines.map { $0.hasSuffix("%") ? $0.replacingOccurrences(of: " ", with: " ~") : $0 }
+            : rawLines
+        detail = [
+            title, group?.name.isEmpty == false ? group?.name : nil,
+            lines.joined(separator: " · "), group?.statusMessage,
+            snapshot?.isQuerySnapshot == true
+                ? L10n.text("claude.report.source_unknown", fallback: "Source sampling time not provided") : nil
+        ]
+        .compactMap { $0 }.joined(separator: " · ")
+        isStale = snapshot?.isHistorical ?? false
     }
 }

@@ -29,8 +29,17 @@ package_release() {
   local release_derived_data="$BUILD_ROOT/ReleaseDerivedData"
   local built_app="$release_derived_data/Build/Products/Release/$APP_NAME.app"
 
-  rm -rf "$release_derived_data"
+  # Xcode tracks inputs and signing settings; reuse object files between
+  # unsigned CI and local signed candidates. Set QUOTAI_CLEAN_RELEASE=1 for a clean rebuild.
+  [[ "${QUOTAI_CLEAN_RELEASE:-0}" != 1 ]] || rm -rf "$release_derived_data"
   mkdir -p "$distribution_root"
+
+  local signing_settings=(CODE_SIGNING_ALLOWED=NO)
+  if [[ -n "${QUOTAI_SIGN_IDENTITY:-}" ]]; then
+    [[ -n "${QUOTAI_SIGN_TEAM:-}" ]] || { echo "QUOTAI_SIGN_TEAM is required with QUOTAI_SIGN_IDENTITY" >&2; exit 2; }
+    signing_settings=(CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES CODE_SIGN_STYLE=Manual
+      "CODE_SIGN_IDENTITY=$QUOTAI_SIGN_IDENTITY" "DEVELOPMENT_TEAM=$QUOTAI_SIGN_TEAM")
+  fi
 
   xcodebuild \
     -project "$ROOT_DIR/QuotAI.xcodeproj" \
@@ -40,8 +49,8 @@ package_release() {
     -derivedDataPath "$release_derived_data" \
     ARCHS="arm64 x86_64" \
     ONLY_ACTIVE_ARCH=NO \
-    CODE_SIGNING_ALLOWED=NO \
-    clean build
+    "${signing_settings[@]}" \
+    build
 
   local version
   version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$built_app/Contents/Info.plist")"
@@ -54,8 +63,26 @@ package_release() {
   mkdir -p "$staged_root"
   ditto "$built_app" "$staged_app"
   xattr -cr "$staged_app"
-  codesign --force --deep --sign - --timestamp=none "$staged_app"
-  codesign --verify --deep --strict "$staged_app"
+  if [[ -z "${QUOTAI_SIGN_IDENTITY:-}" ]]; then
+    # Xcode strips copied release frameworks, invalidating upstream resource
+    # seals. Re-sign every nested executable inside-out before our bundles.
+    local widget_entitlements="$staged_root/widget-adhoc.plist"
+    cat > "$widget_entitlements" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>com.apple.security.app-sandbox</key><true/></dict></plist>
+PLIST
+    local sparkle_version="$staged_app/Contents/Frameworks/Sparkle.framework/Versions/B"
+    for nested in "$sparkle_version"/XPCServices/*.xpc "$sparkle_version/Updater.app" "$sparkle_version/Autoupdate"; do
+      codesign --force --sign - --timestamp=none "$nested"
+    done
+    codesign --force --sign - --timestamp=none "$staged_app/Contents/Frameworks/Sparkle.framework"
+    codesign --force --sign - --timestamp=none "$staged_app/Contents/Helpers/quotai-claude-statusline"
+    codesign --force --sign - --timestamp=none --entitlements "$widget_entitlements" "$staged_app/Contents/PlugIns/QuotAIWidget.appex"
+    rm "$widget_entitlements"
+    codesign --force --sign - --timestamp=none "$staged_app"
+  fi
+  python3 "$ROOT_DIR/script/validate_bundle.py" "$staged_app" --universal
   ditto -c -k --norsrc --keepParent "$staged_app" "$zip_path"
   xattr -c "$zip_path"
 
@@ -89,9 +116,9 @@ build_preview() {
   esac
 
   case "$settings_tab" in
-    general|menuBar|providers|about) ;;
+    general|menuBar|providers|features|about) ;;
     *)
-      echo "settings tab must be general, menuBar, providers, or about" >&2
+      echo "settings tab must be general, menuBar, providers, features, or about" >&2
       exit 2
       ;;
   esac
@@ -120,6 +147,8 @@ build_preview() {
     "$ROOT_DIR"/Core/Services/*.swift \
     "$ROOT_DIR"/Core/Stores/*.swift \
     "$ROOT_DIR"/Core/Support/*.swift \
+    "$ROOT_DIR"/Core/Features/*.swift \
+    "$ROOT_DIR"/Core/Widget/*.swift \
     "$ROOT_DIR"/App/Support/*.swift \
     "$ROOT_DIR"/App/Views/*.swift \
     "$ROOT_DIR"/Preview/*.swift \
@@ -265,6 +294,8 @@ render_preview() {
     "$ROOT_DIR"/Core/Services/*.swift \
     "$ROOT_DIR"/Core/Stores/*.swift \
     "$ROOT_DIR"/Core/Support/*.swift \
+    "$ROOT_DIR"/Core/Features/*.swift \
+    "$ROOT_DIR"/Core/Widget/*.swift \
     "$ROOT_DIR"/App/Support/*.swift \
     "$ROOT_DIR"/App/Views/*.swift \
     "$ROOT_DIR"/Tools/RenderDesignPreview.swift \
@@ -329,8 +360,9 @@ render_settings() {
     general) ;;
     menuBar) settings_arguments+=(--menu-bar) ;;
     providers) settings_arguments+=(--providers) ;;
+    features) settings_arguments+=(--features) ;;
     about) settings_arguments+=(--about) ;;
-    *) echo "settings tab must be general, menuBar, providers, or about" >&2; exit 2 ;;
+    *) echo "settings tab must be general, menuBar, providers, features, or about" >&2; exit 2 ;;
   esac
   if [[ "$settings_tab" != "general" ]]; then
     output="${output%.png}-$settings_tab.png"
@@ -389,11 +421,22 @@ case "$MODE" in
   --render-settings|render-settings)
     render_settings "${2:-en}" "${3:-light}" "${4:-codex}" "${5:-general}"
     ;;
+  --render-widget)
+    render_preview "${2:-en}" "${3:-light}" codex >/dev/null
+    widget_args=(--widget)
+    [[ "${3:-light}" == dark ]] && widget_args+=(--dark)
+    [[ "${4:-small}" == medium ]] && widget_args+=(--widget-medium)
+    [[ "${5:-fresh}" == expired ]] && widget_args+=(--widget-expired)
+    [[ "${5:-fresh}" == stale ]] && widget_args+=(--widget-stale)
+    widget_output="$BUILD_ROOT/qa/widget-${2:-en}-${3:-light}-${4:-small}-${5:-fresh}.png"
+    "$BUILD_ROOT/qa/RenderDesignPreview.app/Contents/MacOS/RenderDesignPreview" "$widget_output" "${widget_args[@]}" -AppleLanguages "(${2:-en})"
+    echo "$widget_output"
+    ;;
   --package-release|package-release)
     package_release
     ;;
   *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--preview [panel|settings] [general|menuBar|providers|about] [system|light|dark]|--render-preview [en|zh-Hans] [light|dark] [codex|antigravity|claude] [standard|sparse|recent|waiting|stale|single|weekly|inactive|expired]|--render-settings [en|zh-Hans] [light|dark] [codex|antigravity|claude] [general|menuBar|providers|about]|--package-release]" >&2
+    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--preview [panel|settings] [general|menuBar|providers|features|about] [system|light|dark]|--render-preview [en|zh-Hans] [light|dark] [codex|antigravity|claude] [standard|sparse|recent|waiting|stale|single|weekly|inactive|expired]|--render-settings [en|zh-Hans] [light|dark] [codex|antigravity|claude] [general|menuBar|providers|features|about]|--package-release]" >&2
     exit 2
     ;;
 esac

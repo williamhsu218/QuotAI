@@ -14,11 +14,13 @@ enum QuotAIMain {
         if CommandLine.arguments.contains(ClaudeStatusLineBridge.argument) {
             exit(ClaudeStatusLineBridge.run())
         }
-        do {
-            try ClaudeStatusLineRetirement.retireIfNeeded()
-        } catch {
-            Logger(subsystem: "com.willhsu.QuotAI", category: "Migration")
-                .error("Could not restore the retired Claude status line; settings were preserved.")
+        if !QuotAIRuntime.isPreview {
+            do {
+                try ClaudeStatusLineRetirement.retireIfNeeded()
+            } catch {
+                Logger(subsystem: "com.willhsu.QuotAI", category: "Migration")
+                    .error("Could not restore the retired Claude status line; settings were preserved.")
+            }
         }
         QuotAIApp.main()
     }
@@ -26,16 +28,15 @@ enum QuotAIMain {
 
 struct QuotAIApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @State private var store = UsageStore.shared
-    @State private var antigravityStore = AntigravityUsageStore.shared
-    @State private var claudeCodeStore = ClaudeCodeUsageStore.shared
+    @State private var model = QuotAIAppModel.shared
 
     var body: some Scene {
         Settings {
             SettingsView(
-                store: store,
-                antigravityStore: antigravityStore,
-                claudeCodeStore: claudeCodeStore
+                store: model.codex,
+                antigravityStore: model.antigravity,
+                claudeCodeStore: model.claudeCode,
+                model: model
             )
         }
     }

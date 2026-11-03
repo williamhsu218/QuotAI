@@ -5,15 +5,12 @@ import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopoverDelegate {
-    private lazy var store = UsageStore.shared
-    private lazy var antigravityStore = AntigravityUsageStore.shared
-    private lazy var claudeCodeStore = ClaudeCodeUsageStore.shared
+    private lazy var model = QuotAIAppModel.shared
+    private lazy var store = model.codex
+    private lazy var antigravityStore = model.antigravity
+    private lazy var claudeCodeStore = model.claudeCode
     private lazy var stayAwakeStore = StayAwakeStore.shared
-    private lazy var providerStores = QuotaProviderStores(
-        codex: store,
-        antigravity: antigravityStore,
-        claudeCode: claudeCodeStore
-    )
+    private var registry: QuotaProviderRegistry { model.registry }
     private let popover = NSPopover()
     private let panelVisibility = QuotaPanelVisibility()
     private var statusItem: NSStatusItem?
@@ -75,7 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
-        migrateLegacyPreferencesIfNeeded()
+        if !model.previewMode { migrateLegacyPreferencesIfNeeded() }
         restoreSystemStatusItemVisibility()
         installStatusItem()
         configurePopover()
@@ -91,15 +88,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
             name: .antigravityIntegrationPreferenceDidChange,
             object: nil
         )
-        stayAwakeStore.start()
+        if !model.previewMode { stayAwakeStore.start() }
         observeMenuBarState()
-        store.start()
-        if antigravityIntegrationEnabled {
-            antigravityStore.start()
-        }
-        if claudeCodeStore.isEnabled {
-            claudeCodeStore.start()
-        }
+        model.onOpenPanel = { [weak self] provider in self?.revealPanel(provider: provider) }
+        model.start()
+        AppUpdateController.shared.start()
         startStatusItemClock()
         logger.info("Application did finish launching with AppKit status item")
     }
@@ -123,8 +116,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         stopOutsideClickMonitor()
         statusItemClock?.invalidate()
         statusItemClock = nil
-        antigravityStore.stop()
-        claudeCodeStore.stop()
+        model.stop()
         stayAwakeStore.shutdown()
         if let statusItem {
             NSStatusBar.system.removeStatusItem(statusItem)
@@ -168,7 +160,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
                     store: store,
                     antigravityStore: antigravityStore,
                     stayAwakeStore: stayAwakeStore,
-                    claudeCodeStore: claudeCodeStore
+                    claudeCodeStore: claudeCodeStore,
+                    model: model
                 )
             )
             .environment(\.usesSystemPopoverSurface, true)
@@ -215,6 +208,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         }
     }
 
+    private func revealPanel(provider: QuotaProvider?) {
+        if let provider, registry.plugin(for: provider) != nil {
+            UserDefaults.standard.set(provider.rawValue, forKey: DefaultsKey.panelProvider)
+        }
+        if !popover.isShown {
+            togglePopover()
+        } else {
+            NSApp.activate(ignoringOtherApps: true)
+            makePopoverKeyWindow()
+        }
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        let scheme = Bundle.main.object(forInfoDictionaryKey: "QuotAIURLScheme") as? String ?? "quotai"
+        for url in urls where url.scheme == scheme {
+            if url.host == "history" {
+                model.historyWindow.show()
+            } else if url.host == "panel" {
+                let raw = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first {
+                    $0.name == "provider"
+                }?.value
+                revealPanel(provider: raw.flatMap(QuotaProvider.init(rawValue:)))
+            }
+        }
+    }
+
     private func togglePopover() {
         guard let button = statusItem?.button else { return }
         if popover.isShown {
@@ -250,7 +269,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
     }
 
     @objc private func refreshFromQuickMenu() {
-        let target = providerStores.store(for: effectiveMenuBarQuotaProvider)
+        let target = registry.store(for: effectiveMenuBarQuotaProvider)
         Task { await target.userRefresh() }
         logger.info(
             "Requested quota refresh from quick menu; provider=\(self.effectiveMenuBarQuotaProvider.rawValue, privacy: .public)"
@@ -377,6 +396,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
     }
 
     @objc private func menuBarQuotaPreferencesDidChange() {
+        model.preferencesDidChange()
         updateStatusItemAppearance()
         logger.info(
             "Updated menu bar quota display; provider=\(self.effectiveMenuBarQuotaProvider.rawValue, privacy: .public), mode=\(self.menuBarQuotaDisplayMode.rawValue, privacy: .public)"
@@ -384,11 +404,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
     }
 
     @objc private func antigravityIntegrationPreferenceDidChange() {
-        if antigravityIntegrationEnabled {
-            antigravityStore.start()
-        } else {
-            antigravityStore.stop()
-        }
+        model.preferencesDidChange()
         updateStatusItemAppearance()
         logger.info(
             "Updated Antigravity integration; enabled=\(self.antigravityIntegrationEnabled, privacy: .public)"
@@ -443,41 +459,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSPopo
         ProviderAvailability.antigravityIntegrationEnabled()
     }
 
-    private var availability: ProviderAvailability {
-        providerStores.availability(antigravityEnabled: antigravityIntegrationEnabled)
-    }
-
     private var effectiveMenuBarQuotaProvider: QuotaProvider {
-        availability.resolve(menuBarQuotaProvider)
+        registry.resolve(menuBarQuotaProvider)
     }
 
     private var isEffectiveMenuBarProviderLoading: Bool {
-        providerStores.store(for: effectiveMenuBarQuotaProvider).isLoading
-    }
-
-    /// How old a snapshot may be before its tooltip reports stale data.
-    private var menuBarStaleAfter: [QuotaProvider: TimeInterval] {
-        let interval = RefreshInterval.seconds()
-        let polled = max(2 * interval, 600)
-        return [
-            .codex: polled,
-            .antigravity: polled
-        ]
+        registry.store(for: effectiveMenuBarQuotaProvider).isLoading
     }
 
     private var menuBarPresentation: MenuBarPresentation {
-        MenuBarPresentation(
-            provider: menuBarQuotaProvider,
-            availability: availability,
+        let provider = effectiveMenuBarQuotaProvider
+        let plugin = registry.plugin(for: provider)!
+        return MenuBarPresentation(
+            provider: provider, title: plugin.descriptor.title, symbol: plugin.descriptor.symbol,
+            snapshot: registry.displaySnapshots(at: Date()).first { $0.provider == provider },
             selectedGroupID: UserDefaults.standard.string(forKey: DefaultsKey.menuBarAntigravityGroup),
-            mode: menuBarQuotaDisplayMode,
-            codexSnapshot: store.snapshot,
-            antigravitySnapshot: antigravityStore.snapshot,
-            claudeCodeSnapshot: claudeCodeStore.snapshot,
-            claudeCodeHistorical: claudeCodeStore.isHistorical(at: Date()),
-            isStayAwakeActive: stayAwakeStore.isActive,
-            now: Date(),
-            staleAfter: menuBarStaleAfter
-        )
+            mode: menuBarQuotaDisplayMode, isStayAwakeActive: stayAwakeStore.isActive,
+            now: plugin.store.expiryReferenceDate)
     }
 }

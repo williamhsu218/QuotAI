@@ -42,7 +42,9 @@ struct UsageStoreTests {
         }
         #expect(store.snapshot == nil && store.phase == .idle)
 
+        #expect(!store.isCached)
         await store.refresh()
+        #expect(!store.isCached)
 
         #expect(await calls.values == [FetchCall(customPath: "/opt/codex/bin/codex", confirmsEmptyResetCredits: false)])
         #expect(store.phase == .ready)
@@ -65,7 +67,9 @@ struct UsageStoreTests {
         }
         #expect(store.snapshot?.availableResetCount == 2 && store.phase == .ready)
 
+        #expect(store.isCached)
         await store.refresh()
+        #expect(!store.isCached)
         #expect(await calls.values == [true])
         #expect(store.snapshot?.availableResetCount == 0)
 
@@ -92,6 +96,7 @@ struct UsageStoreTests {
         let message = try #require(CodexAppServerClientError.updateRequired.errorDescription)
         #expect(store.phase == .failed(message))
         #expect(store.snapshot == cached)
+        #expect(store.isCached)
         #expect(store.statusMessage(at: Date()).contains(message))
         #expect(try LocalSnapshotStore.load(from: cache) == cached)
     }

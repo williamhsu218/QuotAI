@@ -1,7 +1,7 @@
 import Foundation
 
 /// Refresh state shared by every quota provider store.
-enum ProviderPhase: Equatable {
+public enum ProviderPhase: Equatable {
     case idle
     case loading
     case ready
@@ -9,11 +9,10 @@ enum ProviderPhase: Equatable {
 }
 
 /// The surface the panel, menu bar and quick menu need from a provider.
-/// Resolve a store with an exhaustive `switch` over `QuotaProvider` so a new
-/// provider is a compile error until it is wired up, never a silent fallback
-/// to another provider's state.
+/// The registry owns provider resolution. A registered adapter always uses its
+/// own store; unavailable saved selections resolve to the declared fallback.
 @MainActor
-protocol QuotaProviderStore: AnyObject, Sendable {
+public protocol QuotaProviderStore: AnyObject, Sendable {
     var phase: ProviderPhase { get }
     var isLoading: Bool { get }
     /// Reference time for marking windows whose reset has passed. Nil in

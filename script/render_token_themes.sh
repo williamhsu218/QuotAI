@@ -28,6 +28,8 @@ xcrun swiftc \
   "$QUOTAI_ROOT"/Core/Services/*.swift \
   "$QUOTAI_ROOT"/Core/Stores/*.swift \
   "$QUOTAI_ROOT"/Core/Support/*.swift \
+  "$QUOTAI_ROOT"/Core/Features/*.swift \
+  "$QUOTAI_ROOT"/Core/Widget/*.swift \
   "$QUOTAI_ROOT"/App/Support/*.swift \
   "$QUOTAI_ROOT"/App/Views/*.swift \
   "$QUOTAI_ROOT"/Tools/RenderDesignPreview.swift \

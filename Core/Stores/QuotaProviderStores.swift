@@ -11,13 +11,13 @@ struct QuotaProviderStores {
         QuotaProviderStores(codex: .shared, antigravity: .shared, claudeCode: .shared)
     }
 
-    /// Exhaustive, so a new provider is a compile error until it is wired up.
+    /// Compatibility access for older call sites; new UI owns one stable registry.
     func store(for provider: QuotaProvider) -> any QuotaProviderStore {
-        switch provider {
-        case .codex: codex
-        case .antigravity: antigravity
-        case .claudeCode: claudeCode
-        }
+        registry.store(for: provider)
+    }
+
+    var registry: QuotaProviderRegistry {
+        .builtIn(codex: codex, antigravity: antigravity, claudeCode: claudeCode)
     }
 
     /// Reads installation and enablement from the stores. The Antigravity

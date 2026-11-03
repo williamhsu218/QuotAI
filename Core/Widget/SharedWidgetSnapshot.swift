@@ -1,0 +1,57 @@
+import Foundation
+
+struct WidgetQuotaRow: Codable, Equatable, Sendable, Identifiable {
+    let id: String
+    let providerID: String
+    let title: String
+    let window: String
+    let remainingPercent: Int
+    let resetsAt: Date?
+    let fetchedAt: Date
+    let historical: Bool
+
+    func displayable(at now: Date) -> Bool {
+        (0...100).contains(remainingPercent) && fetchedAt <= now.addingTimeInterval(60)
+            && (resetsAt.map { $0 > now } ?? true)
+    }
+    func isStale(at now: Date) -> Bool { historical || now.timeIntervalSince(fetchedAt) > 1_800 }
+}
+
+struct SharedWidgetSnapshot: Codable, Equatable, Sendable {
+    static let schemaVersion = 1
+    let version: Int
+    let generatedAt: Date
+    let rows: [WidgetQuotaRow]
+
+    static let empty = Self(version: schemaVersion, generatedAt: .distantPast, rows: [])
+}
+
+enum WidgetSharedStore {
+    static let kind = "QuotAIQuotaWidget"
+
+    static func snapshotURL(in bundle: Bundle = .main) -> URL? {
+        guard let group = bundle.object(forInfoDictionaryKey: "QuotAIAppGroup") as? String,
+            group.range(of: "^[A-Z0-9]{10}\\.[A-Za-z0-9._-]+$", options: .regularExpression) != nil,
+            let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group)
+        else { return nil }
+        return container.appendingPathComponent("quota-widget-v1.json")
+    }
+
+    static func read(from url: URL?) throws -> SharedWidgetSnapshot {
+        guard let url else { return .empty }
+        let value = try PrivateJSONFile.read(SharedWidgetSnapshot.self, from: url, maximumBytes: 262_144) ?? .empty
+        guard value.version == SharedWidgetSnapshot.schemaVersion, value.rows.count <= 64,
+            value.rows.allSatisfy({
+                (0...100).contains($0.remainingPercent) && $0.title.count <= 200 && $0.id.count <= 300
+            })
+        else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        return value
+    }
+
+    static func write(_ value: SharedWidgetSnapshot, to url: URL?) throws {
+        guard let url else { throw CocoaError(.featureUnsupported) }
+        try PrivateJSONFile.write(value, to: url)
+    }
+}
