@@ -262,3 +262,5 @@
 "antigravity.argon.separate_weekly" = "独立周额度";
 "antigravity.argon.unavailable" = "当前账号暂无 Gemini 4 Argon 使用权限。";
 "antigravity.argon.unknown" = "暂时无法读取 Gemini 4 Argon 权限，请刷新重试。";
+
+"settings.codex_status_checking" = "正在验证可执行文件…";

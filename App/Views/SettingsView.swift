@@ -82,6 +82,9 @@ struct SettingsView: View {
 
     @State private var launchAtLogin = false
     @State private var claudeCodeActionError: String?
+    @State private var resolvedCodexBinary: URL?
+    @State private var codexPathIsChecking = true
+    @State private var pathValidationRevision = 0
 
     private var isAntigravitySupported: Bool {
         antigravityStore.isInstalled
@@ -149,6 +152,27 @@ struct SettingsView: View {
         }
         .onChange(of: antigravityGroupIDs) {
             normalizeAntigravityGroupSelection()
+        }
+        .task(id: "\(pathValidationRevision):\(codexBinaryPath)") {
+            codexPathIsChecking = true
+            let customPath = codexBinaryPath.isEmpty ? nil : codexBinaryPath
+            do {
+                try await Task.sleep(for: .milliseconds(180))
+                let resolved = await Task.detached(priority: .utility) {
+                    try? CodexBinaryLocator.locate(customPath: customPath)
+                }.value
+                try Task.checkCancellation()
+                resolvedCodexBinary = resolved
+                codexPathIsChecking = false
+            } catch is CancellationError {
+                // A newer path or a closed settings window superseded this lookup.
+            } catch {
+                resolvedCodexBinary = nil
+                codexPathIsChecking = false
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            pathValidationRevision &+= 1
         }
     }
 
@@ -354,9 +378,11 @@ struct SettingsView: View {
                         HStack(spacing: 6) {
                             Circle()
                                 .fill(
-                                    codexPathIsValid
-                                        ? AppTheme.quotaHealthy.accent
-                                        : AppTheme.quotaCritical.accent
+                                    codexPathIsChecking
+                                        ? AppTheme.secondaryText
+                                        : codexPathIsValid
+                                            ? AppTheme.quotaHealthy.accent
+                                            : AppTheme.quotaCritical.accent
                                 )
                                 .frame(width: 7, height: 7)
 
@@ -667,11 +693,14 @@ struct SettingsView: View {
     }
 
     private var codexPathIsValid: Bool {
-        (try? CodexBinaryLocator.locate(customPath: codexBinaryPath.isEmpty ? nil : codexBinaryPath)) != nil
+        resolvedCodexBinary != nil
     }
 
     private var codexStatusMessage: String {
-        if let resolved = try? CodexBinaryLocator.locate(customPath: codexBinaryPath.isEmpty ? nil : codexBinaryPath) {
+        if codexPathIsChecking {
+            return L10n.text("settings.codex_status_checking", fallback: "Checking executable…")
+        }
+        if let resolved = resolvedCodexBinary {
             return codexBinaryPath.isEmpty
                 ? "\(L10n.text("settings.codex_status_auto", fallback: "Auto-detected")): \(resolved.path)"
                 : "\(L10n.text("settings.codex_status_verified", fallback: "Executable verified")): \(resolved.path)"
@@ -719,23 +748,19 @@ struct SettingsView: View {
     }
 
     private func refreshLaunchAtLogin() {
-        if #available(macOS 13.0, *) {
-            launchAtLogin = SMAppService.mainApp.status == .enabled
-        }
+        launchAtLogin = SMAppService.mainApp.status == .enabled
     }
 
     private func setLaunchAtLogin(_ enabled: Bool) {
-        if #available(macOS 13.0, *) {
-            do {
-                if enabled {
-                    try SMAppService.mainApp.register()
-                } else {
-                    try SMAppService.mainApp.unregister()
-                }
-                launchAtLogin = enabled
-            } catch {
-                refreshLaunchAtLogin()
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
             }
+            launchAtLogin = enabled
+        } catch {
+            refreshLaunchAtLogin()
         }
     }
 

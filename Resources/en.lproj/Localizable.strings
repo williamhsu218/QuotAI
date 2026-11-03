@@ -262,3 +262,5 @@
 "antigravity.argon.separate_weekly" = "Independent weekly quota";
 "antigravity.argon.unavailable" = "Gemini 4 Argon is not available for this account.";
 "antigravity.argon.unknown" = "Gemini 4 Argon access could not be read. Try refreshing.";
+
+"settings.codex_status_checking" = "Checking executable…";
