@@ -46,6 +46,8 @@ if team_match:
         assert f'TeamIdentifier={team}' in details(bundle), 'App and widget must share the signing team'
         result = subprocess.run(['codesign', '-d', '--entitlements', ':-', str(bundle)], capture_output=True, check=True)
         entitlements = plistlib.loads(result.stdout)
+        if int(main['CFBundleVersion']) >= 61:
+            assert not entitlements.get('com.apple.security.get-task-allow', False), 'Release must not allow debugger attachment'
         assert main['QuotAIAppGroup'] in entitlements.get('com.apple.security.application-groups', []), 'Signed group entitlement missing'
         if bundle == widget:
             assert entitlements.get('com.apple.security.app-sandbox') is True

@@ -327,7 +327,7 @@
 "widget.historical" = "Previous query";
 "widget.repair" = "Repair Widget";
 "widget.reload_requested" = "Requested a widget reload from macOS. Your existing desktop widget is kept.";
-"widget.repair_failed" = "Widget registration could not be updated. Try Repair Widget again.";
+"widget.repair_failed" = "Widget recovery could not be confirmed. Try Repair Widget again.";
 "widget.configuration_title" = "Choose Quota";
 "widget.configuration_detail" = "Choose a quota for this widget, or follow the app automatically.";
 "widget.selection" = "Quota";

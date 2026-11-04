@@ -33,6 +33,53 @@ enum WidgetSharedStore {
     static let selectableKind = "QuotAISelectableQuotaWidget"
     static let kinds = [kind, selectableKind]
 
+    struct RecoveryRequest: Codable, Sendable, Equatable {
+        let token: UUID
+        let build: String
+    }
+
+    struct TimelineResponse: Codable, Sendable {
+        let request: RecoveryRequest
+        let kind: String
+    }
+
+    static func beginRecovery(at snapshotURL: URL, build: String) throws -> RecoveryRequest {
+        let request = RecoveryRequest(token: UUID(), build: build)
+        try PrivateJSONFile.write(request, to: recoveryURL(at: snapshotURL))
+        return request
+    }
+
+    /// Metadata only: never records quota values, account IDs or selections.
+    static func recordTimelineResponse(kind: String, build: String, at snapshotURL: URL) throws {
+        guard kinds.contains(kind),
+            let request = try PrivateJSONFile.read(
+                RecoveryRequest.self, from: recoveryURL(at: snapshotURL), maximumBytes: 1_024),
+            request.build == build
+        else { return }
+        try PrivateJSONFile.write(
+            TimelineResponse(request: request, kind: kind),
+            to: responseURL(kind: kind, at: snapshotURL))
+    }
+
+    static func respondingKinds(to request: RecoveryRequest, at snapshotURL: URL) -> Set<String> {
+        Set(
+            kinds.filter { kind in
+                guard
+                    let response = try? PrivateJSONFile.read(
+                        TimelineResponse.self, from: responseURL(kind: kind, at: snapshotURL), maximumBytes: 2_048)
+                else { return false }
+                return response.request == request && response.kind == kind
+            })
+    }
+
+    private static func recoveryURL(at url: URL) -> URL {
+        url.deletingLastPathComponent().appendingPathComponent("widget-recovery-request.json")
+    }
+
+    private static func responseURL(kind: String, at url: URL) -> URL {
+        url.deletingLastPathComponent().appendingPathComponent("widget-response-\(kind).json")
+    }
+
     static func snapshotURL(in bundle: Bundle = .main) -> URL? {
         guard let group = bundle.object(forInfoDictionaryKey: "QuotAIAppGroup") as? String,
             group.range(of: "^[A-Z0-9]{10}\\.[A-Za-z0-9._-]+$", options: .regularExpression) != nil,

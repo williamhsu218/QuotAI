@@ -1,4 +1,5 @@
 import AppKit
+import OSLog
 import Observation
 
 #if canImport(Sparkle)
@@ -75,5 +76,20 @@ final class AppUpdateController: NSObject {
 #if canImport(Sparkle)
     extension AppUpdateController: SPUUpdaterDelegate {
         func feedURLString(for updater: SPUUpdater) -> String? { qaFeed?.absoluteString }
+
+        func updater(
+            _ updater: SPUUpdater, shouldPostponeRelaunchForUpdate item: SUAppcastItem,
+            untilInvokingBlock installHandler: @escaping () -> Void
+        ) -> Bool {
+            Task { @MainActor in
+                let result = await WidgetExtensionRecovery.perform(bundleURL: Bundle.main.bundleURL)
+                Logger(subsystem: "com.willhsu.QuotAI", category: "WidgetRecovery").info(
+                    "Widget update handoff completed; verified=\(result.extensionReady, privacy: .public)")
+                // Never strand Sparkle if extension preparation failed. The
+                // new version can still recover kernel-identified old code.
+                installHandler()
+            }
+            return true
+        }
     }
 #endif

@@ -9,9 +9,49 @@ struct QuotaWidgetEntry: TimelineEntry {
     var selectionID: String? = nil
 }
 
-struct QuotaWidgetTimeline: AppIntentTimelineProvider, TimelineProvider {
-    private let logger = Logger(subsystem: "com.willhsu.QuotAI", category: "WidgetTimeline")
+// WidgetKit inspects provider conformance at runtime. A static provider must
+// never also conform to AppIntentTimelineProvider: the static configuration
+// has no intent and can otherwise be routed through the intent bridge (1103).
+struct QuotaWidgetTimeline: TimelineProvider {
     func placeholder(in context: Context) -> QuotaWidgetEntry {
+        QuotaWidgetTimelineContent().placeholder(in: context)
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping @Sendable (QuotaWidgetEntry) -> Void) {
+        let content = QuotaWidgetTimelineContent()
+        completion(context.isPreview ? content.placeholder(in: context) : .init(date: Date(), snapshot: content.read()))
+    }
+
+    func getTimeline(in context: Context, completion: @escaping @Sendable (Timeline<QuotaWidgetEntry>) -> Void) {
+        completion(
+            QuotaWidgetTimelineContent().makeTimeline(kind: WidgetSharedStore.kind, selectionID: nil, in: context))
+    }
+}
+
+struct SelectableQuotaWidgetTimeline: AppIntentTimelineProvider {
+    func placeholder(in context: Context) -> QuotaWidgetEntry {
+        QuotaWidgetTimelineContent().placeholder(in: context)
+    }
+
+    func snapshot(for configuration: QuotaWidgetConfiguration, in context: Context) async -> QuotaWidgetEntry {
+        let content = QuotaWidgetTimelineContent()
+        let snapshot = content.read()
+        if context.isPreview && snapshot.rows.isEmpty && configuration.selectionID == nil {
+            return content.placeholder(in: context)
+        }
+        return .init(date: Date(), snapshot: snapshot, selectionID: configuration.selectionID)
+    }
+
+    func timeline(for configuration: QuotaWidgetConfiguration, in context: Context) async -> Timeline<QuotaWidgetEntry>
+    {
+        QuotaWidgetTimelineContent().makeTimeline(
+            kind: WidgetSharedStore.selectableKind, selectionID: configuration.selectionID, in: context)
+    }
+}
+
+private struct QuotaWidgetTimelineContent {
+    private let logger = Logger(subsystem: "com.willhsu.QuotAI", category: "WidgetTimeline")
+    func placeholder(in context: TimelineProviderContext) -> QuotaWidgetEntry {
         let now = Date()
         return .init(
             date: now,
@@ -27,34 +67,23 @@ struct QuotaWidgetTimeline: AppIntentTimelineProvider, TimelineProvider {
                 ]))
     }
 
-    func snapshot(for configuration: QuotaWidgetConfiguration, in context: Context) async -> QuotaWidgetEntry {
-        let snapshot = read()
-        if context.isPreview && snapshot.rows.isEmpty && configuration.selectionID == nil {
-            return placeholder(in: context)
-        }
-        return .init(date: Date(), snapshot: snapshot, selectionID: configuration.selectionID)
-    }
-
-    func timeline(for configuration: QuotaWidgetConfiguration, in context: Context) async -> Timeline<QuotaWidgetEntry>
-    {
-        makeTimeline(selectionID: configuration.selectionID, in: context)
-    }
-
-    func getSnapshot(in context: Context, completion: @escaping @Sendable (QuotaWidgetEntry) -> Void) {
-        completion(context.isPreview ? placeholder(in: context) : .init(date: Date(), snapshot: read()))
-    }
-
-    func getTimeline(in context: Context, completion: @escaping @Sendable (Timeline<QuotaWidgetEntry>) -> Void) {
-        completion(makeTimeline(selectionID: nil, in: context))
-    }
-
-    private func makeTimeline(selectionID: String?, in context: Context) -> Timeline<QuotaWidgetEntry> {
+    func makeTimeline(
+        kind: String, selectionID: String?, in context: TimelineProviderContext
+    ) -> Timeline<QuotaWidgetEntry> {
         let now = Date()
         let snapshot = read()
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
         logger.info(
-            "Providing widget timeline; build=\(build, privacy: .public), rows=\(snapshot.rows.count, privacy: .public)"
+            "Providing widget timeline; build=\(build, privacy: .public), kind=\(kind, privacy: .public), rows=\(snapshot.rows.count, privacy: .public)"
         )
+        if !context.isPreview, let url = WidgetSharedStore.snapshotURL() {
+            do {
+                try WidgetSharedStore.recordTimelineResponse(kind: kind, build: build, at: url)
+            } catch {
+                logger.error(
+                    "Widget response metadata could not be written; code=\((error as NSError).code, privacy: .public)")
+            }
+        }
         let displayed = snapshot.quotas(selectionID: selectionID)
             .prefix(context.family == .systemSmall ? 1 : 3)
             .flatMap { [$0.fiveHour, $0.sevenDay].compactMap { $0 } }
@@ -67,7 +96,7 @@ struct QuotaWidgetTimeline: AppIntentTimelineProvider, TimelineProvider {
             policy: .after(now.addingTimeInterval(900)))
     }
 
-    private func read() -> SharedWidgetSnapshot {
+    func read() -> SharedWidgetSnapshot {
         do {
             guard let url = WidgetSharedStore.snapshotURL() else {
                 logger.error("Widget shared container is unavailable")
@@ -121,7 +150,7 @@ struct QuotAISelectableQuotaWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(
             kind: WidgetSharedStore.selectableKind, intent: QuotaWidgetConfiguration.self,
-            provider: QuotaWidgetTimeline()
+            provider: SelectableQuotaWidgetTimeline()
         ) { entry in
             QuotaWidgetView(entry: entry)
         }

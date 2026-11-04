@@ -9,6 +9,25 @@ struct WidgetRecoveryPolicy: Sendable {
     let team: String
     let userID: UInt32
 
+    static func responsesConfirmRecovery(
+        before: Set<String>?, after: Set<String>?, responses: Set<String>
+    ) -> Bool {
+        let expected = (before ?? []).union(after ?? [])
+        if expected.isEmpty { return before != nil && after != nil }
+        return expected.isSubset(of: responses)
+    }
+
+    /// Kernel-validated identity survives deletion of the old app by Sparkle.
+    /// Local/ad-hoc signatures and unknown validation categories fail closed.
+    func allowsKernelIdentity(
+        identifier: String?, team: String?, userID: UInt32, flags: UInt32, category: UInt32
+    ) -> Bool {
+        !self.team.isEmpty && self.identifier == containerIdentifier + ".QuotaWidget"
+            && identifier == self.identifier && team == self.team && userID == self.userID
+            && flags & 0x2000_0001 == 0x2000_0001 && flags & 0x2 == 0
+            && [2, 3, 4, 6].contains(category)
+    }
+
     func allows(
         executablePath: String, containerIdentifier: String?, identifier: String?, team: String?, userID: UInt32
     ) -> Bool {

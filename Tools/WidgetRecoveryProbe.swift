@@ -3,17 +3,27 @@ import Foundation
 @main
 struct WidgetRecoveryProbe {
     @MainActor static func main() async throws {
-        let subprocessesPassed = try await ProcessIO.run(on: DispatchQueue(label: "QuotAI.widget-registration-probe")) {
-            let success = WidgetExtensionRecovery.runRegistrationProcess(
-                URL(fileURLWithPath: "/usr/bin/true"), arguments: [])
-            let failure = WidgetExtensionRecovery.runRegistrationProcess(
-                URL(fileURLWithPath: "/usr/bin/false"), arguments: [])
-            let start = ContinuousClock.now
-            let timeout = WidgetExtensionRecovery.runRegistrationProcess(
-                URL(fileURLWithPath: "/bin/sleep"), arguments: ["2"], timeout: 0.05)
-            return success && !failure && !timeout && start.duration(to: .now) < .seconds(1)
+        let arguments = CommandLine.arguments
+        if arguments.count == 6, arguments[1] == "--owns-process",
+            let pid = Int32(arguments[2]), let user = UInt32(arguments[5])
+        {
+            let policy = WidgetRecoveryPolicy(
+                executablePath: "", containerIdentifier: arguments[4],
+                identifier: arguments[4] + ".QuotaWidget", team: arguments[3], userID: user)
+            print(WidgetExtensionRecovery.isOwnedExtension(pid: pid, policy: policy) ? "owned" : "rejected")
+            return
         }
-        guard subprocessesPassed else { fatalError("Widget registration subprocess handling failed") }
+        let start = ContinuousClock.now
+        let missingCallback = await WidgetConfigurationQuery.value(timeout: 0.05, request: { _ in })
+        guard missingCallback == nil, start.duration(to: .now) < .seconds(1) else {
+            fatalError("A missing WidgetKit callback blocked recovery")
+        }
+        let singleReply = await WidgetConfigurationQuery.value(timeout: 0.05) { completion in
+            completion([WidgetSharedStore.kind])
+            DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) { completion(nil) }
+        }
+        guard singleReply == [WidgetSharedStore.kind] else { fatalError("Widget configuration callback was lost") }
+        try await Task.sleep(for: .milliseconds(150))
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
