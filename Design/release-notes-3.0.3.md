@@ -7,4 +7,4 @@
 - 修复升级时旧扩展把旧组件清单缓存到新版本的问题：先等待经签名核验的旧扩展退出，再刷新本应用的注册以使系统丢弃旧组件清单；仅针对当前应用路径，不重建系统数据库、不重启系统服务、不清除小组件容器或用户配置。注册工具有超时和失败恢复。
 - 共享关闭或模型暂时缺失时保留组件配置并提示不可用，不回退到其他额度；旧快照兼容读取。
 
-验证：166 项 Swift 测试通过；独立探针验证写入恢复、关闭共享、模型组发现、选择与恢复；浅色/深色、总览、Claude 单来源及额度缺失的离线原生渲染已检查。签名包与本机安装状态见 `build/qa/widget-configuration/verification.json`。“可选额度”的实际切换和彩色图标已由用户确认；覆盖更新时还需核对组件清单与已选配置的保留。当前版本尚未发布到 GitHub Releases。
+验证：166 项 Swift 测试、严格格式检查、Debug 构建、界面渲染、隔离探针与 Universal 打包均通过[完整 CI](https://github.com/williamhsu218/QuotAI/actions/runs/41757637528)。彩色图标、组件库添加与额度切换已由用户实际确认；本机修复后系统丢弃旧清单并重新读取两个组件，组件数量 1→1，已选额度配置保留。公开下载包的 SHA-256、Ed25519 签名及应用文件与本机安装一致。已发布至 [GitHub Releases](https://github.com/williamhsu218/QuotAI/releases/tag/v3.0.3)。本机详细验收记录位于 `build/qa/widget-configuration-followup/verification.json` 与 `build/qa/release-3.0.3/`。
