@@ -1,12 +1,16 @@
 import AppKit
 import SwiftUI
+import WidgetKit
 
 struct WidgetQuotaContent: View {
     let snapshot: SharedWidgetSnapshot
     let date: Date
     let compact: Bool
+    var selectionID: String? = nil
 
-    private var providers: [WidgetProviderQuota] { Array(snapshot.providerQuotas.prefix(compact ? 1 : 3)) }
+    private var providers: [WidgetProviderQuota] {
+        Array(snapshot.quotas(selectionID: selectionID).prefix(compact ? 1 : 3))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -19,8 +23,14 @@ struct WidgetQuotaContent: View {
             }
             if providers.isEmpty {
                 Spacer()
-                Text(L10n.text("widget.empty", fallback: "Open QuotAI and enable widget sharing."))
-                    .font(.caption).foregroundStyle(.secondary)
+                Text(
+                    selectionID == nil
+                        ? L10n.text("widget.empty", fallback: "Open QuotAI and enable widget sharing.")
+                        : L10n.text(
+                            "widget.selection_unavailable",
+                            fallback: "Selected quota unavailable. Refresh QuotAI or edit this widget.")
+                )
+                .font(.caption).foregroundStyle(.secondary)
                 Spacer()
             } else {
                 GeometryReader { geometry in
@@ -85,9 +95,15 @@ private struct WidgetProviderRings: View {
 
     @ViewBuilder
     private var logo: some View {
-        if let image = WidgetProviderMarks.image(for: provider.id) {
-            Image(nsImage: image).renderingMode(provider.id == "antigravity" ? .original : .template)
-                .resizable().interpolation(.high).scaledToFit().foregroundStyle(.primary)
+        if let image = WidgetProviderMarks.image(for: provider.providerID) {
+            let mark = Image(nsImage: image).renderingMode(provider.providerID == "codex" ? .template : .original)
+                .resizable().interpolation(.high)
+            if #available(macOS 15.0, *) {
+                mark.widgetAccentedRenderingMode(provider.providerID == "codex" ? nil : .fullColor)
+                    .scaledToFit().foregroundStyle(.primary)
+            } else {
+                mark.scaledToFit().foregroundStyle(.primary)
+            }
         } else {
             Image(systemName: "sparkles").resizable().scaledToFit().foregroundStyle(.primary)
         }

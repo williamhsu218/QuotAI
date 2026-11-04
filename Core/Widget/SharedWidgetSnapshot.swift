@@ -9,6 +9,8 @@ struct WidgetQuotaRow: Codable, Equatable, Sendable, Identifiable {
     let resetsAt: Date?
     let fetchedAt: Date
     let historical: Bool
+    var groupID: String? = nil
+    var isPrimary: Bool? = nil
 
     func displayable(at now: Date) -> Bool {
         (0...100).contains(remainingPercent) && fetchedAt <= now.addingTimeInterval(60)
@@ -28,6 +30,8 @@ struct SharedWidgetSnapshot: Codable, Equatable, Sendable {
 
 enum WidgetSharedStore {
     static let kind = "QuotAIQuotaWidget"
+    static let selectableKind = "QuotAISelectableQuotaWidget"
+    static let kinds = [kind, selectableKind]
 
     static func snapshotURL(in bundle: Bundle = .main) -> URL? {
         guard let group = bundle.object(forInfoDictionaryKey: "QuotAIAppGroup") as? String,
@@ -57,8 +61,9 @@ enum WidgetSharedStore {
 }
 
 /// Group only each provider's own windows, preserving the user's preferred order.
-struct WidgetProviderQuota: Identifiable, Equatable {
+struct WidgetProviderQuota: Identifiable, Equatable, Sendable {
     let id: String
+    let providerID: String
     let name: String
     let detail: String?
     let fiveHour: WidgetQuotaRow?
@@ -67,17 +72,30 @@ struct WidgetProviderQuota: Identifiable, Equatable {
 
 extension SharedWidgetSnapshot {
     var providerQuotas: [WidgetProviderQuota] {
+        groupedQuotas(rows.filter { $0.isPrimary != false })
+    }
+
+    /// All groups are selectable independently of the menu bar's current group.
+    var quotaChoices: [WidgetProviderQuota] { groupedQuotas(rows) }
+
+    func quotas(selectionID: String?) -> [WidgetProviderQuota] {
+        guard let selectionID else { return providerQuotas }
+        return quotaChoices.filter { $0.id == selectionID }
+    }
+
+    private func groupedQuotas(_ rows: [WidgetQuotaRow]) -> [WidgetProviderQuota] {
         var order: [String] = []
         var groups: [String: [WidgetQuotaRow]] = [:]
         for row in rows where row.window == "5h" || row.window == "7d" {
-            if groups[row.providerID] == nil { order.append(row.providerID) }
-            groups[row.providerID, default: []].append(row)
+            let id = row.groupID.map { "\(row.providerID)/\($0)" } ?? row.providerID
+            if groups[id] == nil { order.append(id) }
+            groups[id, default: []].append(row)
         }
         return order.compactMap { id in
             guard let values = groups[id], let first = values.first else { return nil }
             let parts = first.title.components(separatedBy: " · ")
             return WidgetProviderQuota(
-                id: id, name: parts[0],
+                id: id, providerID: first.providerID, name: parts[0],
                 detail: parts.count > 1 ? parts.dropFirst().joined(separator: " · ") : nil,
                 fiveHour: values.first { $0.window == "5h" }, sevenDay: values.first { $0.window == "7d" })
         }

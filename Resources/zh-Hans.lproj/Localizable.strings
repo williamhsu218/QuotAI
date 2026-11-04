@@ -308,11 +308,11 @@
 "updates.automatic_checks" = "自动检查更新";
 "updates.automatic_installation" = "自动下载并安装更新";
 "updates.privacy" = "检查更新会连接 GitHub，不会附带额度数据或账号信息。";
-"widget.detail" = "外环显示 7d，内环显示 5h。小号跟随菜单栏来源，中号显示三个来源；虚线环表示暂无有效数据。";
+"widget.detail" = "外环显示 7d，内环显示 5h。在组件库添加“QuotAI · 可选额度”，再右键它 → 编辑小组件 → 额度，可选择来源或模型组。已有“自动总览”组件继续跟随应用。";
 "widget.empty" = "打开 QuotAI，并开启小组件共享。";
 "widget.enable" = "向桌面小组件共享额度";
 "widget.expired" = "已到重置时间，请刷新 QuotAI";
-"widget.gallery_detail" = "显示 QuotAI 上次查询的额度，打开应用可刷新。";
+"widget.gallery_detail" = "在“编辑小组件”中选择额度，或自动跟随 QuotAI。打开应用可刷新。";
 "widget.gallery_title" = "QuotAI 额度";
 "widget.requires_signing" = "小组件需要签名安装版本，当前构建无法共享小组件数据。";
 "widget.title" = "桌面小组件";
@@ -328,3 +328,12 @@
 "widget.repair" = "修复小组件";
 "widget.reload_requested" = "已请求 macOS 重新载入小组件，保留现有桌面组件。";
 "widget.repair_failed" = "未能更新小组件注册，请再次尝试修复。";
+"widget.configuration_title" = "选择额度";
+"widget.configuration_detail" = "为此小组件选择额度，或自动跟随应用。";
+"widget.selection" = "额度";
+"widget.automatic" = "自动总览";
+"widget.unavailable_quota" = "额度暂不可用";
+"widget.selection_unavailable" = "所选额度暂不可用，请刷新 QuotAI 或编辑小组件。";
+"widget.selectable_title" = "QuotAI · 可选额度";
+"widget.automatic_title" = "QuotAI · 自动总览";
+"widget.automatic_detail" = "跟随应用选择。需要独立选择额度时，请添加“可选额度”组件。";

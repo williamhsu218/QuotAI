@@ -3,6 +3,17 @@ import Foundation
 @main
 struct WidgetRecoveryProbe {
     @MainActor static func main() async throws {
+        let subprocessesPassed = try await ProcessIO.run(on: DispatchQueue(label: "QuotAI.widget-registration-probe")) {
+            let success = WidgetExtensionRecovery.runRegistrationProcess(
+                URL(fileURLWithPath: "/usr/bin/true"), arguments: [])
+            let failure = WidgetExtensionRecovery.runRegistrationProcess(
+                URL(fileURLWithPath: "/usr/bin/false"), arguments: [])
+            let start = ContinuousClock.now
+            let timeout = WidgetExtensionRecovery.runRegistrationProcess(
+                URL(fileURLWithPath: "/bin/sleep"), arguments: ["2"], timeout: 0.05)
+            return success && !failure && !timeout && start.duration(to: .now) < .seconds(1)
+        }
+        guard subprocessesPassed else { fatalError("Widget registration subprocess handling failed") }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -36,7 +47,47 @@ struct WidgetRecoveryProbe {
         guard !FileManager.default.fileExists(atPath: unusedURL.path) else {
             fatalError("Sharing was enabled implicitly")
         }
-        print("Widget recovery probe passed: identical-data retry, opt-out clearing, no implicit sharing")
+        let antigravity = ProviderQuotaSnapshot(
+            provider: .antigravity, providerName: "Antigravity", fetchedAt: now,
+            groups: [
+                .init(
+                    id: "gemini", name: "Gemini", quotas: [.init(kind: .sevenDay, remainingPercent: 75, resetsAt: nil)]),
+                .init(id: "argon", name: "Argon", quotas: [.init(kind: .sevenDay, remainingPercent: 25, resetsAt: nil)])
+            ])
+        controller.update(snapshots: [sample, antigravity], preferred: .codex, groupID: "argon", enabled: true)
+        try await wait { (try? WidgetSharedStore.read(from: url).quotaChoices.count) == 3 }
+        let shared = try WidgetSharedStore.read(from: url)
+        guard shared.providerQuotas.map(\.id) == ["codex/default", "antigravity/argon"] else {
+            fatalError("Automatic overview lost the preferred group")
+        }
+        let query = WidgetQuotaQuery(snapshotURL: url)
+        let entities = try await query.suggestedEntities()
+        guard
+            entities.map(\.id) == [
+                WidgetQuotaEntity.automaticID, "codex/default", "antigravity/argon", "antigravity/gemini"
+            ]
+        else {
+            fatalError("Widget editor did not discover every quota")
+        }
+        let configuration = QuotaWidgetConfiguration()
+        configuration.quota = entities.last
+        guard configuration.selectionID == "antigravity/gemini",
+            shared.quotas(selectionID: configuration.selectionID).first?.sevenDay?.remainingPercent == 75
+        else {
+            fatalError("Widget selected another group's quota")
+        }
+        controller.update(snapshots: [], preferred: .codex, groupID: nil, enabled: false)
+        try await wait { (try? WidgetSharedStore.read(from: url).rows.isEmpty) == true }
+        let restored = try await query.entities(for: ["antigravity/gemini"])
+        guard restored.first?.id == "antigravity/gemini",
+            try await query.suggestedEntities().map(\.id) == [WidgetQuotaEntity.automaticID],
+            await query.defaultResult()?.id == WidgetQuotaEntity.automaticID
+        else {
+            fatalError("Empty shared data changed a saved choice or exposed stale choices")
+        }
+        print(
+            "Widget probe passed: write recovery, opt-out, all model groups, intent discovery, selection and restoration"
+        )
     }
 
     @MainActor private static func wait(_ condition: () -> Bool) async throws {

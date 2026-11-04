@@ -38,9 +38,8 @@ final class QuotaWidgetController {
         recoveryFailed = false
         let bundleURL = Bundle.main.bundleURL
         recoveryTask = Task { [weak self] in
-            let result = await Task.detached(priority: .utility) {
-                WidgetExtensionRecovery.perform(bundleURL: bundleURL)
-            }.value
+            let before = await Self.configurationCount()
+            let result = await WidgetExtensionRecovery.perform(bundleURL: bundleURL)
             guard let self, !Task.isCancelled else { return }
             self.recoveryFailed = !result.registered
             if result.registered, let installation {
@@ -55,11 +54,15 @@ final class QuotaWidgetController {
                     do { try await Task.sleep(for: .seconds(delay)) } catch { break }
                 }
                 guard !Task.isCancelled else { break }
-                WidgetCenter.shared.reloadTimelines(ofKind: WidgetSharedStore.kind)
+                self.reloadTimelines()
                 self.logger.info(
                     "Requested post-upgrade widget timeline; recycled=\(result.recycledProcesses, privacy: .public)")
                 self.reloadRequested = true
             }
+            let after = await Self.configurationCount()
+            self.logger.info(
+                "Widget configurations after repair; before=\(before ?? -1, privacy: .public), after=\(after ?? -1, privacy: .public)"
+            )
             self.isRecovering = false
             self.recoveryTask = nil
         }
@@ -77,16 +80,18 @@ final class QuotaWidgetController {
         let rows =
             enabled
             ? sorted.flatMap { snapshot -> [WidgetQuotaRow] in
-                guard let group = snapshot.group(id: snapshot.provider == .antigravity ? groupID : nil) else {
-                    return []
-                }
-                return group.quotas.map {
-                    WidgetQuotaRow(
-                        id: "\(snapshot.provider.rawValue)/\(group.id)/\($0.kind.rawValue)",
-                        providerID: snapshot.provider.rawValue,
-                        title: [snapshot.providerName, group.name].filter { !$0.isEmpty }.joined(separator: " · "),
-                        window: $0.kind.shortLabel, remainingPercent: $0.remainingPercent,
-                        resetsAt: $0.resetsAt, fetchedAt: snapshot.fetchedAt, historical: snapshot.isHistorical)
+                let primary = snapshot.group(id: snapshot.provider == .antigravity ? groupID : nil)?.id
+                let groups = snapshot.groups.sorted { ($0.id == primary ? 0 : 1) < ($1.id == primary ? 0 : 1) }
+                return groups.flatMap { group in
+                    group.quotas.map {
+                        WidgetQuotaRow(
+                            id: "\(snapshot.provider.rawValue)/\(group.id)/\($0.kind.rawValue)",
+                            providerID: snapshot.provider.rawValue,
+                            title: [snapshot.providerName, group.name].filter { !$0.isEmpty }.joined(separator: " · "),
+                            window: $0.kind.shortLabel, remainingPercent: $0.remainingPercent,
+                            resetsAt: $0.resetsAt, fetchedAt: snapshot.fetchedAt, historical: snapshot.isHistorical,
+                            groupID: group.id, isPrimary: group.id == primary)
+                    }
                 }
             } : []
         guard requestedRows != rows || writeFailed else { return }
@@ -112,10 +117,22 @@ final class QuotaWidgetController {
                 }.value
                 guard current == self.revision else { return }
                 self.writeFailed = false
-                WidgetCenter.shared.reloadTimelines(ofKind: WidgetSharedStore.kind)
+                self.reloadTimelines()
             } catch {
                 guard current == self.revision else { return }
                 self.writeFailed = true
+            }
+        }
+    }
+
+    private func reloadTimelines() {
+        for kind in WidgetSharedStore.kinds { WidgetCenter.shared.reloadTimelines(ofKind: kind) }
+    }
+
+    private static func configurationCount() async -> Int? {
+        await withCheckedContinuation { continuation in
+            WidgetCenter.shared.getCurrentConfigurations { result in
+                continuation.resume(returning: try? result.get().count)
             }
         }
     }

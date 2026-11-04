@@ -81,7 +81,10 @@ for name, kind, identifier in [("QuotAIWidget.swift", "sourcecode.swift", widget
     append_list(widget_group, "children", identifier)
 
 widget_sources = []
-for label, file_id in [("main", widget_source), ("content", source_id("App/Views/WidgetQuotaContent.swift")), ("snapshot", source_id("Core/Widget/SharedWidgetSnapshot.swift")), ("storage", source_id("Core/Features/PrivateJSONFile.swift")), ("localization", "900000000000000000000017")]:
+intent_source = uid("widget-configuration-file")
+insert("PBXFileReference", intent_source, 'isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "QuotaWidgetConfiguration.swift"; sourceTree = "<group>"; ')
+append_list(widget_group, "children", intent_source)
+for label, file_id in [("main", widget_source), ("configuration", intent_source), ("content", source_id("App/Views/WidgetQuotaContent.swift")), ("snapshot", source_id("Core/Widget/SharedWidgetSnapshot.swift")), ("storage", source_id("Core/Features/PrivateJSONFile.swift")), ("localization", "900000000000000000000017")]:
     build_id = uid("widget-build-" + label)
     insert("PBXBuildFile", build_id, f"isa = PBXBuildFile; fileRef = {file_id}; ")
     widget_sources.append(build_id)
@@ -113,9 +116,9 @@ for configuration in ["Debug", "Release"]:
     configurations.append(identifier)
     settings = {
         "APPLICATION_EXTENSION_API_ONLY": "YES", "CODE_SIGN_STYLE": "Automatic",
-        "CODE_SIGN_ENTITLEMENTS": "Widgets/QuotAIWidget.entitlements", "CURRENT_PROJECT_VERSION": "56",
+        "CODE_SIGN_ENTITLEMENTS": "Widgets/QuotAIWidget.entitlements", "CURRENT_PROJECT_VERSION": "60",
         "ENABLE_APP_SANDBOX": "YES", "ENABLE_HARDENED_RUNTIME": "YES", "GENERATE_INFOPLIST_FILE": "NO",
-        "INFOPLIST_FILE": "Widgets/Info.plist", "MACOSX_DEPLOYMENT_TARGET": "14.0", "MARKETING_VERSION": "3.0.2",
+        "INFOPLIST_FILE": "Widgets/Info.plist", "MACOSX_DEPLOYMENT_TARGET": "14.0", "MARKETING_VERSION": "3.0.3",
         "PRODUCT_BUNDLE_IDENTIFIER": "$(QUOTAI_APP_BUNDLE_ID).QuotaWidget", "PRODUCT_NAME": "QuotAIWidget", "SKIP_INSTALL": "YES",
         "SWIFT_STRICT_CONCURRENCY": "complete", "SWIFT_VERSION": "6.0", "QUOTAI_APP_BUNDLE_ID": "com.willhsu.QuotAI",
         "QUOTAI_APP_GROUP": "$(DEVELOPMENT_TEAM).com.willhsu.QuotAI", "QUOTAI_URL_SCHEME": "quotai", "QUOTAI_DISPLAY_NAME": "QuotAI",
