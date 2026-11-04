@@ -38,9 +38,8 @@ final class QuotaWidgetController {
         recoveryFailed = false
         let bundleURL = Bundle.main.bundleURL
         recoveryTask = Task { [weak self] in
-            let result = await Task.detached(priority: .utility) {
-                WidgetExtensionRecovery.perform(bundleURL: bundleURL)
-            }.value
+            let before = await Self.configurationCount()
+            let result = await WidgetExtensionRecovery.perform(bundleURL: bundleURL)
             guard let self, !Task.isCancelled else { return }
             self.recoveryFailed = !result.registered
             if result.registered, let installation {
@@ -60,6 +59,10 @@ final class QuotaWidgetController {
                     "Requested post-upgrade widget timeline; recycled=\(result.recycledProcesses, privacy: .public)")
                 self.reloadRequested = true
             }
+            let after = await Self.configurationCount()
+            self.logger.info(
+                "Widget configurations after repair; before=\(before ?? -1, privacy: .public), after=\(after ?? -1, privacy: .public)"
+            )
             self.isRecovering = false
             self.recoveryTask = nil
         }
@@ -124,5 +127,13 @@ final class QuotaWidgetController {
 
     private func reloadTimelines() {
         for kind in WidgetSharedStore.kinds { WidgetCenter.shared.reloadTimelines(ofKind: kind) }
+    }
+
+    private static func configurationCount() async -> Int? {
+        await withCheckedContinuation { continuation in
+            WidgetCenter.shared.getCurrentConfigurations { result in
+                continuation.resume(returning: try? result.get().count)
+            }
+        }
     }
 }

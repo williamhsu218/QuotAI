@@ -3,6 +3,17 @@ import Foundation
 @main
 struct WidgetRecoveryProbe {
     @MainActor static func main() async throws {
+        let subprocessesPassed = try await ProcessIO.run(on: DispatchQueue(label: "QuotAI.widget-registration-probe")) {
+            let success = WidgetExtensionRecovery.runRegistrationProcess(
+                URL(fileURLWithPath: "/usr/bin/true"), arguments: [])
+            let failure = WidgetExtensionRecovery.runRegistrationProcess(
+                URL(fileURLWithPath: "/usr/bin/false"), arguments: [])
+            let start = ContinuousClock.now
+            let timeout = WidgetExtensionRecovery.runRegistrationProcess(
+                URL(fileURLWithPath: "/bin/sleep"), arguments: ["2"], timeout: 0.05)
+            return success && !failure && !timeout && start.duration(to: .now) < .seconds(1)
+        }
+        guard subprocessesPassed else { fatalError("Widget registration subprocess handling failed") }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
