@@ -49,6 +49,7 @@ package_release() {
     -derivedDataPath "$release_derived_data" \
     ARCHS="arm64 x86_64" \
     ONLY_ACTIVE_ARCH=NO \
+    CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
     "${signing_settings[@]}" \
     build
 

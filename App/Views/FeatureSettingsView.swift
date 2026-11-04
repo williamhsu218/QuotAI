@@ -98,15 +98,19 @@ struct FeatureSettingsView: View {
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Button(L10n.text("widget.repair", fallback: "Repair Widget")) { model.widget.repair() }
-                        .disabled(model.previewMode || !model.widget.isAvailable || model.widget.isRecovering)
+                        .disabled(model.previewMode || model.widget.isRecovering)
                     if model.widget.isRecovering { ProgressView().controlSize(.small) }
                     if model.widget.reloadRequested {
                         Text(L10n.text("widget.reload_requested", fallback: "macOS was asked to reload the widget."))
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     if model.widget.recoveryFailed {
-                        Text(L10n.text("widget.repair_failed", fallback: "Widget registration could not be updated."))
-                            .font(.caption).foregroundStyle(.secondary)
+                        Text(
+                            L10n.text(
+                                "widget.repair_failed",
+                                fallback: "Widget recovery could not be confirmed. Try Repair Widget again.")
+                        )
+                        .font(.caption).foregroundStyle(.secondary)
                     }
                 }
                 SettingsSection(title: L10n.text("history.title", fallback: "Quota History")) {
