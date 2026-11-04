@@ -88,15 +88,18 @@ enum WidgetExtensionRecovery {
             logger.error("Previous widget extension has not exited; registration refresh deferred")
             return Result(registered: false, recycledProcesses: count)
         }
-        let status = LSRegisterURL(bundleURL as CFURL, true)
-        logger.info("Updated own app registration after extension exit; status=\(status, privacy: .public)")
-        guard status == noErr else { return Result(registered: false, recycledProcesses: count) }
-
-        // Only cycle this verified extension, never unregister the containing
-        // app. Keep a gap so removal/addition don't coalesce into an update
-        // retaining the stale descriptor list. User elections are unchanged.
-        let removed = pluginRegistration("-r", at: extensionURL)
+        // PlugInKit refreshes alone leave Launch Services' descriptor cache
+        // intact. Cycle only this containing app's registration, preserving
+        // its bundle/kind identifiers and all data/configuration files.
+        let removed = runRegistrationProcess(
+            URL(
+                fileURLWithPath:
+                    "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+            ),
+            arguments: ["-u", bundleURL.path])
         Thread.sleep(forTimeInterval: 1)
+        let status = LSRegisterURL(bundleURL as CFURL, true)
+        logger.info("Restored own app registration after extension exit; status=\(status, privacy: .public)")
         var added = pluginRegistration("-a", at: extensionURL)
         if !added {
             Thread.sleep(forTimeInterval: 0.25)
@@ -105,7 +108,7 @@ enum WidgetExtensionRecovery {
         logger.info(
             "Refreshed verified widget registration; removed=\(removed, privacy: .public), added=\(added, privacy: .public)"
         )
-        return Result(registered: removed && added, recycledProcesses: count)
+        return Result(registered: removed && status == noErr && added, recycledProcesses: count)
     }
 
     private static func pluginRegistration(_ operation: String, at url: URL) -> Bool {
