@@ -81,9 +81,12 @@ struct RenderDesignPreview {
             let displayRows =
                 CommandLine.arguments.contains("--widget-weekly") ? rows.filter { $0.window == "7d" } : rows
             let size = CGSize(width: medium ? 344 : 164, height: 164)
+            let selectionID = CommandLine.arguments.first { $0.hasPrefix("--widget-selection=") }
+                .map { String($0.dropFirst("--widget-selection=".count)) }
             try write(
                 WidgetQuotaContent(
-                    snapshot: .init(version: 1, generatedAt: now, rows: displayRows), date: now, compact: !medium
+                    snapshot: .init(version: 1, generatedAt: now, rows: displayRows), date: now, compact: !medium,
+                    selectionID: selectionID
                 )
                 .padding(14).frame(width: size.width, height: size.height)
                 .background(Color(nsColor: .windowBackgroundColor))

@@ -308,11 +308,11 @@
 "updates.automatic_checks" = "Check for updates automatically";
 "updates.automatic_installation" = "Download and install updates automatically";
 "updates.privacy" = "Update checks contact GitHub. Quota data and account details are never included.";
-"widget.detail" = "7d is the outer ring; 5h is the inner ring. Small follows the menu bar source; medium shows three providers. Dashed rings mean unavailable data.";
+"widget.detail" = "7d is the outer ring; 5h is the inner ring. Right-click the widget and choose Edit Widget to select a quota, including Antigravity model groups. Automatic overview follows the app. Dashed rings mean unavailable data.";
 "widget.empty" = "Open QuotAI and enable widget sharing.";
 "widget.enable" = "Share quota with the desktop widget";
 "widget.expired" = "Reset time passed; refresh QuotAI";
-"widget.gallery_detail" = "Last queried quotas from QuotAI. Open the app to refresh.";
+"widget.gallery_detail" = "Choose a quota in Edit Widget, or follow QuotAI automatically. Open the app to refresh.";
 "widget.gallery_title" = "QuotAI Quota";
 "widget.requires_signing" = "Widgets require a signed installation. The current build cannot share widget data.";
 "widget.title" = "Desktop Widget";
@@ -328,3 +328,9 @@
 "widget.repair" = "Repair Widget";
 "widget.reload_requested" = "Requested a widget reload from macOS. Your existing desktop widget is kept.";
 "widget.repair_failed" = "Widget registration could not be updated. Try Repair Widget again.";
+"widget.configuration_title" = "Choose Quota";
+"widget.configuration_detail" = "Choose a quota for this widget, or follow the app automatically.";
+"widget.selection" = "Quota";
+"widget.automatic" = "Automatic overview";
+"widget.unavailable_quota" = "Unavailable quota";
+"widget.selection_unavailable" = "Selected quota unavailable. Refresh QuotAI or edit this widget.";

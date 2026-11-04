@@ -77,16 +77,18 @@ final class QuotaWidgetController {
         let rows =
             enabled
             ? sorted.flatMap { snapshot -> [WidgetQuotaRow] in
-                guard let group = snapshot.group(id: snapshot.provider == .antigravity ? groupID : nil) else {
-                    return []
-                }
-                return group.quotas.map {
-                    WidgetQuotaRow(
-                        id: "\(snapshot.provider.rawValue)/\(group.id)/\($0.kind.rawValue)",
-                        providerID: snapshot.provider.rawValue,
-                        title: [snapshot.providerName, group.name].filter { !$0.isEmpty }.joined(separator: " · "),
-                        window: $0.kind.shortLabel, remainingPercent: $0.remainingPercent,
-                        resetsAt: $0.resetsAt, fetchedAt: snapshot.fetchedAt, historical: snapshot.isHistorical)
+                let primary = snapshot.group(id: snapshot.provider == .antigravity ? groupID : nil)?.id
+                let groups = snapshot.groups.sorted { ($0.id == primary ? 0 : 1) < ($1.id == primary ? 0 : 1) }
+                return groups.flatMap { group in
+                    group.quotas.map {
+                        WidgetQuotaRow(
+                            id: "\(snapshot.provider.rawValue)/\(group.id)/\($0.kind.rawValue)",
+                            providerID: snapshot.provider.rawValue,
+                            title: [snapshot.providerName, group.name].filter { !$0.isEmpty }.joined(separator: " · "),
+                            window: $0.kind.shortLabel, remainingPercent: $0.remainingPercent,
+                            resetsAt: $0.resetsAt, fetchedAt: snapshot.fetchedAt, historical: snapshot.isHistorical,
+                            groupID: group.id, isPrimary: group.id == primary)
+                    }
                 }
             } : []
         guard requestedRows != rows || writeFailed else { return }
