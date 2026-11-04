@@ -55,7 +55,7 @@ final class QuotaWidgetController {
                     do { try await Task.sleep(for: .seconds(delay)) } catch { break }
                 }
                 guard !Task.isCancelled else { break }
-                WidgetCenter.shared.reloadTimelines(ofKind: WidgetSharedStore.kind)
+                self.reloadTimelines()
                 self.logger.info(
                     "Requested post-upgrade widget timeline; recycled=\(result.recycledProcesses, privacy: .public)")
                 self.reloadRequested = true
@@ -114,11 +114,15 @@ final class QuotaWidgetController {
                 }.value
                 guard current == self.revision else { return }
                 self.writeFailed = false
-                WidgetCenter.shared.reloadTimelines(ofKind: WidgetSharedStore.kind)
+                self.reloadTimelines()
             } catch {
                 guard current == self.revision else { return }
                 self.writeFailed = true
             }
         }
+    }
+
+    private func reloadTimelines() {
+        for kind in WidgetSharedStore.kinds { WidgetCenter.shared.reloadTimelines(ofKind: kind) }
     }
 }

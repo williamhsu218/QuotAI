@@ -9,7 +9,7 @@ struct QuotaWidgetEntry: TimelineEntry {
     var selectionID: String? = nil
 }
 
-struct QuotaWidgetTimeline: AppIntentTimelineProvider {
+struct QuotaWidgetTimeline: AppIntentTimelineProvider, TimelineProvider {
     private let logger = Logger(subsystem: "com.willhsu.QuotAI", category: "WidgetTimeline")
     func placeholder(in context: Context) -> QuotaWidgetEntry {
         let now = Date()
@@ -37,13 +37,25 @@ struct QuotaWidgetTimeline: AppIntentTimelineProvider {
 
     func timeline(for configuration: QuotaWidgetConfiguration, in context: Context) async -> Timeline<QuotaWidgetEntry>
     {
+        makeTimeline(selectionID: configuration.selectionID, in: context)
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping @Sendable (QuotaWidgetEntry) -> Void) {
+        completion(context.isPreview ? placeholder(in: context) : .init(date: Date(), snapshot: read()))
+    }
+
+    func getTimeline(in context: Context, completion: @escaping @Sendable (Timeline<QuotaWidgetEntry>) -> Void) {
+        completion(makeTimeline(selectionID: nil, in: context))
+    }
+
+    private func makeTimeline(selectionID: String?, in context: Context) -> Timeline<QuotaWidgetEntry> {
         let now = Date()
         let snapshot = read()
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
         logger.info(
             "Providing widget timeline; build=\(build, privacy: .public), rows=\(snapshot.rows.count, privacy: .public)"
         )
-        let displayed = snapshot.quotas(selectionID: configuration.selectionID)
+        let displayed = snapshot.quotas(selectionID: selectionID)
             .prefix(context.family == .systemSmall ? 1 : 3)
             .flatMap { [$0.fiveHour, $0.sevenDay].compactMap { $0 } }
         let deadlines = displayed.flatMap { row in
@@ -51,7 +63,7 @@ struct QuotaWidgetTimeline: AppIntentTimelineProvider {
         }.filter { $0 > now && $0 < now.addingTimeInterval(7 * 86_400) }
         let dates = Array(Set([now] + deadlines.map { $0.addingTimeInterval(0.1) })).sorted()
         return Timeline(
-            entries: dates.map { .init(date: $0, snapshot: snapshot, selectionID: configuration.selectionID) },
+            entries: dates.map { .init(date: $0, snapshot: snapshot, selectionID: selectionID) },
             policy: .after(now.addingTimeInterval(900)))
     }
 
@@ -88,14 +100,32 @@ struct QuotaWidgetView: View {
 }
 
 struct QuotAIQuotaWidget: Widget {
+    // Keep the existing kind static: installed widgets have no intent and
+    // cannot be reinterpreted as AppIntentConfiguration (CHSErrorDomain 1103).
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: WidgetSharedStore.kind, provider: QuotaWidgetTimeline()) { entry in
+            QuotaWidgetView(entry: entry)
+        }
+        .configurationDisplayName(Text(L10n.text("widget.automatic_title", fallback: "QuotAI · Automatic Overview")))
+        .description(
+            Text(
+                L10n.text(
+                    "widget.automatic_detail",
+                    fallback: "Follows the app. For independent quota selection, add Choose Quota instead."))
+        )
+        .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
+struct QuotAISelectableQuotaWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(
-            kind: WidgetSharedStore.kind, intent: QuotaWidgetConfiguration.self,
+            kind: WidgetSharedStore.selectableKind, intent: QuotaWidgetConfiguration.self,
             provider: QuotaWidgetTimeline()
         ) { entry in
             QuotaWidgetView(entry: entry)
         }
-        .configurationDisplayName(Text(L10n.text("widget.gallery_title", fallback: "QuotAI Quota")))
+        .configurationDisplayName(Text(L10n.text("widget.selectable_title", fallback: "QuotAI · Choose Quota")))
         .description(
             Text(
                 L10n.text(
@@ -107,5 +137,8 @@ struct QuotAIQuotaWidget: Widget {
 
 @main
 struct QuotAIWidgets: WidgetBundle {
-    var body: some Widget { QuotAIQuotaWidget() }
+    var body: some Widget {
+        QuotAISelectableQuotaWidget()
+        QuotAIQuotaWidget()
+    }
 }

@@ -308,7 +308,7 @@
 "updates.automatic_checks" = "Check for updates automatically";
 "updates.automatic_installation" = "Download and install updates automatically";
 "updates.privacy" = "Update checks contact GitHub. Quota data and account details are never included.";
-"widget.detail" = "7d is the outer ring; 5h is the inner ring. Right-click the widget and choose Edit Widget to select a quota, including Antigravity model groups. Automatic overview follows the app. Dashed rings mean unavailable data.";
+"widget.detail" = "7d is the outer ring; 5h is the inner ring. Add “QuotAI · Choose Quota” from Edit Widgets, then right-click it → Edit Widget → Quota. Existing Automatic Overview widgets keep following the app.";
 "widget.empty" = "Open QuotAI and enable widget sharing.";
 "widget.enable" = "Share quota with the desktop widget";
 "widget.expired" = "Reset time passed; refresh QuotAI";
@@ -334,3 +334,6 @@
 "widget.automatic" = "Automatic overview";
 "widget.unavailable_quota" = "Unavailable quota";
 "widget.selection_unavailable" = "Selected quota unavailable. Refresh QuotAI or edit this widget.";
+"widget.selectable_title" = "QuotAI · Choose Quota";
+"widget.automatic_title" = "QuotAI · Automatic Overview";
+"widget.automatic_detail" = "Follows the app. For independent quota selection, add Choose Quota instead.";

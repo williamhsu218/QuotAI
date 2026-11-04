@@ -308,7 +308,7 @@
 "updates.automatic_checks" = "自动检查更新";
 "updates.automatic_installation" = "自动下载并安装更新";
 "updates.privacy" = "检查更新会连接 GitHub，不会附带额度数据或账号信息。";
-"widget.detail" = "外环显示 7d，内环显示 5h。右键小组件，选择“编辑小组件”可独立选择额度，支持 Antigravity 模型组；自动总览跟随应用选择。虚线环表示暂无有效数据。";
+"widget.detail" = "外环显示 7d，内环显示 5h。在组件库添加“QuotAI · 可选额度”，再右键它 → 编辑小组件 → 额度，可选择来源或模型组。已有“自动总览”组件继续跟随应用。";
 "widget.empty" = "打开 QuotAI，并开启小组件共享。";
 "widget.enable" = "向桌面小组件共享额度";
 "widget.expired" = "已到重置时间，请刷新 QuotAI";
@@ -334,3 +334,6 @@
 "widget.automatic" = "自动总览";
 "widget.unavailable_quota" = "额度暂不可用";
 "widget.selection_unavailable" = "所选额度暂不可用，请刷新 QuotAI 或编辑小组件。";
+"widget.selectable_title" = "QuotAI · 可选额度";
+"widget.automatic_title" = "QuotAI · 自动总览";
+"widget.automatic_detail" = "跟随应用选择。需要独立选择额度时，请添加“可选额度”组件。";

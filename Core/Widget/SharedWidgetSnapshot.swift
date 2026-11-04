@@ -30,6 +30,8 @@ struct SharedWidgetSnapshot: Codable, Equatable, Sendable {
 
 enum WidgetSharedStore {
     static let kind = "QuotAIQuotaWidget"
+    static let selectableKind = "QuotAISelectableQuotaWidget"
+    static let kinds = [kind, selectableKind]
 
     static func snapshotURL(in bundle: Bundle = .main) -> URL? {
         guard let group = bundle.object(forInfoDictionaryKey: "QuotAIAppGroup") as? String,
