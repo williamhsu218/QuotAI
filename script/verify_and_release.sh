@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 # Validate a release candidate. Publishing requires the explicit --publish flag
 # and a clean, already-committed tree; this script never stages user changes.
-# Usage: ./script/verify_and_release.sh 3.0.0 [--check-only|--publish]
+# Usage: ./script/verify_and_release.sh <version> [--check-only|--publish|--finalize]
 set -euo pipefail
 
-VERSION="${1:?usage: $0 <version> [--check-only|--publish]}"
+VERSION="${1:?usage: $0 <version> [--check-only|--publish|--finalize]}"
 ACTION="${2:---check-only}"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Invalid version' >&2; exit 2; }
-[[ "$ACTION" == '--check-only' || "$ACTION" == '--publish' ]] || { echo 'Unknown action' >&2; exit 2; }
+[[ "$ACTION" == '--check-only' || "$ACTION" == '--publish' || "$ACTION" == '--finalize' ]] || { echo 'Unknown action' >&2; exit 2; }
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
+if [[ "$ACTION" == '--finalize' ]]; then
+  exec python3 "$ROOT_DIR/script/finalize_release.py" "$VERSION" --apply
+fi
 mkdir -p build/qa
 LOG="build/qa/release-$VERSION.log"
 exec > >(tee "$LOG") 2>&1
@@ -32,6 +35,9 @@ grep -q "MARKETING_VERSION = $VERSION;" QuotAI.xcodeproj/project.pbxproj \
 [[ -f "Design/release-notes-$VERSION.md" ]] || fail "missing Design/release-notes-$VERSION.md"
 git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null && fail "tag v$VERSION already exists"
 echo "version $VERSION ok"
+
+step "Release cleanup safety tests"
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s Tests/ReleaseTests -p 'test_*.py' -v
 
 step "Core tests (swift test)"
 if ! swift test > build/qa/swift-test.log 2>&1; then
@@ -91,7 +97,11 @@ if command -v gh >/dev/null 2>&1; then
     --title "QuotAI $VERSION" --notes-file "Design/release-notes-$VERSION.md" --latest
   gh release view "v$VERSION" --json url,assets --jq '.url, (.assets[] | .name + " " + (.size|tostring))'
 else
-  echo "gh CLI not found: upload $ZIP_PATH and $SUMS to the v$VERSION release on GitHub manually."
+  fail "gh CLI disappeared before publication; cleanup was not run"
+fi
+step "Verified post-release retention"
+if ! python3 "$ROOT_DIR/script/finalize_release.py" "$VERSION" --apply; then
+  fail "release uploaded; cleanup deferred. Install/accept the published app, then run: $0 $VERSION --finalize"
 fi
 echo "After verifying the uploaded asset, promote $FEED to Updates/appcast.xml through a reviewed commit."
 printf '\nRESULT: RELEASED %s\n' "$VERSION"

@@ -36,6 +36,9 @@ jobs:
           swift format --version
           git ls-files -z '*.swift' | xargs -0 swift format lint --strict --parallel
 
+      - name: Release cleanup safety tests
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s Tests/ReleaseTests -p 'test_*.py' -v
+
       - name: Core tests
         run: swift test
 

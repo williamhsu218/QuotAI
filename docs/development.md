@@ -162,11 +162,34 @@ build/claude-usage-query-probe --live-subscription
 脚本验证 ad-hoc 签名并输出 ZIP 路径与 SHA-256，不执行安装或公开发布。
 同营销版本可以有不同构建号，核对包内 `Info.plist`、可执行文件哈希和架构，不能只看 ZIP 文件名。
 
-`script/verify_and_release.sh <版本> --check-only` 执行测试、Debug 构建、隔离探针和打包检查。
-去掉 `--check-only` 会提交全部工作区改动、打标签、推送并创建 GitHub Release；
-工作区没有未提交改动时（例如改动已通过 PR 合入）跳过提交，直接为当前提交打标签；
-正式发布前需要审查工作区差异、版本说明和发布动作。
+`script/verify_and_release.sh <版本> --check-only` 执行清理安全测试、核心测试、Debug 构建、隔离探针和打包检查，默认不发布、不清理候选产物。
+只有显式 `--publish` 才打标签、推送并创建 GitHub Release，要求意图变更已提交且工作树干净；脚本不会暂存或提交其他工作区修改。
+公开上传成功后自动执行下文的发布收尾。正式发布前仍需审查工作区差异、版本说明和发布动作。
 脚本依赖 `Design/release-notes-<版本>.md`。本地修复、构建或文档整理均不等于发布授权。
+
+### 发布后的自动清理
+
+发布脚本调用 `script/finalize_release.py <版本> --apply`，只有以下检查全部通过后才删除产物：
+
+- 匿名下载本次发布的 ZIP、SHA256SUMS 和 appcast，核对 SHA-256、Ed25519、通用架构、嵌套签名、签名身份与 App Group。
+- `/Applications/QuotAI.app` 的版本、构建号及全部文件必须与该公开包一致。清理程序不会安装、替换或退出正在使用的正式版。
+- 从发布清单中确定上一正式版，而不是选择构建号较大的本地测试版；从其公开签名包逐文件核验回滚。缺少一致副本时，先在 `build/InstallBackups/` 保存并验证一份，再开始清理。
+
+通过后仅保留正式版和这一份回滚，清理项目及其 Git worktree 的重复应用、纯安装 ZIP、旧探针可执行文件、SwiftPM/Xcode 构建缓存。只对已存在的旧应用路径执行注销，不重置系统注册数据库。
+Xcode 的 Build/Test/Launch 日志、`.xcresult`，以及缓存中独立保存的 JSON/报告/截图/输入归档，会先复制到本次 `build/qa/release-<版本>/post-release-cleanup-*/Recovered-Build-Records/` 并核对哈希。
+历史数据、数据库、偏好与配置快照、验收日志、截图、报告、校验文件、数据/源码归档及已安装的 Sparkle 签名工具保留；不按整个 `build/qa/` 或 `build/InstallBackups/` 目录删除。
+发现疑似数据、正在使用的产物、较新的开发构建、符号链接或验证失败时保留对应内容并返回暂缓结果，记录具体原因。每次清理均保存计划、公开包校验和执行回执，重复运行不会改变保留副本。
+
+若上传时新版尚未安装，发布已完成但清理会暂缓。完成本机安装与验收后，用同一入口收尾，不重新构建、打标签或发布：
+
+```bash
+./script/verify_and_release.sh 3.0.5 --finalize
+# 只查看公开包校验与清理计划，不删除内容：
+python3 script/finalize_release.py 3.0.5
+```
+
+逐步手动执行上传和更新源提交时，也必须在本机安装验收后调用 `--finalize`；只有 `CLEANUP_STATUS=complete` 才表示本次发布收尾完成，`deferred` 的产物须保留并按回执原因处理后重试。
+自动收尾核验文件、签名与使用状态；系统“储存空间 → 应用程序”的图形列表仍在本机发布验收时复核。
 
 滑块连续性探针（需要已解锁的 macOS 图形会话；使用独立小窗口，不访问真实偏好或业务数据）：
 
@@ -197,8 +220,9 @@ open "/Applications/QuotAI.app"
 
 - 当前使用方式、开发命令、数据口径、设计规则分别维护在首页和 `docs/`，避免按每次构建新增说明。
 - `Design/` 仅保留有效主稿与当前版本说明；旧 QA、设计过程和已发布版本说明可从 Git 历史追溯。
-- `build/` 是生成物，不提交。过期 DerivedData、下载包、旧截图和旧应用副本可清理；清理前检查进程是否使用它们。
-- 保留当前版本及验收记录、一个明确的应用回滚版本；更新后核对签名、包内容和用户偏好。
+- `build/` 中的可再生构建产物不提交。过期 DerivedData、纯安装包和旧应用副本可清理；清理前检查进程是否使用它们。历次验收截图、日志、报告和数据快照全部保留。
+- 本地应用仅保留 `/Applications/QuotAI.app` 正式版和一个明确的上一版本回滚包；验收完成后删除其他应用副本、重复 ZIP、预览应用及旧构建缓存，包括 `build/Distribution/`、`build/InstallBackups/`、项目内和 `~/Library/Developer/Xcode/DerivedData/` 中的残留。相同版本的重复副本也不额外保留。
+- 清理时逐项注销已删除应用的 Launch Services 记录，核对正式版和回滚版的签名与文件哈希，并检查系统储存空间列表；保留验收记录，正式版运行及用户偏好不受影响。
 - 真实数据库、缓存和偏好快照不是可再生构建缓存。`build/InstallBackups/` 及各验收目录内的此类文件应单独保留，不随旧应用包删除。
 - `.build/` 是 Swift Package 开发缓存，`.git/` 保存项目历史；它们不属于过时文档。
 - 不将凭据、对话或真实数据写入项目文档。需要记录故障时保留脱敏结论和定位方法。
@@ -220,4 +244,4 @@ Sparkle 固定为 2.9.6，并提交 `Package.resolved`。CI 无需发布密钥�
 
 `./script/prepare_update.py <archive.zip>` 验证实际包、匹配内置公钥后，使用官方 Sparkle 工具从 `com.willhsu.QuotAI` 钥匙串条目签名并立即验证，只输出候选 feed，不上传、不导出私钥、不修改 git。默认工具目录为 `build/SparkleSDK/distribution/bin`，可用 `SPARKLE_BIN` 覆盖。只从官方 Sparkle 2.9.6 发行页获取工具。先上传并核验 archive，再通过评审提交将候选 feed 提升到 `Updates/appcast.xml`，防止更新源先于资源生效。
 
-`verify_and_release.sh <version>` 默认仅验证；只有显式 `--publish` 才打 tag、推送并发布。发布要求工作树已干净且意图变更已提交，脚本不会执行 `git add -A` 或代提交其他修改。首次安装仍走现有手动分发流程，2.x 没有 Sparkle；3.0 之后的已签名版本可通过应用内更新。Developer ID/公证与另一台 Mac 的 Gatekeeper 验收需要单独完成。
+`verify_and_release.sh <version>` 默认仅验证；显式 `--publish` 发布后自动尝试收尾，`--finalize` 仅核验已发布版本并清理。发布要求工作树已干净且意图变更已提交，脚本不会执行 `git add -A` 或代提交其他修改。首次安装仍走现有手动分发流程，2.x 没有 Sparkle；3.0 之后的已签名版本可通过应用内更新。Developer ID/公证与另一台 Mac 的 Gatekeeper 验收需要单独完成。
