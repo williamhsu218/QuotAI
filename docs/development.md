@@ -45,6 +45,8 @@ swift test
 ./script/run_probes.sh
 ./script/build_and_run.sh --preview
 ./script/build_and_run.sh --preview settings general light
+./script/build_and_run.sh --preview history general light
+./script/build_and_run.sh --preview history general dark codex dense
 ./script/build_and_run.sh --render-preview en light codex
 ./script/build_and_run.sh --render-preview zh-Hans dark antigravity
 ./script/render_token_themes.sh en
@@ -71,7 +73,7 @@ git ls-files -z '*.swift' | xargs -0 swift format lint --parallel
 Format 工作流（`.github/workflows/format.yml`），它会格式化全部 Swift 源码并把结果提交到该分支，
 提交后仍需像其他改动一样审查。
 
-`--preview` 支持面板与设置窗口；静态渲染结果位于 `build/qa/`，Codex 主题预览位于
+`--preview` 支持面板、设置窗口及隔离的额度趋势窗口；趋势可用 `dense`/`empty` 场景检查 12,000 条记录或空状态，不读取真实历史。静态渲染结果位于 `build/qa/`，Codex 主题预览位于
 `build/TokenThemePreview/`。部分原生控件不能通过 ImageRenderer 完整呈现，
 玻璃材质、菜单和设置窗口需要原生窗口检查，不能用空白或占位图判定通过。
 
@@ -180,7 +182,7 @@ xcrun swiftc -parse-as-library -target arm64-apple-macosx14.0 \
 探针检查呈现图层在连续布局、高度变化和中途反向切换时的运动连续性，以及减少动态效果下即时到位。
 它不代替正式弹窗的交互与观感验收。
 
-当前版本的测试、构建和安装状态以[版本说明](../Design/release-notes-3.0.4.md)为准，
+当前版本的测试、构建和安装状态以[版本说明](../Design/release-notes-3.0.5.md)为准，
 不能沿用旧版本的验收结果。
 
 ad-hoc 签名没有 Apple Developer ID 或公证。可信安装包经浏览器等途径传输后可能带隔离标记。

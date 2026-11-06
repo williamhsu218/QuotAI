@@ -109,9 +109,9 @@ build_preview() {
   local preview_binary="$preview_macos/QuotAIPreview"
 
   case "$preview_mode" in
-    panel|settings) ;;
+    panel|settings|history) ;;
     *)
-      echo "preview mode must be panel or settings" >&2
+      echo "preview mode must be panel, settings or history" >&2
       exit 2
       ;;
   esac
@@ -141,6 +141,11 @@ build_preview() {
   cp "$ROOT_DIR/Design/ClaudeMark-master.png" "$preview_resources/"
   cp "$ROOT_DIR"/Widgets/ProviderAssets/*.png "$preview_resources/"
 
+  local preview_entrypoints=("$ROOT_DIR"/Preview/*.swift)
+  if [[ "$preview_mode" == "history" ]]; then
+    preview_entrypoints=("$ROOT_DIR/Tools/QuotaHistoryPreview.swift")
+  fi
+
   xcrun swiftc \
     -parse-as-library \
     -target arm64-apple-macosx14.0 \
@@ -153,7 +158,7 @@ build_preview() {
     "$ROOT_DIR"/Core/Widget/*.swift \
     "$ROOT_DIR"/App/Support/*.swift \
     "$ROOT_DIR"/App/Views/*.swift \
-    "$ROOT_DIR"/Preview/*.swift \
+    "${preview_entrypoints[@]}" \
     "$ROOT_DIR"/Tools/AntigravityQuotaFixtures.swift \
     -framework SwiftUI \
     -framework AppKit
@@ -190,6 +195,14 @@ PLIST
   pkill -x CodexcatorPreview >/dev/null 2>&1 || true
 
   local preview_arguments=()
+  if [[ "$preview_mode" == "history" ]]; then
+    preview_arguments+=("--evidence=$preview_root/history-frames.json")
+    [[ "$appearance" != dark ]] || preview_arguments+=(--dark)
+    case "$preview_scenario" in
+      empty) preview_arguments+=(--empty) ;;
+      dense) preview_arguments+=(--dense) ;;
+    esac
+  fi
   if [[ "$preview_provider" == "claude" ]]; then
     preview_arguments+=(--claude "--claude-state=$preview_scenario")
   elif [[ "$preview_provider" == "antigravity" ]]; then
@@ -441,7 +454,7 @@ case "$MODE" in
     package_release
     ;;
   *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--preview [panel|settings] [general|menuBar|providers|features|about] [system|light|dark]|--render-preview [en|zh-Hans] [light|dark] [codex|antigravity|claude] [standard|sparse|recent|waiting|stale|single|weekly|inactive|expired]|--render-settings [en|zh-Hans] [light|dark] [codex|antigravity|claude] [general|menuBar|providers|features|about]|--package-release]" >&2
+    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--preview [panel|settings|history] [general|menuBar|providers|features|about] [system|light|dark]|--render-preview [en|zh-Hans] [light|dark] [codex|antigravity|claude] [standard|sparse|recent|waiting|stale|single|weekly|inactive|expired]|--render-settings [en|zh-Hans] [light|dark] [codex|antigravity|claude] [general|menuBar|providers|features|about]|--package-release]" >&2
     exit 2
     ;;
 esac

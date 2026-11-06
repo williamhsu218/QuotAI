@@ -337,3 +337,16 @@
 "widget.selectable_title" = "QuotAI · 可选额度";
 "widget.automatic_title" = "QuotAI · 自动总览";
 "widget.automatic_detail" = "跟随应用选择。需要独立选择额度时，请添加“可选额度”组件。";
+
+"history.legend" = "图表图例";
+"history.selection_more_format" = "另有 %d 项";
+"history.selection_hint" = "将鼠标移到图表上以查看记录。";
+"history.table_count_format" = "此范围内的全部记录：%d 条";
+"history.chart_sampled" = "图表已简化显示；下表列出全部记录。";
+"history.column_recorded" = "记录时间";
+"history.column_provider" = "来源";
+"history.column_quota" = "模型 / 额度周期";
+"history.column_remaining" = "剩余额度";
+"history.column_reset" = "重置时间";
+"history.table" = "额度历史明细，按时间从新到旧排列";
+"history.remaining_accessibility_format" = "剩余额度 %d%%";

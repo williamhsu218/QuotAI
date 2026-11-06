@@ -30,6 +30,7 @@ final class QuotAIAppModel {
     @ObservationIgnored private var policy = QuotaNotificationPolicy()
     @ObservationIgnored private let ledger: QuotaHistoryLedger
     @ObservationIgnored private var historyTask: Task<Void, Never>?
+    @ObservationIgnored private var previewHistory: [QuotaHistoryPoint]?
     @ObservationIgnored private var automaticClaudeTask: Task<Void, Never>?
     @ObservationIgnored private var automaticClaudeKey = ""
     @ObservationIgnored private var automaticClaudeOwnsQuery = false
@@ -57,7 +58,7 @@ final class QuotAIAppModel {
 
     static func preview(
         codex: UsageStore? = nil, antigravity: AntigravityUsageStore? = nil,
-        claudeCode: ClaudeCodeUsageStore? = nil
+        claudeCode: ClaudeCodeUsageStore? = nil, history: [QuotaHistoryPoint]? = nil
     ) -> QuotAIAppModel {
         let now = Date()
         let base = UsageSnapshot.preview
@@ -68,10 +69,12 @@ final class QuotAIAppModel {
             subscriptionPlan: base.subscriptionPlan, availableResetCount: base.availableResetCount,
             resetCredits: base.resetCredits, dailyUsageBuckets: base.dailyUsageBuckets,
             tokenUsageSummary: base.tokenUsageSummary)
-        return .init(
+        let model = QuotAIAppModel(
             codex: codex ?? UsageStore(previewMode: true, previewSnapshot: sample),
             antigravity: antigravity ?? AntigravityUsageStore(previewMode: true),
             claudeCode: claudeCode ?? ClaudeCodeUsageStore(previewMode: true), previewMode: true)
+        model.previewHistory = history
+        return model
     }
 
     func start() {
@@ -126,6 +129,10 @@ final class QuotAIAppModel {
 
     func refreshHistory() {
         if previewMode {
+            if let previewHistory {
+                history = previewHistory
+                return
+            }
             let now = Date()
             history = (0..<24).map { offset in
                 QuotaHistoryPoint(

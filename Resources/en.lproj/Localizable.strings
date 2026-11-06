@@ -337,3 +337,16 @@
 "widget.selectable_title" = "QuotAI · Choose Quota";
 "widget.automatic_title" = "QuotAI · Automatic Overview";
 "widget.automatic_detail" = "Follows the app. For independent quota selection, add Choose Quota instead.";
+
+"history.legend" = "Chart legend";
+"history.selection_more_format" = "+%d more";
+"history.selection_hint" = "Point at the chart to inspect a sample.";
+"history.table_count_format" = "All samples in this range: %d";
+"history.chart_sampled" = "Chart is simplified for display; the table lists every sample.";
+"history.column_recorded" = "Recorded";
+"history.column_provider" = "Provider";
+"history.column_quota" = "Model / Window";
+"history.column_remaining" = "Remaining";
+"history.column_reset" = "Resets";
+"history.table" = "Recorded quota samples, newest first";
+"history.remaining_accessibility_format" = "Remaining %d%%";
