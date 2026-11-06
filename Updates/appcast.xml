@@ -5,6 +5,15 @@
     <link>https://github.com/williamhsu218/QuotAI/releases</link>
     <description>Signed QuotAI updates</description>
     <item>
+      <title>QuotAI 3.0.5</title>
+      <pubDate>Fri, 06 Nov 2026 03:45:50 +0000</pubDate>
+      <sparkle:version>68</sparkle:version>
+      <sparkle:shortVersionString>3.0.5</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:releaseNotesLink>https://github.com/williamhsu218/QuotAI/releases/tag/v3.0.5</sparkle:releaseNotesLink>
+      <enclosure url="https://github.com/williamhsu218/QuotAI/releases/download/v3.0.5/QuotAI-3.0.5-macos-universal.zip" length="6238632" type="application/octet-stream" sparkle:edSignature="KnZunTjmleBRyOZ6Wyxafh84Qqg9j/GgZJrInvO+HGk10RO5bjSPSkLewMjdOxC3UEgCq8QmIIJoRR7h689oDQ==" />
+    </item>
+    <item>
       <title>QuotAI 3.0.4</title>
       <pubDate>Wed, 04 Nov 2026 03:29:37 +0000</pubDate>
       <sparkle:version>66</sparkle:version>
