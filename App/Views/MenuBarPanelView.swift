@@ -27,6 +27,11 @@ struct QuotaPopoverContent: View {
 }
 
 struct MenuBarPanelView: View {
+    private struct LocalUsageRefresh: Equatable {
+        let provider: QuotaProvider?
+        let revision: Int
+    }
+
     @Environment(\.quotaPanelVisible) private var panelVisible
     @Environment(\.openSettings) private var openSettings
     @Environment(\.designPreviewRendering) private var designPreviewRendering
@@ -34,6 +39,7 @@ struct MenuBarPanelView: View {
     private var quotaProvider = QuotaProvider.codex
     @AppStorage(DefaultsKey.antigravityIntegration)
     private var antigravityIntegrationEnabled = true
+    @State private var localUsageRevision = 0
 
     let store: UsageStore
     let antigravityStore: AntigravityUsageStore
@@ -69,6 +75,11 @@ struct MenuBarPanelView: View {
         registry.store(for: effectiveQuotaProvider)
     }
 
+    private var localUsageProvider: QuotaProvider? {
+        let provider = effectiveQuotaProvider
+        return provider == .claudeCode || provider == .antigravity ? provider : nil
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
@@ -99,6 +110,13 @@ struct MenuBarPanelView: View {
         .appPanelSurface()
         .task {
             registry.startEnabledProviders()
+        }
+        .task(id: LocalUsageRefresh(provider: panelVisible ? localUsageProvider : nil, revision: localUsageRevision)) {
+            guard let provider = localUsageProvider, panelVisible, !model.previewMode else { return }
+            while !Task.isCancelled {
+                await model.refreshLocalTokenUsage(for: provider)
+                do { try await Task.sleep(for: .seconds(60)) } catch { return }
+            }
         }
     }
 
@@ -153,9 +171,15 @@ struct MenuBarPanelView: View {
             case .codex:
                 codexQuotaContent
             case .antigravity:
-                AntigravityQuotaView(store: antigravityStore)
+                VStack(spacing: AppTheme.Spacing.compact) {
+                    AntigravityQuotaView(store: antigravityStore)
+                    localTokenActivity(.antigravity)
+                }
             case .claudeCode:
-                ClaudeCodeQuotaView(store: claudeCodeStore)
+                VStack(spacing: AppTheme.Spacing.compact) {
+                    ClaudeCodeQuotaView(store: claudeCodeStore)
+                    localTokenActivity(.claudeCode)
+                }
             case .standard:
                 if let plugin = registry.plugin(for: effectiveQuotaProvider) { ProviderQuotaView(plugin: plugin) }
             case nil:
@@ -174,11 +198,45 @@ struct MenuBarPanelView: View {
 
                 ResetCreditsView(snapshot: snapshot)
 
-                CodexTokenUsageView(snapshot: snapshot)
+                TokenActivityView(activity: snapshot.tokenActivity)
             }
         } else {
             emptyState
         }
+    }
+
+    @ViewBuilder
+    private func localTokenActivity(_ provider: QuotaProvider) -> some View {
+        let result = model.localTokenUsage[provider]
+        if let activity = result?.activity {
+            TokenActivityView(
+                activity: activity,
+                source: result?.isPartial == true
+                    ? L10n.text("usage.local_partial", fallback: "Local logs · some records could not be read")
+                    : L10n.text("usage.local_source", fallback: "From local session logs")
+            )
+        } else {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.xSmall) {
+                Text(L10n.text("usage.title", fallback: "Token Activity"))
+                    .font(.system(size: AppTheme.TypeSize.cardTitle, weight: .semibold))
+                    .foregroundStyle(AppTheme.primaryText)
+                Text(localUsageStatus(result))
+                    .font(.system(size: AppTheme.TypeSize.caption))
+                    .foregroundStyle(AppTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(AppTheme.Spacing.compact)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .appCardSurface(cornerRadius: 10)
+        }
+    }
+
+    private func localUsageStatus(_ result: LocalTokenUsageResult?) -> String {
+        guard let result else { return L10n.text("usage.local_loading", fallback: "Reading local session logs…") }
+        if result.isPartial {
+            return L10n.text("usage.local_unavailable", fallback: "Local session logs could not be read completely")
+        }
+        return L10n.text("usage.local_empty", fallback: "No token counts found in local session logs")
     }
 
     private var appMarkImage: NSImage {
@@ -397,6 +455,7 @@ struct MenuBarPanelView: View {
             claudeCodeStore.cancelRefresh()
             return
         }
+        localUsageRevision &+= 1
         let target = selectedStore
         Task { await target.userRefresh() }
     }

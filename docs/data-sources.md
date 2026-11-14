@@ -3,7 +3,7 @@
 [返回项目首页](../README.md)
 
 Codex、Antigravity 与 Claude Code 分别读取和呈现；一个来源不可用时，不借用另一个来源的数据。
-订阅剩余额度与 Codex Token 用量的含义不同，不能相加或解释成同一个账单。
+订阅剩余额度和 Token 活跃度各自展示。Codex 用量来自账户接口，Claude Code 和 Antigravity 用量来自本机日志。
 
 ## Codex 与 Antigravity 额度
 
@@ -55,15 +55,26 @@ ChatGPT 或 Codex CLI。
 ## 当前显示范围
 
 - **Codex**：订阅额度、套餐、重置卡与账户 Token 图表。Token 图表来自账户接口，不扫描本地对话。
-- **Antigravity**：只显示实时额度，按 Gemini、Argon（接口返回独立池时）和 Claude / GPT 分组；面板选择与菜单栏选择独立。
-  不再读取本机会话数据库，也不显示 Token 总量、模型汇总或日期图表。
+- **Antigravity**：实时额度按 Gemini、Argon（接口返回独立池时）和 Claude / GPT 分组，面板选择与菜单栏选择独立。
+  面板另显示 Antigravity IDE 和 CLI 本机会话合计的 Token 活跃度。
 - **Claude Code**：点击刷新执行官方本机 `claude -p /usage --output-format json`，查询 Pro/Max 的 5h、7d，换算为剩余百分比与按系统时区显示的重置时间。无需等待会话回调或固定会话。
   查询时间是本机完成时间，官方输出未提供源采样时间和账号标识，不表示持续实时监控。
   缓存载入、超过 30 分钟或失败时，旧结果灰显为“上次查询”；到各窗口重置时间后隐藏数字。
   缺少窗口、没有有效重置时间或重置已过时，该窗口不显示数字，其余有效窗口独立显示。
   两个窗口都没有有效重置时间时，记录本次空结果并清除旧数字，不作为格式错误。
   不补旧值，不推算为 100%。套餐通过官方 `claude auth status --json` 读取并独立缓存。
-  不显示重置卡、查看入口或 Token 统计。
+  面板另显示 Claude Code 本机会话的 Token 活跃度。
+
+## 本机会话 Token 活跃度
+
+- Claude Code 读取 `~/.claude/projects` 的 JSONL；如果 App 进程配置了 `CLAUDE_CONFIG_DIR`，则使用其 `projects` 目录。
+  统计消息的输入、输出、缓存读取和缓存创建 Token，并按消息 ID 去除重复的流式用量记录。
+- Antigravity 读取 `~/.gemini/antigravity`、`~/.gemini/antigravity-cli` 和 `~/.antigravity-ide` 下的日志及会话 JSON／JSONL。
+  优先使用记录自带的总数。需要合计时，按日志格式区分已包含在输入中的缓存和单独记录的缓存。
+
+打开面板或切换到对应来源时会在后台扫描，面板打开期间每分钟检查更新。图表按本机时区显示最近 18 周，
+累计值和连续天数来自带有时间和用量的可读日志。原始记录仅在内存中解析，按文件缓存的统计也只保留在内存中。
+统计覆盖本机保留的会话，可包含不同账号的记录。额度快照和 Quota History 继续使用各自的数据源。
 
 ## Claude Code 查询与隐私
 
@@ -78,7 +89,7 @@ ChatGPT 或 Codex CLI。
 此命令不生成模型回复；仅接受已登录的官方 claude.ai 订阅，显示其报告的 Pro、Max、Team 或 Enterprise。
 Max 不附加未经报告的 5x/20x 档位。退出登录、API 登录或未知套餐会清除旧名称；
 命令暂时失败时保留缓存，套餐徽标提示其为缓存。Claude 的套餐映射与 OpenAI 独立。
-Claude CLI 自行使用现有登录，QuotAI 不读取凭据、钥匙串、会话正文、桌面缓存或私有模块，
+额度查询由 Claude CLI 自行使用现有登录，
 不调用未公开 OAuth 接口。原始输出只在内存中解析，大小受限；stderr 不保存。
 
 本机 Application Support 的 `claude-usage-query-v1.json` 只保存白名单额度窗口和查询完成时间，
@@ -98,7 +109,6 @@ Claude CLI 自行使用现有登录，QuotAI 不读取凭据、钥匙串、会�
 - 已打开终端若仍调用 `QuotAI --claude-statusline`，仅转交给之前的状态栏命令以保持输出，
   不再保存额度报告。迁移记录和配置备份保留。
 - 旧 Antigravity Token 缓存和 Claude 额度缓存不再读取，也不自动删除；它们不是当前数据源。
-  不读取或删除会话正文、凭据、钥匙串或账户数据。
 
 2.1.1 同样停止 v2 状态栏采集，仅在配置仍由 QuotAI 持有时恢复原配置。冲突则保留用户配置并提示；旧报告与备份不删除，也不用于当前展示。新查询不会安装或改写状态栏命令。
 当前版本的验证状态见[3.0.3 版本说明](../Design/release-notes-3.0.3.md)。

@@ -124,7 +124,7 @@ struct RenderDesignPreview {
                 size: size
             )
         } else {
-            let size = CGSize(width: 520, height: provider == .codex ? 760 : 540)
+            let size = CGSize(width: 520, height: 760)
             try write(
                 DesignPreviewView(
                     store: store,
@@ -153,7 +153,7 @@ struct RenderDesignPreview {
             }
             VStack(alignment: .leading, spacing: 10) {
                 Text("Codex").font(.system(size: 14, weight: .semibold))
-                CodexTokenUsageView(snapshot: tokenThemeCodexSnapshot)
+                TokenActivityView(activity: tokenThemeCodexSnapshot.tokenActivity)
             }
             .frame(width: 340, alignment: .topLeading)
         }

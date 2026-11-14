@@ -23,6 +23,8 @@ final class QuotAIAppModel {
     let previewMode: Bool
     private(set) var history: [QuotaHistoryPoint] = []
     private(set) var historyError: String?
+    private(set) var localTokenUsage: [QuotaProvider: LocalTokenUsageResult] = [:]
+    @ObservationIgnored private let localTokenReader = LocalTokenUsageReader()
     @ObservationIgnored let defaults: UserDefaults
     @ObservationIgnored var onOpenPanel: ((QuotaProvider?) -> Void)?
     @ObservationIgnored private var started = false
@@ -74,7 +76,29 @@ final class QuotAIAppModel {
             antigravity: antigravity ?? AntigravityUsageStore(previewMode: true),
             claudeCode: claudeCode ?? ClaudeCodeUsageStore(previewMode: true), previewMode: true)
         model.previewHistory = history
+        let calendar = Calendar(identifier: .gregorian)
+        let format = DateFormatter()
+        format.locale = Locale(identifier: "en_US_POSIX")
+        format.calendar = calendar
+        format.dateFormat = "yyyy-MM-dd"
+        for (provider, scale) in [(QuotaProvider.claudeCode, Int64(1)), (.antigravity, 2)] {
+            let buckets = (0..<70).filter { $0 % 3 != 2 }.reversed().compactMap { offset -> DailyUsageBucket? in
+                guard let day = calendar.date(byAdding: .day, value: -offset, to: now) else { return nil }
+                return DailyUsageBucket(
+                    startDate: format.string(from: day), tokens: Int64(offset % 9 + 1) * 160_000 * scale)
+            }
+            let summary = AccountTokenUsageSummary(
+                lifetimeTokens: buckets.reduce(0) { $0 + $1.tokens },
+                currentStreakDays: 2, peakDailyTokens: buckets.map(\.tokens).max())
+            model.localTokenUsage[provider] = LocalTokenUsageResult(
+                activity: TokenActivity(dailyUsageBuckets: buckets, summary: summary), isPartial: false)
+        }
         return model
+    }
+
+    func refreshLocalTokenUsage(for provider: QuotaProvider) async {
+        guard !previewMode, let result = try? await localTokenReader.read(provider), !Task.isCancelled else { return }
+        if localTokenUsage[provider] != result { localTokenUsage[provider] = result }
     }
 
     func start() {
