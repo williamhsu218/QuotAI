@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F2A429617F2B4F9E8AF01AA2 /* LocalTokenUsageReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A429617F2B4F9E8AF01AA1 /* LocalTokenUsageReader.swift */; };
 		980000000000000000000003 = {isa = PBXBuildFile; fileRef = 980000000000000000000004; };
 		980000000000000000000001 = {isa = PBXBuildFile; fileRef = 980000000000000000000002; };
 		970000000000000000000001 = {isa = PBXBuildFile; fileRef = 970000000000000000000002; };
@@ -45,7 +46,7 @@
 		40000000000000000000001F /* AntigravityUsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 900000000000000000000021 /* AntigravityUsageStore.swift */; };
 		400000000000000000000020 /* AntigravityQuotaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 900000000000000000000022 /* AntigravityQuotaView.swift */; };
 		400000000000000000000021 /* PreferenceMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 900000000000000000000023 /* PreferenceMigration.swift */; };
-		400000000000000000000022 /* CodexTokenUsageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 900000000000000000000024 /* CodexTokenUsageView.swift */; };
+		400000000000000000000022 /* TokenActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 900000000000000000000024 /* TokenActivityView.swift */; };
 		410000000000000000000008 /* TokenActivityTheme.swift */ = {isa = PBXBuildFile; fileRef = 910000000000000000000008; };
 		410000000000000000000009 /* TokenActivityPalette.swift */ = {isa = PBXBuildFile; fileRef = 910000000000000000000009; };
 		41000000000000000000000A /* TokenActivitySwatch.swift */ = {isa = PBXBuildFile; fileRef = 91000000000000000000000A; };
@@ -94,6 +95,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		F2A429617F2B4F9E8AF01AA1 /* LocalTokenUsageReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTokenUsageReader.swift; sourceTree = "<group>"; };
 		980000000000000000000004 /* QuotaProviderStores.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaProviderStores.swift; sourceTree = "<group>"; };
 		980000000000000000000002 /* PreferenceKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferenceKeys.swift; sourceTree = "<group>"; };
 		970000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickerSelectionBackground.swift; sourceTree = "<group>"; };
@@ -135,7 +137,7 @@
 		900000000000000000000021 /* AntigravityUsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityUsageStore.swift; sourceTree = "<group>"; };
 		900000000000000000000022 /* AntigravityQuotaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityQuotaView.swift; sourceTree = "<group>"; };
 		900000000000000000000023 /* PreferenceMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferenceMigration.swift; sourceTree = "<group>"; };
-		900000000000000000000024 /* CodexTokenUsageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexTokenUsageView.swift; sourceTree = "<group>"; };
+		900000000000000000000024 /* TokenActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenActivityView.swift; sourceTree = "<group>"; };
 		910000000000000000000008 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenActivityTheme.swift; sourceTree = "<group>"; };
 		910000000000000000000009 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenActivityPalette.swift; sourceTree = "<group>"; };
 		91000000000000000000000A = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenActivitySwatch.swift; sourceTree = "<group>"; };
@@ -205,7 +207,7 @@
 			path = App;
 			sourceTree = "<group>";
 		};
-		800000000000000000000003 /* Services */ = {isa = PBXGroup; children = (940000000000000000000002, 920000000000000000000003, 900000000000000000000006, 900000000000000000000007, 900000000000000000000020, ); path = Services; sourceTree = "<group>"; };
+		800000000000000000000003 /* Services */ = {isa = PBXGroup; children = (F2A429617F2B4F9E8AF01AA1, 940000000000000000000002, 920000000000000000000003, 900000000000000000000006, 900000000000000000000007, 900000000000000000000020, ); path = Services; sourceTree = "<group>"; };
 		800000000000000000000004 /* Stores */ = {isa = PBXGroup; children = (980000000000000000000004, 930000000000000000000003, 920000000000000000000005, 900000000000000000000008, 900000000000000000000021, 90000000000000000000001D,
 				93A6C2E13CBBE889EB6C53DE /* QuotaProviderRegistry.swift */,
 			); path = Stores; sourceTree = "<group>"; };
@@ -363,6 +365,7 @@
 				40000000000000000000001A,
 				400000000000000000000004,
 				400000000000000000000005,
+				F2A429617F2B4F9E8AF01AA2 /* LocalTokenUsageReader.swift in Sources */,
 				400000000000000000000006,
 				400000000000000000000007,
 				40000000000000000000001E,
@@ -440,7 +443,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 68;
+				CURRENT_PROJECT_VERSION = 69;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -451,7 +454,7 @@
 				QUOTAI_URL_SCHEME = quotai;
 				QUOTAI_DISPLAY_NAME = QuotAI;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				MARKETING_VERSION = 3.0.5;
+				MARKETING_VERSION = 3.0.6;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(QUOTAI_APP_BUNDLE_ID)";
 				PRODUCT_NAME = QuotAI;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -467,7 +470,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 68;
+				CURRENT_PROJECT_VERSION = 69;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -478,7 +481,7 @@
 				QUOTAI_URL_SCHEME = quotai;
 				QUOTAI_DISPLAY_NAME = QuotAI;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				MARKETING_VERSION = 3.0.5;
+				MARKETING_VERSION = 3.0.6;
 				PRODUCT_BUNDLE_IDENTIFIER = "$(QUOTAI_APP_BUNDLE_ID)";
 				PRODUCT_NAME = QuotAI;
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -489,8 +492,8 @@
 			};
 			name = Release;
 		};
-		FD1E3A6835A79AC90A34E596 = {isa = XCBuildConfiguration; buildSettings = {APPLICATION_EXTENSION_API_ONLY = "YES"; CODE_SIGN_STYLE = "Automatic"; CODE_SIGN_ENTITLEMENTS = "Widgets/QuotAIWidget.entitlements"; CURRENT_PROJECT_VERSION = "68"; ENABLE_APP_SANDBOX = "YES"; ENABLE_HARDENED_RUNTIME = "YES"; GENERATE_INFOPLIST_FILE = "NO"; INFOPLIST_FILE = "Widgets/Info.plist"; MACOSX_DEPLOYMENT_TARGET = "14.0"; MARKETING_VERSION = "3.0.5"; PRODUCT_BUNDLE_IDENTIFIER = "$(QUOTAI_APP_BUNDLE_ID).QuotaWidget"; PRODUCT_NAME = "QuotAIWidget"; SKIP_INSTALL = "YES"; SWIFT_STRICT_CONCURRENCY = "complete"; SWIFT_VERSION = "6.0"; QUOTAI_APP_BUNDLE_ID = "com.willhsu.QuotAI"; QUOTAI_APP_GROUP = "$(DEVELOPMENT_TEAM).com.willhsu.QuotAI"; QUOTAI_URL_SCHEME = "quotai"; QUOTAI_DISPLAY_NAME = "QuotAI"; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";}; name = Debug; };
-		60F7F9554FBBBA38AC8CE997 = {isa = XCBuildConfiguration; buildSettings = {APPLICATION_EXTENSION_API_ONLY = "YES"; CODE_SIGN_STYLE = "Automatic"; CODE_SIGN_ENTITLEMENTS = "Widgets/QuotAIWidget.entitlements"; CURRENT_PROJECT_VERSION = "68"; ENABLE_APP_SANDBOX = "YES"; ENABLE_HARDENED_RUNTIME = "YES"; GENERATE_INFOPLIST_FILE = "NO"; INFOPLIST_FILE = "Widgets/Info.plist"; MACOSX_DEPLOYMENT_TARGET = "14.0"; MARKETING_VERSION = "3.0.5"; PRODUCT_BUNDLE_IDENTIFIER = "$(QUOTAI_APP_BUNDLE_ID).QuotaWidget"; PRODUCT_NAME = "QuotAIWidget"; SKIP_INSTALL = "YES"; SWIFT_STRICT_CONCURRENCY = "complete"; SWIFT_VERSION = "6.0"; QUOTAI_APP_BUNDLE_ID = "com.willhsu.QuotAI"; QUOTAI_APP_GROUP = "$(DEVELOPMENT_TEAM).com.willhsu.QuotAI"; QUOTAI_URL_SCHEME = "quotai"; QUOTAI_DISPLAY_NAME = "QuotAI"; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";}; name = Release; };
+		FD1E3A6835A79AC90A34E596 = {isa = XCBuildConfiguration; buildSettings = {APPLICATION_EXTENSION_API_ONLY = "YES"; CODE_SIGN_STYLE = "Automatic"; CODE_SIGN_ENTITLEMENTS = "Widgets/QuotAIWidget.entitlements"; CURRENT_PROJECT_VERSION = "69"; ENABLE_APP_SANDBOX = "YES"; ENABLE_HARDENED_RUNTIME = "YES"; GENERATE_INFOPLIST_FILE = "NO"; INFOPLIST_FILE = "Widgets/Info.plist"; MACOSX_DEPLOYMENT_TARGET = "14.0"; MARKETING_VERSION = "3.0.6"; PRODUCT_BUNDLE_IDENTIFIER = "$(QUOTAI_APP_BUNDLE_ID).QuotaWidget"; PRODUCT_NAME = "QuotAIWidget"; SKIP_INSTALL = "YES"; SWIFT_STRICT_CONCURRENCY = "complete"; SWIFT_VERSION = "6.0"; QUOTAI_APP_BUNDLE_ID = "com.willhsu.QuotAI"; QUOTAI_APP_GROUP = "$(DEVELOPMENT_TEAM).com.willhsu.QuotAI"; QUOTAI_URL_SCHEME = "quotai"; QUOTAI_DISPLAY_NAME = "QuotAI"; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";}; name = Debug; };
+		60F7F9554FBBBA38AC8CE997 = {isa = XCBuildConfiguration; buildSettings = {APPLICATION_EXTENSION_API_ONLY = "YES"; CODE_SIGN_STYLE = "Automatic"; CODE_SIGN_ENTITLEMENTS = "Widgets/QuotAIWidget.entitlements"; CURRENT_PROJECT_VERSION = "69"; ENABLE_APP_SANDBOX = "YES"; ENABLE_HARDENED_RUNTIME = "YES"; GENERATE_INFOPLIST_FILE = "NO"; INFOPLIST_FILE = "Widgets/Info.plist"; MACOSX_DEPLOYMENT_TARGET = "14.0"; MARKETING_VERSION = "3.0.6"; PRODUCT_BUNDLE_IDENTIFIER = "$(QUOTAI_APP_BUNDLE_ID).QuotaWidget"; PRODUCT_NAME = "QuotAIWidget"; SKIP_INSTALL = "YES"; SWIFT_STRICT_CONCURRENCY = "complete"; SWIFT_VERSION = "6.0"; QUOTAI_APP_BUNDLE_ID = "com.willhsu.QuotAI"; QUOTAI_APP_GROUP = "$(DEVELOPMENT_TEAM).com.willhsu.QuotAI"; QUOTAI_URL_SCHEME = "quotai"; QUOTAI_DISPLAY_NAME = "QuotAI"; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";}; name = Release; };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */

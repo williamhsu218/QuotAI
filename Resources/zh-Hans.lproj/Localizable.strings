@@ -21,6 +21,11 @@
 "reset.expiry_format" = "%@ 到期";
 
 "usage.title" = "Token 活跃度";
+"usage.local_source" = "来源：本机会话日志";
+"usage.local_partial" = "本地日志 · 部分记录无法读取";
+"usage.local_loading" = "正在读取本机会话日志…";
+"usage.local_unavailable" = "无法完整读取本机会话日志";
+"usage.local_empty" = "本机会话日志暂无 token 记录";
 "usage.today" = "今日消耗";
 "usage.lifetime" = "累计消耗";
 "usage.streak_format" = "连续 %d 天";

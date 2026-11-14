@@ -381,6 +381,26 @@ public struct UsageSnapshot: Codable, Equatable, Sendable {
     public func activityWeeks(
         count: Int = 18, endingOn date: Date = Date(), calendar: Calendar = .current
     ) -> [ActivityWeek] {
+        tokenActivity.activityWeeks(count: count, endingOn: date, calendar: calendar)
+    }
+
+    public var tokenActivity: TokenActivity {
+        TokenActivity(dailyUsageBuckets: dailyUsageBuckets, summary: tokenUsageSummary)
+    }
+}
+
+public struct TokenActivity: Equatable, Sendable {
+    public let dailyUsageBuckets: [DailyUsageBucket]
+    public let summary: AccountTokenUsageSummary?
+
+    public init(dailyUsageBuckets: [DailyUsageBucket], summary: AccountTokenUsageSummary?) {
+        self.dailyUsageBuckets = dailyUsageBuckets
+        self.summary = summary
+    }
+
+    public func activityWeeks(
+        count: Int = 18, endingOn date: Date = Date(), calendar: Calendar = .current
+    ) -> [ActivityWeek] {
         guard count > 0 else { return [] }
 
         var cal = Calendar(identifier: .gregorian)

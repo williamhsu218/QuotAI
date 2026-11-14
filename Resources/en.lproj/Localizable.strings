@@ -21,6 +21,11 @@
 "reset.expiry_format" = "Expires %@";
 
 "usage.title" = "Token Activity";
+"usage.local_source" = "From local session logs";
+"usage.local_partial" = "Local logs · some records could not be read";
+"usage.local_loading" = "Reading local session logs…";
+"usage.local_unavailable" = "Local session logs could not be read completely";
+"usage.local_empty" = "No token counts found in local session logs";
 "usage.today" = "Today";
 "usage.lifetime" = "Lifetime";
 "usage.streak_format" = "%d days";

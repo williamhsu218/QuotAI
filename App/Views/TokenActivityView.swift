@@ -1,7 +1,8 @@
 import SwiftUI
 
-struct CodexTokenUsageView: View {
-    let snapshot: UsageSnapshot
+struct TokenActivityView: View {
+    let activity: TokenActivity
+    var source: String?
 
     @AppStorage(DefaultsKey.tokenActivityTheme) private var storedTheme = TokenActivityTheme.defaultTheme.rawValue
     @Environment(\.colorScheme) private var colorScheme
@@ -22,22 +23,23 @@ struct CodexTokenUsageView: View {
     }
 
     private var summary: AccountTokenUsageSummary? {
-        snapshot.tokenUsageSummary
+        activity.summary
     }
 
     private let weeks: [ActivityWeek]
     private let maxTokens: Int64
 
-    init(snapshot: UsageSnapshot) {
-        self.snapshot = snapshot
-        weeks = snapshot.activityWeeks(count: 18)
+    init(activity: TokenActivity, source: String? = nil) {
+        self.activity = activity
+        self.source = source
+        weeks = activity.activityWeeks(count: 18)
         maxTokens = max(
-            1, snapshot.dailyUsageBuckets.map(\.tokens).max() ?? 0,
-            snapshot.tokenUsageSummary?.peakDailyTokens ?? 0)
+            1, activity.dailyUsageBuckets.map(\.tokens).max() ?? 0,
+            activity.summary?.peakDailyTokens ?? 0)
     }
 
     var body: some View {
-        if !snapshot.dailyUsageBuckets.isEmpty || snapshot.tokenUsageSummary != nil {
+        if !activity.dailyUsageBuckets.isEmpty || summary != nil {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.small) {
                 headerView
 
@@ -48,6 +50,13 @@ struct CodexTokenUsageView: View {
                 matrixView
 
                 legendRow
+
+                if let source {
+                    Text(source)
+                        .font(.system(size: AppTheme.TypeSize.small))
+                        .foregroundStyle(AppTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .padding(AppTheme.Spacing.compact)
             .appCardSurface(cornerRadius: 10)
