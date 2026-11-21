@@ -320,7 +320,8 @@ actor AntigravityQuotaClient {
 }
 
 enum AntigravityCLI {
-    private static let queue = DispatchQueue(label: "com.willhsu.QuotAI.antigravity-cli", qos: .utility)
+    private static let queue = DispatchQueue(
+        label: "com.willhsu.QuotAI.antigravity-cli", qos: .utility, attributes: .concurrent)
 
     static func fetch(executable: URL? = nil) async throws -> AntigravityQuotaSnapshot {
         guard let executable = executable ?? locate() else { throw AntigravityQuotaClientError.cliUnavailable }
@@ -329,15 +330,16 @@ enum AntigravityCLI {
                 executable: executable, arguments: ["--version"], timeout: 4, outputLimit: 1024, on: queue)
             guard supportsHeadlessUsage(version) else { throw AntigravityQuotaClientError.cliUnavailable }
 
+            // The two read-only commands use separate working directories and can run together.
+            async let modelList = try? ProcessIO.capture(
+                executable: executable, arguments: ["models"], timeout: 12, outputLimit: 128 * 1024, on: queue)
             let quota = try await ProcessIO.capture(
                 executable: executable,
                 arguments: [
                     "--settings", #"{"disableSlashCommands":false}"#, "--print-timeout", "15s",
                     "--log-file", "agy.log", "--output-format", "json", "-p", "/usage"
                 ], timeout: 18, outputLimit: 1_048_576, on: queue)
-            // The model list is independent of the quota buckets and may fail independently.
-            let models = try? await ProcessIO.capture(
-                executable: executable, arguments: ["models"], timeout: 12, outputLimit: 128 * 1024, on: queue)
+            let models = await modelList
             try Task.checkCancellation()
             return try AntigravityQuotaParser.parseCLIReport(quota, modelList: models)
         } catch ProcessIO.CaptureError.oversizedOutput {
