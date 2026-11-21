@@ -13,15 +13,18 @@ Codex 额度、套餐名称与 Token 用量仅缓存在本机 Application Suppor
 可选的 `account/usage/read` 失败或超时不影响额度读取；暂时缺失时保留最近缓存，
 接口明确返回空用量时清除旧图表。Token 数据为账户接口统计，不代表本 App 产生的用量。
 
-Antigravity 使用另一条完全独立的本机链路：运行时发现其动态 language-server
-监听端口，并调用
+较早的 Antigravity 版本通过本机 language-server 读取额度。QuotAI 发现它的监听端口，并调用
 `exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary`。瞬时本地
 CSRF 信息只在单次刷新内驻留内存；Antigravity 额度、认证信息和账户明细不会写入
 缓存或日志。该 RPC 曾在 Antigravity 2.8.1 验证，但不是公开承诺稳定的接口；
-Antigravity 未运行或协议变化时，App 显示“不可用”，不会显示成 0，也不会回退为
-Codex 额度。
+Antigravity 2.34.0 改用新的本地连接方式。此时 QuotAI 调用已登录的 Antigravity CLI
+1.5.13 或更新版本，通过内置命令 `agy -p /usage --output-format json` 读取额度与重置时间，
+通过 `agy models` 读取该账号的可用模型。面板底部会显示 `CLI`。若要查看桌面端账号的额度，
+请在两端登录同一个账号。CLI 的额度结果未提供套餐名，面板省略套餐徽标。
+QuotAI 在临时目录运行查询，使用 CLI 自己的登录状态，只接受零轮次、零 Token 的结构化额度报告。
+[Antigravity CLI 官方用法](https://antigravity.google/docs/cli/headless/)
 
-同时读取本机 `GetUserStatus` 的账号模型配置，以启用状态和适用套餐判断第三方与 Argon 模型权限，
+旧本机接口会同时读取 `GetUserStatus` 的账号模型配置，以启用状态和适用套餐判断第三方与 Argon 模型权限，
 不按模型版本或套餐名称推测，也不把额度池存在或剩余百分比当作使用权限。
 确认没有可用第三方模型时隐藏该标签；仅剩 Gemini 时取消切换控件，面板与菜单栏的
 第三方选择回退为 Gemini。额度为零仍保留标签、0% 与重置时间。

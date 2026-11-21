@@ -89,9 +89,10 @@ final class AntigravityUsageStore: QuotaProviderStore {
         case .loading:
             return L10n.text("status.refreshing", fallback: "Refreshing")
         case .ready:
-            return snapshot.map {
-                DisplayDateFormatter.updatedText(for: $0.fetchedAt, now: now)
-            } ?? L10n.text("status.waiting", fallback: "Waiting to refresh")
+            guard let snapshot else { return L10n.text("status.waiting", fallback: "Waiting to refresh") }
+            let updated = DisplayDateFormatter.updatedText(for: snapshot.fetchedAt, now: now)
+            return snapshot.source == .cli
+                ? L10n.format("status.antigravity.cli", fallback: "CLI · %@", updated) : updated
         case .failed(let message):
             return message
         }

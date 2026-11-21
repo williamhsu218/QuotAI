@@ -162,6 +162,9 @@
 "error.antigravity.runtime_unavailable" = "Antigravity's local quota service is unavailable.";
 "error.antigravity.quota_unavailable" = "Antigravity quota is temporarily unavailable.";
 "error.antigravity.protocol_changed" = "This Antigravity version uses an unsupported quota format.";
+"error.antigravity.cli_unavailable" = "Install or update Antigravity CLI to 1.5.13 or later, then sign in to read quota.";
+"error.antigravity.cli_query_failed" = "Antigravity CLI couldn't read quota. Check that you're signed in and try again.";
+"status.antigravity.cli" = "CLI · %@";
 
 // Token activity themes
 "settings.section.token_activity" = "Token Activity Colors";

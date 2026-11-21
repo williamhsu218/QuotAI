@@ -39,7 +39,7 @@ private actor DiscoveryCounter {
     static func main() async throws {
         let fixture = RuntimeFixture()
         let client = AntigravityQuotaClient(
-            discover: { await fixture.discover() },
+            discover: { .localService(await fixture.discover()) },
             rpc: { runtime, path, _ in try await fixture.request(runtime, path: path) })
         _ = try await client.fetch()
         _ = try await client.fetch()
@@ -50,13 +50,28 @@ private actor DiscoveryCounter {
         let recovered = await fixture.counts()
         precondition(recovered.0 == 2, "Failed cached endpoint was not rediscovered")
         let dead = AntigravityQuotaClient(
-            discover: { await fixture.discover() }, isAlive: { _ in false },
+            discover: { .localService(await fixture.discover()) }, isAlive: { _ in false },
             rpc: { runtime, path, _ in try await fixture.request(runtime, path: path) })
         _ = try await dead.fetch()
         _ = try await dead.fetch()
         let restarted = await fixture.counts()
         precondition(restarted.0 == 4, "Dead process reused a cached endpoint")
         print("PASS: memory cache reuse, stale endpoint recovery, dead process invalidation")
+
+        let cliClient = AntigravityQuotaClient(
+            discover: { .cli },
+            rpc: { _, _, _ in fatalError("CLI discovery unexpectedly called the local service") },
+            cli: { .preview })
+        let cliSnapshot = try await cliClient.fetch()
+        precondition(cliSnapshot.groups.map(\.id) == AntigravityQuotaSnapshot.preview.groups.map(\.id))
+        print("PASS: CLI discovery uses the CLI quota source")
+
+        let home = ProcessInfo.processInfo.environment["HOME"]
+        let inherited = try await ProcessIO.capture(
+            executable: URL(fileURLWithPath: "/usr/bin/printenv"), arguments: ["HOME"],
+            timeout: 2, outputLimit: 4096, on: DispatchQueue(label: "cli-environment-probe"))
+        precondition(home.map { Data(($0 + "\n").utf8) } == inherited, "CLI query lost the inherited home directory")
+        print("PASS: CLI queries inherit the login environment")
 
         let ports = CommandLine.arguments.dropFirst().compactMap(Int.init)
         guard ports.count == 7 else {
@@ -67,8 +82,9 @@ private actor DiscoveryCounter {
             fflush(nil)
             let counter = DiscoveryCounter()
             let client = AntigravityQuotaClient(discover: {
-                await counter.discover(
-                    port: port, scheme: index == 1 ? "https" : "http", host: index == 2 ? "[::1]" : "127.0.0.1")
+                .localService(
+                    await counter.discover(
+                        port: port, scheme: index == 1 ? "https" : "http", host: index == 2 ? "[::1]" : "127.0.0.1"))
             })
             if index == 3 || index == 4 {
                 do {
