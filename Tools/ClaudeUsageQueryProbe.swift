@@ -103,12 +103,7 @@ actor SubscriptionCounter {
             "inactive", body: "sys.stdout.buffer.write(base64.b64decode('\(inactiveData.base64EncodedString())'))\n")
         let inactive = try await ClaudeUsageQueryClient.fetch(executable: inactiveCLI)
         precondition(inactive.orderedReports.isEmpty && inactive.menuBarLines(for: .both) == ["--"])
-        let pidFile = directory.appendingPathComponent("child-pid")
-        let slow = try fixture(
-            "slow",
-            body:
-                "import os, signal\nsignal.signal(signal.SIGTERM, signal.SIG_IGN)\nopen('\(pidFile.path)', 'w').write(str(os.getpid()))\ntime.sleep(10)\n"
-        )
+        let slow = try fixture("slow", body: "time.sleep(10)\n")
         do {
             _ = try await ClaudeUsageQueryClient.fetch(executable: slow, timeout: 0.5)
             fatalError("Expected timeout")
@@ -118,8 +113,13 @@ actor SubscriptionCounter {
             _ = try await ClaudeUsageQueryClient.fetch(executable: oversized)
             fatalError("Expected output bound")
         } catch ClaudeUsageQueryError.oversizedOutput {}
-        try FileManager.default.removeItem(at: pidFile)
-        let cancelled = Task { try await ClaudeUsageQueryClient.fetch(executable: slow) }
+        let pidFile = directory.appendingPathComponent("child-pid")
+        let ignoresTermination = try fixture(
+            "ignores-termination",
+            body:
+                "import os, signal\nsignal.signal(signal.SIGTERM, signal.SIG_IGN)\nopen('\(pidFile.path)', 'w').write(str(os.getpid()))\ntime.sleep(10)\n"
+        )
+        let cancelled = Task { try await ClaudeUsageQueryClient.fetch(executable: ignoresTermination) }
         let launchDeadline = ProcessInfo.processInfo.systemUptime + 2
         while !FileManager.default.fileExists(atPath: pidFile.path)
             && ProcessInfo.processInfo.systemUptime < launchDeadline

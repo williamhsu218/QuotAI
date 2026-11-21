@@ -16,7 +16,37 @@ public enum AntigravityModelAccessParser {
         availability(data: data, family: .argon)
     }
 
-    private enum Family { case thirdParty, argon }
+    static func cliAvailability(
+        data: Data?
+    ) -> (thirdParty: AntigravityModelAvailability, argon: AntigravityModelAvailability) {
+        guard let data, let list = String(data: data, encoding: .utf8) else { return (.unknown, .unknown) }
+        let rows = list.split(whereSeparator: \.isNewline)
+        let models = rows.compactMap { row -> String? in
+            let columns = row.split(separator: "\t", maxSplits: 1, omittingEmptySubsequences: false)
+            guard columns.count == 2, !columns[0].isEmpty, !columns[1].isEmpty,
+                !columns[0].contains(where: \.isWhitespace)
+            else { return nil }
+            return columns[0].lowercased()
+        }
+        guard !models.isEmpty, models.count == rows.count else { return (.unknown, .unknown) }
+        let hasUnknown = models.contains { !$0.hasPrefix("gemini") && !Family.thirdParty.matches($0) }
+        let missing: AntigravityModelAvailability = hasUnknown ? .unknown : .unavailable
+        return (
+            models.contains(where: Family.thirdParty.matches) ? .available : missing,
+            models.contains(where: Family.argon.matches) ? .available : missing
+        )
+    }
+
+    private enum Family {
+        case thirdParty, argon
+
+        func matches(_ identifier: String) -> Bool {
+            switch self {
+            case .thirdParty: identifier.hasPrefix("claude") || identifier.hasPrefix("gpt")
+            case .argon: identifier.hasPrefix("gemini") && identifier.contains("argon")
+            }
+        }
+    }
 
     private static func availability(data: Data?, family: Family) -> AntigravityModelAvailability {
         guard let data,
@@ -34,13 +64,11 @@ public enum AntigravityModelAccessParser {
             if model.disabled == true { continue }
             let identifiers = [model.modelId, model.modelOrAlias?.model, model.label]
                 .compactMap { $0?.lowercased() }
-            let isThirdParty = identifiers.contains { $0.hasPrefix("claude") || $0.hasPrefix("gpt") }
-            let isGemini = identifiers.contains { $0.hasPrefix("gemini") }
-            let isArgon = identifiers.contains { $0.hasPrefix("gemini") && $0.contains("argon") }
-            let matches = family == .thirdParty ? isThirdParty : isArgon
-            guard matches else {
+            guard identifiers.contains(where: family.matches) else {
                 // A future family must not be interpreted as a denial.
-                if !isGemini && !isThirdParty { hasUnknown = true }
+                if !identifiers.contains(where: { $0.hasPrefix("gemini") || Family.thirdParty.matches($0) }) {
+                    hasUnknown = true
+                }
                 continue
             }
             if let allowedTiers = model.allowedTiers {

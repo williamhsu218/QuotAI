@@ -178,24 +178,31 @@ public struct AntigravityQuotaGroup: Codable, Equatable, Identifiable, Sendable 
 }
 
 public struct AntigravityQuotaSnapshot: Codable, Equatable, Sendable {
+    public enum Source: String, Codable, Sendable {
+        case cli
+    }
+
     public let fetchedAt: Date
     public let groups: [AntigravityQuotaGroup]
     public let subscriptionPlan: SubscriptionPlan?
     public let thirdPartyAvailability: AntigravityModelAvailability
     public let argonAvailability: AntigravityModelAvailability
+    public let source: Source?
 
     public init(
         fetchedAt: Date,
         groups: [AntigravityQuotaGroup],
         subscriptionPlan: SubscriptionPlan? = nil,
         thirdPartyAvailability: AntigravityModelAvailability = .unknown,
-        argonAvailability: AntigravityModelAvailability = .unknown
+        argonAvailability: AntigravityModelAvailability = .unknown,
+        source: Source? = nil
     ) {
         self.fetchedAt = fetchedAt
         self.groups = groups
         self.subscriptionPlan = subscriptionPlan
         self.thirdPartyAvailability = thirdPartyAvailability
         self.argonAvailability = argonAvailability
+        self.source = source
     }
 
     /// Only presentation-safe values may reach the panel, settings or menu bar.
@@ -337,6 +344,54 @@ public enum AntigravityQuotaParser {
         guard let rawGroups = envelope.response?.groups ?? envelope.groups else {
             throw AntigravityQuotaParserError.missingResponse
         }
+        let groups = try parseGroups(rawGroups)
+        var rawPlanType = envelope.response?.planType ?? envelope.planType
+        if rawPlanType == nil || rawPlanType?.isEmpty == true, let userStatusData {
+            if let userStatusEnvelope = try? JSONDecoder().decode(
+                AntigravityUserStatusEnvelope.self, from: userStatusData)
+            {
+                let statusBody = userStatusEnvelope.userStatus ?? userStatusEnvelope.response?.userStatus
+                let tier = statusBody?.userTier ?? userStatusEnvelope.userTier ?? userStatusEnvelope.response?.userTier
+                let planInfo = statusBody?.planStatus?.planInfo
+                rawPlanType = tier?.name ?? tier?.id ?? planInfo?.planName ?? planInfo?.teamsTier
+            }
+        }
+
+        return AntigravityQuotaSnapshot(
+            fetchedAt: fetchedAt,
+            groups: groups,
+            subscriptionPlan: SubscriptionPlan(identifier: rawPlanType),
+            thirdPartyAvailability: AntigravityModelAccessParser.thirdPartyAvailability(data: userStatusData),
+            argonAvailability: AntigravityModelAccessParser.argonAvailability(data: userStatusData)
+        )
+    }
+
+    static func parseCLIReport(
+        _ data: Data, modelList: Data?, fetchedAt: Date = Date()
+    ) throws -> AntigravityQuotaSnapshot {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        guard let report = try? decoder.decode(AntigravityCLIUsageReport.self, from: data),
+            report.status == "SUCCESS", report.numTurns == 0, report.usage.isEmpty,
+            report.command.name == "usage"
+        else {
+            throw AntigravityQuotaParserError.missingResponse
+        }
+        let groups = try parseGroups(report.command.data.groups.map(\.quotaGroup)).filter {
+            AntigravityQuotaTab(rawValue: $0.id) != nil
+        }
+        guard !groups.isEmpty else { throw AntigravityQuotaParserError.missingRecognizableQuotas }
+        let access = AntigravityModelAccessParser.cliAvailability(data: modelList)
+        return AntigravityQuotaSnapshot(
+            fetchedAt: fetchedAt,
+            groups: groups,
+            thirdPartyAvailability: access.thirdParty,
+            argonAvailability: access.argon,
+            source: .cli
+        )
+    }
+
+    private static func parseGroups(_ rawGroups: [AntigravityQuotaGroupDTO]) throws -> [AntigravityQuotaGroup] {
         guard !rawGroups.isEmpty else {
             throw AntigravityQuotaParserError.missingGroups
         }
@@ -350,7 +405,7 @@ public enum AntigravityQuotaParser {
                 else {
                     return nil
                 }
-                let percentage = Int((remainingFraction * 100).rounded())
+                let percentage = Int((min(1, max(0, remainingFraction)) * 100).rounded())
                 return (
                     kind,
                     QuotaWindow(
@@ -393,26 +448,7 @@ public enum AntigravityQuotaParser {
             throw AntigravityQuotaParserError.missingRecognizableQuotas
         }
 
-        var rawPlanType = envelope.response?.planType ?? envelope.planType
-        if rawPlanType == nil || rawPlanType?.isEmpty == true, let userStatusData {
-            if let userStatusEnvelope = try? JSONDecoder().decode(
-                AntigravityUserStatusEnvelope.self, from: userStatusData)
-            {
-                let statusBody = userStatusEnvelope.userStatus ?? userStatusEnvelope.response?.userStatus
-                let tier = statusBody?.userTier ?? userStatusEnvelope.userTier ?? userStatusEnvelope.response?.userTier
-                let planInfo = statusBody?.planStatus?.planInfo
-                rawPlanType = tier?.name ?? tier?.id ?? planInfo?.planName ?? planInfo?.teamsTier
-            }
-        }
-        let plan = SubscriptionPlan(identifier: rawPlanType)
-
-        return AntigravityQuotaSnapshot(
-            fetchedAt: fetchedAt,
-            groups: groups,
-            subscriptionPlan: plan,
-            thirdPartyAvailability: AntigravityModelAccessParser.thirdPartyAvailability(data: userStatusData),
-            argonAvailability: AntigravityModelAccessParser.argonAvailability(data: userStatusData)
-        )
+        return groups
     }
 
     private static func quotaKind(window: String?, bucketID: String?) -> QuotaKind? {
@@ -521,6 +557,58 @@ private struct AntigravityQuotaBucketDTO: Decodable {
     let window: String?
     let remainingFraction: Double?
     let resetTime: String?
+}
+
+private struct AntigravityCLIUsageReport: Decodable {
+    let status: String
+    let numTurns: Int
+    let usage: Usage
+    let command: Command
+
+    struct Usage: Decodable {
+        let inputTokens: Int
+        let outputTokens: Int
+        let thinkingTokens: Int
+        let cacheReadTokens: Int
+        let totalTokens: Int
+
+        var isEmpty: Bool {
+            inputTokens == 0 && outputTokens == 0 && thinkingTokens == 0 && cacheReadTokens == 0 && totalTokens == 0
+        }
+    }
+
+    struct Command: Decodable {
+        let name: String
+        let data: Body
+    }
+
+    struct Body: Decodable {
+        let groups: [Group]
+    }
+
+    struct Group: Decodable {
+        let name: String?
+        let description: String?
+        let buckets: [Bucket]
+
+        var quotaGroup: AntigravityQuotaGroupDTO {
+            .init(
+                displayName: name, description: description,
+                buckets: buckets.filter { $0.disabled != true }.map {
+                    .init(
+                        bucketId: $0.id, window: $0.window, remainingFraction: $0.remainingFraction,
+                        resetTime: $0.resetTime)
+                })
+        }
+    }
+
+    struct Bucket: Decodable {
+        let id: String?
+        let window: String?
+        let remainingFraction: Double?
+        let resetTime: String?
+        let disabled: Bool?
+    }
 }
 
 private struct AntigravityUserStatusEnvelope: Decodable {

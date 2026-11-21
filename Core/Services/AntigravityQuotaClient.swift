@@ -7,6 +7,8 @@ enum AntigravityQuotaClientError: LocalizedError {
     case runtimeUnavailable
     case quotaUnavailable
     case protocolChanged
+    case cliUnavailable
+    case cliQueryFailed
 
     var errorDescription: String? {
         switch self {
@@ -29,6 +31,16 @@ enum AntigravityQuotaClientError: LocalizedError {
             L10n.text(
                 "error.antigravity.protocol_changed",
                 fallback: "This Antigravity version uses an unsupported quota format."
+            )
+        case .cliUnavailable:
+            L10n.text(
+                "error.antigravity.cli_unavailable",
+                fallback: "Install or update Antigravity CLI to 1.5.13 or later, then sign in to read quota."
+            )
+        case .cliQueryFailed:
+            L10n.text(
+                "error.antigravity.cli_query_failed",
+                fallback: "Antigravity CLI couldn't read quota. Check that you're signed in and try again."
             )
         }
     }
@@ -55,24 +67,32 @@ actor AntigravityQuotaClient {
         let csrfToken: String
     }
 
+    enum Discovery: Sendable {
+        case localService([Runtime])
+        case cli
+    }
+
     private nonisolated static let discoveryQueue = DispatchQueue(
         label: "com.willhsu.QuotAI.antigravity-discovery", qos: .utility)
-    private let discover: @Sendable () async throws -> [Runtime]
+    private let discover: @Sendable () async throws -> Discovery
     private let isAlive: @Sendable (Int32) -> Bool
     private let rpc: @Sendable (Runtime, String, String) async throws -> Data
+    private let cli: @Sendable () async throws -> AntigravityQuotaSnapshot
     private var cachedRuntime: Runtime?
 
     init(
-        discover: @escaping @Sendable () async throws -> [Runtime] = {
+        discover: @escaping @Sendable () async throws -> Discovery = {
             try await ProcessIO.run(on: AntigravityQuotaClient.discoveryQueue) {
                 try AntigravityQuotaClient.discoverRuntimes()
             }
         },
         isAlive: @escaping @Sendable (Int32) -> Bool = { kill($0, 0) == 0 },
-        rpc: (@Sendable (Runtime, String, String) async throws -> Data)? = nil
+        rpc: (@Sendable (Runtime, String, String) async throws -> Data)? = nil,
+        cli: @escaping @Sendable () async throws -> AntigravityQuotaSnapshot = { try await AntigravityCLI.fetch() }
     ) {
         self.discover = discover
         self.isAlive = isAlive
+        self.cli = cli
         if let rpc {
             self.rpc = rpc
         } else {
@@ -102,7 +122,15 @@ actor AntigravityQuotaClient {
             cachedRuntime = nil
         }
 
-        let runtimes = try await discover()
+        let discovery = try await discover()
+        try Task.checkCancellation()
+        guard case .localService(let runtimes) = discovery else {
+            let snapshot = try await cli()
+            try Task.checkCancellation()
+            Self.logger.info(
+                "Antigravity CLI quota refresh succeeded; groupCount=\(snapshot.groups.count, privacy: .public)")
+            return snapshot
+        }
         var receivedUnrecognizedResponse = false
         for runtime in runtimes {
             try Task.checkCancellation()
@@ -131,17 +159,26 @@ actor AntigravityQuotaClient {
         return try AntigravityQuotaParser.parse(data: data, userStatusData: status)
     }
 
-    private nonisolated static func discoverRuntimes() throws -> [Runtime] {
+    private nonisolated static func discoverRuntimes() throws -> Discovery {
         let processIDs = try languageServerProcessIDs()
         guard !processIDs.isEmpty else { throw AntigravityQuotaClientError.notRunning }
         var runtimes: [Runtime] = []
+        var usesHostBridge = false
         for processID in processIDs {
-            guard let commandLine = try? commandLine(processID: processID),
+            guard let commandLine = try? commandLine(processID: processID) else { continue }
+            guard
                 let token = argumentValue(named: "--csrf_token", in: commandLine)
                     ?? argumentValue(named: "--csrf-token", in: commandLine),
-                !token.isEmpty, !token.contains(where: \.isNewline),
-                let endpoints = try? listeningEndpoints(processID: processID)
-            else { continue }
+                !token.isEmpty, !token.contains(where: \.isNewline)
+            else {
+                usesHostBridge =
+                    usesHostBridge
+                    || commandLine.split(whereSeparator: \.isWhitespace).contains {
+                        $0 == "--read_host_bridge_token_from_stdin" || $0 == "--read_host_bridge_token_from_stdin=true"
+                    }
+                continue
+            }
+            guard let endpoints = try? listeningEndpoints(processID: processID) else { continue }
             for endpoint in endpoints {
                 for scheme in ["http", "https"] {
                     runtimes.append(
@@ -151,7 +188,7 @@ actor AntigravityQuotaClient {
                 }
             }
         }
-        return runtimes
+        return runtimes.isEmpty && usesHostBridge ? .cli : .localService(runtimes)
     }
 
     private nonisolated static func languageServerProcessIDs() throws -> [Int32] {
@@ -279,6 +316,58 @@ actor AntigravityQuotaClient {
         let output = outputPipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
         return CommandResult(status: process.terminationStatus, output: output)
+    }
+}
+
+enum AntigravityCLI {
+    private static let queue = DispatchQueue(label: "com.willhsu.QuotAI.antigravity-cli", qos: .utility)
+
+    static func fetch(executable: URL? = nil) async throws -> AntigravityQuotaSnapshot {
+        guard let executable = executable ?? locate() else { throw AntigravityQuotaClientError.cliUnavailable }
+        do {
+            let version = try await ProcessIO.capture(
+                executable: executable, arguments: ["--version"], timeout: 4, outputLimit: 1024, on: queue)
+            guard supportsHeadlessUsage(version) else { throw AntigravityQuotaClientError.cliUnavailable }
+
+            let quota = try await ProcessIO.capture(
+                executable: executable,
+                arguments: [
+                    "--settings", #"{"disableSlashCommands":false}"#, "--print-timeout", "15s",
+                    "--log-file", "agy.log", "--output-format", "json", "-p", "/usage"
+                ], timeout: 18, outputLimit: 1_048_576, on: queue)
+            // The model list is independent of the quota buckets and may fail independently.
+            let models = try? await ProcessIO.capture(
+                executable: executable, arguments: ["models"], timeout: 12, outputLimit: 128 * 1024, on: queue)
+            try Task.checkCancellation()
+            return try AntigravityQuotaParser.parseCLIReport(quota, modelList: models)
+        } catch ProcessIO.CaptureError.oversizedOutput {
+            throw AntigravityQuotaClientError.protocolChanged
+        } catch is ProcessIO.CaptureError {
+            try Task.checkCancellation()
+            throw AntigravityQuotaClientError.cliQueryFailed
+        } catch is AntigravityQuotaParserError {
+            throw AntigravityQuotaClientError.protocolChanged
+        }
+    }
+
+    private static func supportsHeadlessUsage(_ data: Data) -> Bool {
+        let version = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = version.split(separator: ".", omittingEmptySubsequences: false)
+        let numbers = parts.compactMap { Int($0) }
+        return parts.count == 3 && numbers.count == 3 && numbers.allSatisfy { $0 >= 0 }
+            && !numbers.lexicographicallyPrecedes([1, 5, 13])
+    }
+
+    private static func locate() -> URL? {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let path = ProcessInfo.processInfo.environment["PATH"] ?? ""
+        let candidates =
+            [home.appendingPathComponent(".local/bin/agy").path, "/opt/homebrew/bin/agy", "/usr/local/bin/agy"]
+            + path.split(separator: ":").filter { $0.hasPrefix("/") }.map { String($0) + "/agy" }
+        return candidates.map { URL(fileURLWithPath: $0).resolvingSymlinksInPath() }.first {
+            (try? FileManager.default.attributesOfItem(atPath: $0.path)[.type] as? FileAttributeType) == .typeRegular
+                && FileManager.default.isExecutableFile(atPath: $0.path)
+        }
     }
 }
 

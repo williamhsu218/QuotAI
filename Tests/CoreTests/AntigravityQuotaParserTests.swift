@@ -3,6 +3,67 @@ import Testing
 
 @testable import QuotAICore
 
+private func cliQuotaReport(command: String = "usage", turns: Int = 0, tokens: Int = 0) -> Data {
+    Data(
+        #"""
+        {
+          "status":"SUCCESS", "num_turns":\#(turns),
+          "usage":{"input_tokens":\#(tokens),"output_tokens":0,"thinking_tokens":0,"cache_read_tokens":0,"total_tokens":\#(tokens)},
+          "command":{"name":"\#(command)","data":{"groups":[
+            {"name":"Gemini Models","buckets":[
+              {"id":"gemini-5h","window":"5h","remaining_fraction":0.42,"reset_time":"2026-08-20T13:05:00Z"},
+              {"id":"gemini-weekly","window":"weekly","remaining_fraction":0.72}
+            ]},
+            {"name":"Claude and GPT models","buckets":[
+              {"id":"3p-5h","window":"5h","remaining_fraction":0},
+              {"id":"3p-weekly","window":"weekly","remaining_fraction":1,"disabled":true}
+            ]},
+            {"name":"Gemini 4 Argon","buckets":[
+              {"id":"gemini-argon-wtu-weekly","window":"weekly","remaining_fraction":0.83}
+            ]}
+          ]}}
+        }
+        """#.utf8)
+}
+
+@Test("Reads structured CLI quota, reset times and independent model access")
+func parsesAntigravityCLIQuota() throws {
+    let models = Data("gemini-4-argon-high\tGemini 4 Argon\ngpt-oss-120b-medium\tGPT-OSS\n".utf8)
+    let snapshot = try AntigravityQuotaParser.parseCLIReport(cliQuotaReport(), modelList: models)
+    #expect(snapshot.source == .cli)
+    #expect(snapshot.panelGroups.map(\.id) == ["gemini", "gemini-argon-wtu", "3p"])
+    #expect(snapshot.panelGroup(id: "gemini")?.fiveHour?.remainingPercent == 42)
+    #expect(
+        snapshot.panelGroup(id: "gemini")?.fiveHour?.resetsAt
+            == ISO8601DateFormatter().date(from: "2026-08-20T13:05:00Z"))
+    #expect(snapshot.panelGroup(id: "gemini-argon-wtu")?.orderedQuotas.map(\.kind) == [.sevenDay])
+    #expect(snapshot.panelGroup(id: "3p")?.fiveHour?.remainingPercent == 0)
+    #expect(snapshot.panelGroup(id: "3p")?.isExhausted == true)
+    #expect(snapshot.panelGroup(id: "3p")?.sevenDay == nil)
+}
+
+@Test("CLI quota buckets alone do not prove access to Argon or third-party models")
+func antigravityCLIRequiresIndependentModelAccess() throws {
+    let models = Data("gemini-4-hydrogen-high\tGemini 4 Hydrogen\n".utf8)
+    let denied = try AntigravityQuotaParser.parseCLIReport(cliQuotaReport(), modelList: models)
+    #expect(denied.panelGroups.map(\.id) == ["gemini"])
+    #expect(denied.thirdPartyAvailability == .unavailable && denied.argonAvailability == .unavailable)
+
+    let unknown = try AntigravityQuotaParser.parseCLIReport(cliQuotaReport(), modelList: nil)
+    #expect(unknown.thirdPartyAvailability == .unknown && unknown.argonAvailability == .unknown)
+    #expect(unknown.panelGroup(id: "3p")?.orderedQuotas.isEmpty == true)
+    #expect(unknown.panelGroup(id: "gemini-argon-wtu")?.orderedQuotas.isEmpty == true)
+}
+
+@Test("Rejects CLI output that is not a zero-turn structured usage report")
+func rejectsAntigravityCLINonQuotaResults() {
+    for invalid in [cliQuotaReport(command: "model"), cliQuotaReport(turns: 1), cliQuotaReport(tokens: 1)] {
+        #expect(throws: AntigravityQuotaParserError.missingResponse) {
+            try AntigravityQuotaParser.parseCLIReport(invalid, modelList: nil)
+        }
+    }
+}
+
 @Test("Parses Antigravity groups without merging them into Codex usage")
 func parsesAntigravityQuotaGroups() throws {
     let json = #"""
