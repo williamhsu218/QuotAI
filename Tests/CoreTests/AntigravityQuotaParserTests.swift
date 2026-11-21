@@ -64,6 +64,43 @@ func rejectsAntigravityCLINonQuotaResults() {
     }
 }
 
+@Test("Antigravity CLI queries quota and model access concurrently")
+func antigravityCLIOverlapsQuotaAndModelQueries() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "quotai-parallel-cli-" + UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    try cliQuotaReport().write(to: directory.appendingPathComponent("quota.output"))
+    try Data("gemini-4-argon-high\tGemini 4 Argon\ngpt-oss-120b-medium\tGPT-OSS\n".utf8)
+        .write(to: directory.appendingPathComponent("models.output"))
+    let executable = directory.appendingPathComponent("agy")
+    let script = #"""
+        #!/bin/sh
+        set -eu
+        fixture_dir=${0%/*}
+        case "$1" in
+          --version) printf '1.5.13\n'; exit 0 ;;
+          --settings) query=quota; peer=models ;;
+          models) query=models; peer=quota ;;
+          *) exit 2 ;;
+        esac
+        : > "$fixture_dir/$query.started"
+        attempts=0
+        until [ -f "$fixture_dir/$peer.started" ]; do
+          attempts=$((attempts + 1))
+          [ "$attempts" -lt 100 ] || exit 3
+          /bin/sleep 0.05
+        done
+        /bin/cat "$fixture_dir/$query.output"
+        """#
+    try script.write(to: executable, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: executable.path)
+
+    let snapshot = try await AntigravityCLI.fetch(executable: executable)
+    #expect(snapshot.panelGroups.map(\.id) == ["gemini", "gemini-argon-wtu", "3p"])
+    #expect(snapshot.argonAvailability == .available && snapshot.thirdPartyAvailability == .available)
+}
+
 @Test("Parses Antigravity groups without merging them into Codex usage")
 func parsesAntigravityQuotaGroups() throws {
     let json = #"""
