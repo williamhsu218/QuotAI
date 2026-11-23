@@ -101,6 +101,62 @@ func antigravityCLIOverlapsQuotaAndModelQueries() async throws {
     #expect(snapshot.argonAvailability == .available && snapshot.thirdPartyAvailability == .available)
 }
 
+@Test("Parses Antigravity CLI plan fields without requiring them for the quota report")
+func parsesAntigravityCLIPlanMetadata() throws {
+    let reportWithPlan = Data(
+        #"""
+        {
+          "status":"SUCCESS", "num_turns":0,
+          "usage":{"input_tokens":0,"output_tokens":0,"thinking_tokens":0,"cache_read_tokens":0,"total_tokens":0},
+          "command":{"name":"usage","data":{"plan_tier":12,"plan_name":"Google AI Ultra","groups":[
+            {"name":"Gemini Models","buckets":[{"id":"gemini-5h","window":"5h","remaining_fraction":0.9}]}
+          ]}}
+        }
+        """#.utf8)
+    let snapshot = try AntigravityQuotaParser.parseCLIReport(reportWithPlan, modelList: nil)
+    #expect(snapshot.subscriptionPlan?.displayName == "Ultra")
+    #expect(AntigravityQuotaParser.cliSubscriptionPlan("Pro")?.displayName == "Pro")
+    #expect(AntigravityQuotaParser.cliSubscriptionPlan("Google AI Free")?.displayName == "Free")
+    #expect(AntigravityQuotaParser.cliSubscriptionPlan("Gemini Enterprise")?.displayName == "Enterprise")
+}
+
+@Test("Antigravity CLI subscription probe reads plan_tier via ephemeral statusLine settings")
+func antigravityCLISubscriptionProbeReadsPlanTier() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "quotai-plan-probe-" + UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let executable = directory.appendingPathComponent("agy")
+    let script = #"""
+        #!/bin/sh
+        set -eu
+        if [ "$1" = "--version" ]; then
+          printf '1.5.14\n'
+          exit 0
+        fi
+        [ -t 0 ] && [ -t 1 ] && [ -t 2 ] || exit 2
+        settings=""
+        while [ "$#" -gt 0 ]; do
+          if [ "$1" = "--settings" ]; then
+            shift
+            settings="$1"
+          fi
+          shift
+        done
+        cmd=$(/usr/bin/python3 -c 'import json,sys; print(json.loads(sys.argv[1])["statusLine"]["command"])' "$settings")
+        printf '{"agent_state":"error"}\n' | /bin/sh -c "$cmd" >/dev/null
+        printf '{"agent_state":"idle"}\n' | /bin/sh -c "$cmd" >/dev/null
+        /bin/sleep 2
+        printf '{"agent_state":"idle","plan_tier":"Google AI Pro","email":"private@example.invalid"}\n' | /bin/sh -c "$cmd" >/dev/null
+        """#
+    try script.write(to: executable, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: executable.path)
+
+    let plan = try await AntigravityCLI.fetchSubscriptionPlan(executable: executable, timeout: 6)
+    #expect(plan?.displayName == "Pro")
+}
+
 @Test("Parses Antigravity groups without merging them into Codex usage")
 func parsesAntigravityQuotaGroups() throws {
     let json = #"""

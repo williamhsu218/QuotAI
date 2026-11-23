@@ -358,3 +358,10 @@
 "history.column_reset" = "Resets";
 "history.table" = "Recorded quota samples, newest first";
 "history.remaining_accessibility_format" = "Remaining %d%%";
+
+"usage.local_source_with_history" = "From local logs & history";
+"usage.history_title" = "Local Token History";
+"usage.history_detail" = "Keeps daily token totals for Antigravity and Claude Code on this Mac so deleted conversations do not erase recorded Token Activity. No conversation text, paths, or account IDs are saved.";
+"usage.history_clear" = "Clear Token History";
+"usage.history_clear_confirm" = "Clear all locally archived token history?";
+"usage.history_clear_failed" = "Local token history could not be cleared.";

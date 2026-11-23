@@ -205,6 +205,17 @@ public struct AntigravityQuotaSnapshot: Codable, Equatable, Sendable {
         self.source = source
     }
 
+    public func withSubscriptionPlan(_ plan: SubscriptionPlan?) -> AntigravityQuotaSnapshot {
+        AntigravityQuotaSnapshot(
+            fetchedAt: fetchedAt,
+            groups: groups,
+            subscriptionPlan: plan,
+            thirdPartyAvailability: thirdPartyAvailability,
+            argonAvailability: argonAvailability,
+            source: source
+        )
+    }
+
     /// Only presentation-safe values may reach the panel, settings or menu bar.
     /// Unknown entitlement keeps the selection, but suppresses protected pool numbers.
     public var displayGroups: [AntigravityQuotaGroup] {
@@ -385,10 +396,16 @@ public enum AntigravityQuotaParser {
         return AntigravityQuotaSnapshot(
             fetchedAt: fetchedAt,
             groups: groups,
+            subscriptionPlan: report.command.data.subscriptionPlan,
             thirdPartyAvailability: access.thirdParty,
             argonAvailability: access.argon,
             source: .cli
         )
+    }
+
+    static func cliSubscriptionPlan(_ identifier: String?) -> SubscriptionPlan? {
+        let plan = SubscriptionPlan(identifier: identifier)
+        return plan?.identifier == "pro" ? SubscriptionPlan(identifier: "google_ai_pro") : plan
     }
 
     private static func parseGroups(_ rawGroups: [AntigravityQuotaGroupDTO]) throws -> [AntigravityQuotaGroup] {
@@ -584,6 +601,21 @@ private struct AntigravityCLIUsageReport: Decodable {
 
     struct Body: Decodable {
         let groups: [Group]
+        let subscriptionPlan: SubscriptionPlan?
+
+        private enum CodingKeys: String, CodingKey {
+            case groups, planTier, planType, planName, tier
+        }
+
+        init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            groups = try values.decode([Group].self, forKey: .groups)
+            let planKeys: [CodingKeys] = [.planTier, .planType, .planName, .tier]
+            subscriptionPlan =
+                planKeys.lazy.compactMap { key in
+                    AntigravityQuotaParser.cliSubscriptionPlan(try? values.decode(String.self, forKey: key))
+                }.first
+        }
     }
 
     struct Group: Decodable {

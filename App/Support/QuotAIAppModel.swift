@@ -24,7 +24,9 @@ final class QuotAIAppModel {
     private(set) var history: [QuotaHistoryPoint] = []
     private(set) var historyError: String?
     private(set) var localTokenUsage: [QuotaProvider: LocalTokenUsageResult] = [:]
-    @ObservationIgnored private let localTokenReader = LocalTokenUsageReader()
+    private(set) var hasLocalTokenHistory = false
+    private(set) var localTokenHistoryError: String?
+    @ObservationIgnored private let localTokenReader: LocalTokenUsageReader
     @ObservationIgnored let defaults: UserDefaults
     @ObservationIgnored var onOpenPanel: ((QuotaProvider?) -> Void)?
     @ObservationIgnored private var started = false
@@ -32,6 +34,9 @@ final class QuotAIAppModel {
     @ObservationIgnored private var policy = QuotaNotificationPolicy()
     @ObservationIgnored private let ledger: QuotaHistoryLedger
     @ObservationIgnored private var historyTask: Task<Void, Never>?
+    @ObservationIgnored private var localTokenSyncTask: Task<Void, Never>?
+    @ObservationIgnored private var localTokenSyncProviders: [QuotaProvider] = []
+    @ObservationIgnored private var localTokenHistoryGeneration: UInt64 = 0
     @ObservationIgnored private var previewHistory: [QuotaHistoryPoint]?
     @ObservationIgnored private var automaticClaudeTask: Task<Void, Never>?
     @ObservationIgnored private var automaticClaudeKey = ""
@@ -56,6 +61,9 @@ final class QuotAIAppModel {
         registry = .builtIn(codex: codex, antigravity: antigravity, claudeCode: claudeCode, defaults: defaults)
         let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         ledger = QuotaHistoryLedger(url: root.appendingPathComponent("QuotAI/Insights/quota-history-v1.json"))
+        localTokenReader = LocalTokenUsageReader(
+            ledgerURL: previewMode ? nil : root.appendingPathComponent("QuotAI/Insights/token-activity-v1.json")
+        )
     }
 
     static func preview(
@@ -97,8 +105,43 @@ final class QuotAIAppModel {
     }
 
     func refreshLocalTokenUsage(for provider: QuotaProvider) async {
-        guard !previewMode, let result = try? await localTokenReader.read(provider), !Task.isCancelled else { return }
+        guard !previewMode else { return }
+        let generation = localTokenHistoryGeneration
+        guard let result = try? await localTokenReader.read(provider), !Task.isCancelled else { return }
+        let saved = await localTokenReader.hasSavedHistory()
+        guard generation == localTokenHistoryGeneration, !Task.isCancelled else { return }
         if localTokenUsage[provider] != result { localTokenUsage[provider] = result }
+        if hasLocalTokenHistory != saved { hasLocalTokenHistory = saved }
+    }
+
+    func refreshLocalTokenHistoryAvailability() async {
+        guard !previewMode else { return }
+        let generation = localTokenHistoryGeneration
+        let saved = await localTokenReader.hasSavedHistory()
+        guard generation == localTokenHistoryGeneration else { return }
+        if hasLocalTokenHistory != saved { hasLocalTokenHistory = saved }
+    }
+
+    func clearLocalTokenHistory() async {
+        guard !previewMode else {
+            hasLocalTokenHistory = false
+            localTokenHistoryError = nil
+            return
+        }
+        do {
+            try await localTokenReader.clearHistory()
+            localTokenHistoryGeneration &+= 1
+            localTokenUsage.removeAll()
+            localTokenHistoryError = nil
+            hasLocalTokenHistory = false
+            let visible = Set(registry.visibleProviders)
+            for provider in [QuotaProvider.antigravity, .claudeCode] where visible.contains(provider) {
+                await refreshLocalTokenUsage(for: provider)
+            }
+        } catch {
+            localTokenHistoryError = L10n.text(
+                "usage.history_clear_failed", fallback: "Local token history could not be cleared.")
+        }
     }
 
     func start() {
@@ -117,6 +160,9 @@ final class QuotAIAppModel {
 
     func stop() {
         started = false
+        localTokenSyncTask?.cancel()
+        localTokenSyncTask = nil
+        localTokenSyncProviders = []
         automaticClaudeTask?.cancel()
         automaticClaudeTask = nil
         automaticClaudeKey = ""
@@ -260,6 +306,27 @@ final class QuotAIAppModel {
             }
         }
         activeProviders = visible
+        configureLocalTokenSync()
+    }
+
+    private func configureLocalTokenSync() {
+        guard !previewMode, started else { return }
+        let visible = Set(registry.visibleProviders)
+        let targets = [QuotaProvider.antigravity, .claudeCode].filter { visible.contains($0) }
+        guard targets != localTokenSyncProviders else { return }
+        localTokenSyncProviders = targets
+        localTokenSyncTask?.cancel()
+        localTokenSyncTask = nil
+        guard !targets.isEmpty else { return }
+        localTokenSyncTask = Task { [weak self] in
+            while !Task.isCancelled {
+                for provider in targets {
+                    guard let self, self.started, !Task.isCancelled else { return }
+                    await self.refreshLocalTokenUsage(for: provider)
+                }
+                do { try await Task.sleep(for: .seconds(300)) } catch { return }
+            }
+        }
     }
 
     private func configureAutomaticClaude() {

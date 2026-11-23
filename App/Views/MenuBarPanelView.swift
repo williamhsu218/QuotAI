@@ -213,7 +213,9 @@ struct MenuBarPanelView: View {
                 activity: activity,
                 source: result?.isPartial == true
                     ? L10n.text("usage.local_partial", fallback: "Local logs · some records could not be read")
-                    : L10n.text("usage.local_source", fallback: "From local session logs")
+                    : result?.hasArchivedHistory == true
+                        ? L10n.text("usage.local_source_with_history", fallback: "From local logs & history")
+                        : L10n.text("usage.local_source", fallback: "From local session logs")
             )
         } else {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.xSmall) {

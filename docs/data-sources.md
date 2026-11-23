@@ -20,9 +20,11 @@ CSRF 信息只在单次刷新内驻留内存；Antigravity 额度、认证信息
 Antigravity 2.34.0 改用新的本地连接方式。此时 QuotAI 调用已登录的 Antigravity CLI
 1.5.13 或更新版本，通过内置命令 `agy -p /usage --output-format json` 读取额度与重置时间，
 通过 `agy models` 读取该账号的可用模型。面板底部会显示 `CLI`。若要查看桌面端账号的额度，
-请在两端登录同一个账号。CLI 的额度结果未提供套餐名，面板省略套餐徽标。
+请在两端登录同一个账号。CLI 的 `/usage` 结果未包含套餐名时，QuotAI 通过
+`--settings` 配置本次查询的 `statusLine` 回调，异步读取 `plan_tier`。回调只交付套餐字段，查询结束后清理临时文件，
+套餐缓存仅保留在内存中。已知套餐在短暂查询失败期间继续显示，后续成功查询会更新徽标。
 QuotAI 在临时目录运行查询，使用 CLI 自己的登录状态，只接受零轮次、零 Token 的结构化额度报告。
-[Antigravity CLI 官方用法](https://antigravity.google/docs/cli/headless/)
+[Antigravity CLI 官方用法](https://antigravity.google/docs/cli/headless/) / [Status line 文档](https://antigravity.google/docs/cli/statusline)
 
 旧本机接口会同时读取 `GetUserStatus` 的账号模型配置，以启用状态和适用套餐判断第三方与 Argon 模型权限，
 不按模型版本或套餐名称推测，也不把额度池存在或剩余百分比当作使用权限。
@@ -75,9 +77,12 @@ ChatGPT 或 Codex CLI。
 - Antigravity 读取 `~/.gemini/antigravity`、`~/.gemini/antigravity-cli` 和 `~/.antigravity-ide` 下的日志及会话 JSON／JSONL。
   优先使用记录自带的总数。需要合计时，按日志格式区分已包含在输入中的缓存和单独记录的缓存。
 
-打开面板或切换到对应来源时会在后台扫描，面板打开期间每分钟检查更新。图表按本机时区显示最近 18 周，
-累计值和连续天数来自带有时间和用量的可读日志。原始记录仅在内存中解析，按文件缓存的统计也只保留在内存中。
-统计覆盖本机保留的会话，可包含不同账号的记录。额度快照和 Quota History 继续使用各自的数据源。
+应用启动时和之后每 5 分钟在后台扫描已启用的来源。打开面板或切换来源时立即刷新，面板打开期间每分钟检查更新。
+图表按本机时区显示最近 18 周，归档记录沿用采集时的日期。累计值和连续天数包含本机当前日志与已归档的历史用量。
+原始记录只在内存中解析。本机 Application Support 的 `QuotAI/Insights/token-activity-v1.json` 以 0600 权限原子写入，
+只保存文件路径与 Claude 消息 ID 的 SHA-256 摘要、文件大小和修改时间、按日 Token 计数与归档状态。
+正常扫描中确认会话文件已删除时，已记录的用量会保留在归档中。文件恢复或同一 Claude 消息出现在多个日志时，避免重复计数。
+“设置 → 功能 → 本机 Token 历史台账”可清空归档，仍在磁盘上的会话会按当前日志重新统计。首次扫描之前已删除的会话无法恢复。
 
 ## Claude Code 查询与隐私
 

@@ -322,6 +322,8 @@ actor AntigravityQuotaClient {
 enum AntigravityCLI {
     private static let queue = DispatchQueue(
         label: "com.willhsu.QuotAI.antigravity-cli", qos: .utility, attributes: .concurrent)
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.willhsu.QuotAI", category: "AntigravityCLI")
 
     static func fetch(executable: URL? = nil) async throws -> AntigravityQuotaSnapshot {
         guard let executable = executable ?? locate() else { throw AntigravityQuotaClientError.cliUnavailable }
@@ -350,6 +352,149 @@ enum AntigravityCLI {
         } catch is AntigravityQuotaParserError {
             throw AntigravityQuotaClientError.protocolChanged
         }
+    }
+
+    /// Reads the authenticated account's subscription tier from Antigravity CLI's
+    /// documented `statusLine` JSON payload using an ephemeral `--settings` override
+    /// in an isolated temporary directory. Never modifies user settings or sends a prompt.
+    static func fetchSubscriptionPlan(
+        executable: URL? = nil, timeout: TimeInterval = 20
+    ) async throws -> SubscriptionPlan? {
+        guard let executable = executable ?? locate() else { throw AntigravityQuotaClientError.cliUnavailable }
+        let version: Data
+        do {
+            version = try await ProcessIO.capture(
+                executable: executable, arguments: ["--version"], timeout: 4, outputLimit: 1024, on: queue)
+        } catch is ProcessIO.CaptureError {
+            try Task.checkCancellation()
+            throw AntigravityQuotaClientError.cliQueryFailed
+        }
+        guard supportsHeadlessUsage(version) else { throw AntigravityQuotaClientError.cliUnavailable }
+
+        let control = PlanProbeControl()
+        return try await withTaskCancellationHandler {
+            try await ProcessIO.run(on: queue) {
+                try control.checkCancellation()
+                let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+                    "quotai-agy-plan-" + UUID().uuidString, isDirectory: true)
+                try FileManager.default.createDirectory(
+                    at: directory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+                defer { try? FileManager.default.removeItem(at: directory) }
+
+                let tierFile = directory.appendingPathComponent("tier")
+                let idleFile = directory.appendingPathComponent("idle")
+                let scriptFile = directory.appendingPathComponent("statusline.sh")
+                // The callback also receives account and workspace details. Only the tier may leave its stdin.
+                let script = #"""
+                    #!/bin/sh
+                    umask 077
+                    directory=${0%/*}
+                    payload=$(/usr/bin/head -c 65537) || exit 1
+                    [ "${#payload}" -le 65536 ] || exit 1
+                    extract() {
+                        printf '%s' "$payload" | /usr/bin/plutil -extract "$1" raw -expect string -o - -- - 2>/dev/null
+                    }
+                    if tier=$(extract plan_tier) && [ -n "$tier" ]; then
+                        temporary=$(/usr/bin/mktemp "$directory/tier.XXXXXX") || exit 1
+                        printf '%s' "$tier" > "$temporary" && /bin/mv -f "$temporary" "$directory/tier"
+                    elif [ "$(extract agent_state)" = idle ]; then
+                        /usr/bin/touch "$directory/idle"
+                    fi
+                    printf 'ok\n'
+                    """#
+                try Data(script.utf8).write(to: scriptFile, options: .atomic)
+                try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: scriptFile.path)
+
+                let settingsObject: [String: Any] = [
+                    "statusLine": [
+                        "type": "command",
+                        "command": "'" + scriptFile.path.replacingOccurrences(of: "'", with: "'\\''") + "'",
+                        "enabled": true
+                    ]
+                ]
+                let settingsData = try JSONSerialization.data(withJSONObject: settingsObject)
+                let settingsJSON = String(decoding: settingsData, as: UTF8.self)
+
+                var masterFD: Int32 = -1
+                var slaveFD: Int32 = -1
+                var windowSize = winsize(ws_row: 24, ws_col: 80, ws_xpixel: 0, ws_ypixel: 0)
+                guard Darwin.openpty(&masterFD, &slaveFD, nil, nil, &windowSize) == 0 else {
+                    logger.error("Could not allocate an Antigravity status line terminal")
+                    throw AntigravityQuotaClientError.cliQueryFailed
+                }
+                defer { Darwin.close(masterFD) }
+                _ = fcntl(masterFD, F_SETFD, FD_CLOEXEC)
+                _ = fcntl(slaveFD, F_SETFD, FD_CLOEXEC)
+
+                let slaveHandle = FileHandle(fileDescriptor: slaveFD, closeOnDealloc: false)
+                let process = Process()
+                process.executableURL = executable
+                process.currentDirectoryURL = directory
+                process.arguments = ["--settings", settingsJSON, "--log-file", "agy.log"]
+                var environment = ProcessInfo.processInfo.environment
+                environment["TERM"] = "xterm-256color"
+                process.environment = environment
+                process.standardInput = slaveHandle
+                process.standardOutput = slaveHandle
+                process.standardError = slaveHandle
+
+                do {
+                    try control.launch(process)
+                } catch {
+                    Darwin.close(slaveFD)
+                    if !(error is CancellationError) { logger.error("Could not launch the Antigravity status line") }
+                    throw error
+                }
+                Darwin.close(slaveFD)
+                defer { control.stop() }
+
+                let deadline = ProcessInfo.processInfo.systemUptime + timeout
+                var buffer = [UInt8](repeating: 0, count: 8_192)
+
+                while ProcessInfo.processInfo.systemUptime < deadline {
+                    try control.checkCancellation()
+
+                    var descriptor = pollfd(fd: masterFD, events: Int16(POLLIN | POLLHUP), revents: 0)
+                    let ready = Darwin.poll(&descriptor, 1, 150)
+                    if ready < 0 && errno != EINTR {
+                        logger.error("Could not read the Antigravity status line terminal")
+                        throw AntigravityQuotaClientError.cliQueryFailed
+                    }
+                    if ready > 0 && (descriptor.revents & Int16(POLLIN)) != 0 {
+                        _ = Darwin.read(masterFD, &buffer, buffer.count)
+                    }
+
+                    let isRunning = process.isRunning
+                    if let plan = readPlanTier(tierFile) { return plan }
+                    if !isRunning {
+                        try control.checkCancellation()
+                        let exitStatus = process.terminationStatus
+                        if exitStatus == 0 && FileManager.default.fileExists(atPath: idleFile.path) {
+                            return nil
+                        }
+                        logger.error("Antigravity status line exited with status \(exitStatus, privacy: .public)")
+                        throw AntigravityQuotaClientError.cliQueryFailed
+                    }
+                }
+                try control.checkCancellation()
+                // An idle event without a tier can arrive before account metadata has loaded.
+                // Only treat the field as absent after allowing the full callback window.
+                if let plan = readPlanTier(tierFile) { return plan }
+                if FileManager.default.fileExists(atPath: idleFile.path) { return nil }
+                logger.error("Antigravity status line timed out before account metadata arrived")
+                throw AntigravityQuotaClientError.cliQueryFailed
+            }
+        } onCancel: {
+            control.cancel()
+        }
+    }
+
+    private static func readPlanTier(_ url: URL) -> SubscriptionPlan? {
+        guard let data = try? Data(contentsOf: url), data.count <= 128,
+            let tier = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+            tier.rangeOfCharacter(from: .controlCharacters) == nil
+        else { return nil }
+        return AntigravityQuotaParser.cliSubscriptionPlan(tier)
     }
 
     private static func supportsHeadlessUsage(_ data: Data) -> Bool {
@@ -381,6 +526,49 @@ private struct LoopbackEndpoint: Hashable, Sendable {
 private struct CommandResult: Sendable {
     let status: Int32
     let output: Data
+}
+
+private final class PlanProbeControl: @unchecked Sendable {
+    private let lock = NSLock()
+    private var process: Process?
+    private var cancelled = false
+
+    func launch(_ child: Process) throws {
+        try lock.withLock {
+            guard !cancelled else { throw CancellationError() }
+            do { try child.run() } catch { throw AntigravityQuotaClientError.cliQueryFailed }
+            process = child
+        }
+    }
+
+    func cancel() {
+        lock.withLock {
+            cancelled = true
+            if let process, process.isRunning { kill(process.processIdentifier, SIGTERM) }
+        }
+    }
+
+    func checkCancellation() throws {
+        try lock.withLock { if cancelled { throw CancellationError() } }
+    }
+
+    func stop() {
+        let child = lock.withLock { () -> Process? in
+            guard let child = process else { return nil }
+            process = nil
+            return child
+        }
+        guard let child else { return }
+        if child.isRunning {
+            kill(child.processIdentifier, SIGTERM)
+            let graceDeadline = ProcessInfo.processInfo.systemUptime + 0.5
+            while child.isRunning && ProcessInfo.processInfo.systemUptime < graceDeadline {
+                usleep(20_000)
+            }
+            if child.isRunning { kill(child.processIdentifier, SIGKILL) }
+        }
+        child.waitUntilExit()
+    }
 }
 
 /// Antigravity's existing local TLS service uses a self-signed certificate.

@@ -15,7 +15,7 @@ public struct SubscriptionPlan: Codable, Equatable, Sendable {
 
     public var displayName: String {
         switch identifier {
-        case "free":
+        case "free", "g1-free-tier", "google_ai_free", "google ai free", "ai_free", "ai free", "teams_tier_free":
             "Free"
         case "go":
             "Go"
@@ -35,7 +35,7 @@ public struct SubscriptionPlan: Codable, Equatable, Sendable {
         case "self_serve_business_usage_based", "business":
             "Business"
         case "enterprise_cbp_usage_based", "enterprise", "teams_tier_enterprise_self_hosted",
-            "teams_tier_enterprise_saas":
+            "teams_tier_enterprise_saas", "gemini_enterprise", "gemini enterprise":
             "Enterprise"
         case "edu":
             "Edu"
