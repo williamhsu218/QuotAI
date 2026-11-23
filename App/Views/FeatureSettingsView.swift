@@ -10,6 +10,7 @@ struct FeatureSettingsView: View {
     @AppStorage(DefaultsKey.quotaWidgets) private var widgets = false
     @AppStorage(DefaultsKey.globalShortcut) private var shortcut = false
     @AppStorage(DefaultsKey.claudeAutoRefresh) private var claudeInterval = 0
+    @State private var clearTokenHistoryConfirmation = false
 
     var body: some View {
         ScrollView {
@@ -125,6 +126,28 @@ struct FeatureSettingsView: View {
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     Button(L10n.text("history.open", fallback: "View History…")) { model.historyWindow.show() }
                 }
+                SettingsSection(title: L10n.text("usage.history_title", fallback: "Local Token History")) {
+                    Text(
+                        L10n.text(
+                            "usage.history_detail",
+                            fallback:
+                                "Keeps daily token totals for Antigravity and Claude Code on this Mac so deleted conversations do not erase recorded Token Activity. No conversation text, paths, or account IDs are saved."
+                        )
+                    )
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    Button(
+                        L10n.text("usage.history_clear", fallback: "Clear Token History"),
+                        role: .destructive
+                    ) {
+                        clearTokenHistoryConfirmation = true
+                    }
+                    .disabled(model.previewMode || !model.hasLocalTokenHistory)
+                    if let error = model.localTokenHistoryError {
+                        Text(error)
+                            .font(.caption).foregroundStyle(AppTheme.quotaCritical.accent)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
                 SettingsSection(title: L10n.text("shortcut.title", fallback: "Keyboard Shortcut")) {
                     Toggle(L10n.text("shortcut.enable", fallback: "Open the panel with ⌃⌥Q"), isOn: $shortcut)
                     if shortcut && model.shortcut.conflict {
@@ -159,6 +182,17 @@ struct FeatureSettingsView: View {
         .onChange(of: widgets) { model.preferencesDidChange() }
         .onChange(of: shortcut) { model.preferencesDidChange() }
         .onChange(of: claudeInterval) { model.preferencesDidChange() }
-        .task { await model.notifications.refreshAuthorization() }
+        .task {
+            await model.notifications.refreshAuthorization()
+            await model.refreshLocalTokenHistoryAvailability()
+        }
+        .confirmationDialog(
+            L10n.text("usage.history_clear_confirm", fallback: "Clear all locally archived token history?"),
+            isPresented: $clearTokenHistoryConfirmation
+        ) {
+            Button(L10n.text("usage.history_clear", fallback: "Clear Token History"), role: .destructive) {
+                Task { await model.clearLocalTokenHistory() }
+            }
+        }
     }
 }

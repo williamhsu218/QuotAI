@@ -120,4 +120,99 @@ struct AntigravityUsageStoreTests {
         }
         #expect(store.snapshot == nil)
     }
+
+    @Test("CLI snapshots publish immediately and merge the asynchronous subscription plan")
+    func cliSnapshotMergesAsyncSubscriptionPlan() async throws {
+        let defaults = try IsolatedDefaults()
+        defer { defaults.remove() }
+        let cliSnapshot = AntigravityQuotaSnapshot(
+            fetchedAt: AntigravityQuotaSnapshot.preview.fetchedAt,
+            groups: AntigravityQuotaSnapshot.preview.groups,
+            subscriptionPlan: nil,
+            thirdPartyAvailability: .available,
+            source: .cli
+        )
+        let planGate = Gate()
+        let planCalls = CallLog<Int>()
+        let shouldFail = LockedValue(false)
+        let nextPlan = LockedValue<SubscriptionPlan?>(SubscriptionPlan(identifier: "Google AI Pro"))
+        let store = AntigravityUsageStore(
+            defaults: defaults.defaults,
+            fetchSnapshot: { cliSnapshot },
+            fetchCLISubscriptionPlan: {
+                let count = await planCalls.values.count + 1
+                await planCalls.append(count)
+                await planGate.wait()
+                if shouldFail.value { throw ProbeFailure() }
+                return nextPlan.value
+            },
+            cliPlanRefreshInterval: 3_600,
+            installationDetector: { true }
+        )
+        store.start()
+        defer { store.stop() }
+
+        try await waitUntil("CLI quota is ready before plan finishes") { store.phase == .ready }
+        #expect(store.snapshot?.source == .cli)
+        #expect(store.snapshot?.subscriptionPlan == nil)
+
+        await planGate.open()
+        try await waitUntil("CLI plan merges onto snapshot") {
+            store.snapshot?.subscriptionPlan?.displayName == "Pro"
+        }
+        #expect(await planCalls.values.count == 1)
+
+        // Periodic refresh within the refresh interval keeps the cached plan without re-probing.
+        await store.refresh()
+        #expect(store.snapshot?.subscriptionPlan?.displayName == "Pro")
+        #expect(await planCalls.values.count == 1)
+
+        // Manual refresh forces a re-probe; transient failures retain the last known plan.
+        shouldFail.value = true
+        await store.userRefresh()
+        try await waitUntil("manual refresh triggers plan re-probe") { await planCalls.values.count == 2 }
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(store.snapshot?.subscriptionPlan?.displayName == "Pro")
+
+        // Confirmed plan change updates the badge.
+        shouldFail.value = false
+        nextPlan.value = SubscriptionPlan(identifier: "Google AI Ultra")
+        await store.userRefresh()
+        try await waitUntil("updated CLI plan replaces previous badge") {
+            store.snapshot?.subscriptionPlan?.displayName == "Ultra"
+        }
+    }
+
+    @Test("Stopping cancels an in-flight CLI subscription plan probe")
+    func stopRejectsLateCLISubscriptionPlan() async throws {
+        let defaults = try IsolatedDefaults()
+        defer { defaults.remove() }
+        let cliSnapshot = AntigravityQuotaSnapshot(
+            fetchedAt: AntigravityQuotaSnapshot.preview.fetchedAt,
+            groups: AntigravityQuotaSnapshot.preview.groups,
+            subscriptionPlan: nil,
+            thirdPartyAvailability: .available,
+            source: .cli
+        )
+        let planGate = Gate()
+        let planReturned = CallLog<Bool>()
+        let store = AntigravityUsageStore(
+            defaults: defaults.defaults,
+            fetchSnapshot: { cliSnapshot },
+            fetchCLISubscriptionPlan: {
+                await planGate.wait()
+                await planReturned.append(true)
+                return SubscriptionPlan(identifier: "Google AI Pro")
+            },
+            installationDetector: { true }
+        )
+        store.start()
+        try await waitUntil("CLI snapshot is ready") { store.phase == .ready }
+
+        store.stop()
+        await planGate.open()
+        try await waitUntil("late plan probe finishes") { await planReturned.values.count == 1 }
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(store.snapshot == nil && store.phase == .idle)
+    }
 }

@@ -15,12 +15,17 @@ final class AntigravityUsageStore: QuotaProviderStore {
     private(set) var isInstalled: Bool
 
     @ObservationIgnored private let fetchSnapshot: @Sendable () async throws -> AntigravityQuotaSnapshot
+    @ObservationIgnored private let fetchCLISubscriptionPlan: @Sendable () async throws -> SubscriptionPlan?
+    @ObservationIgnored private let cliPlanRefreshInterval: TimeInterval
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private lazy var refreshScheduler = QuotaRefreshScheduler(
         interval: { [defaults] in RefreshInterval.seconds(in: defaults) },
         tick: { [weak self] in Task { await self?.refresh() } }
     )
     @ObservationIgnored private var generation: UInt64 = 0
+    @ObservationIgnored private var cliSubscriptionPlan: SubscriptionPlan?
+    @ObservationIgnored private var nextCLIPlanRefresh: Date?
+    @ObservationIgnored private var cliPlanTask: Task<Void, Never>?
     @ObservationIgnored private let previewMode: Bool
     @ObservationIgnored private let detectInstallation: @Sendable () -> Bool
     @ObservationIgnored private let logger = Logger(
@@ -36,6 +41,10 @@ final class AntigravityUsageStore: QuotaProviderStore {
         fetchSnapshot: @escaping @Sendable () async throws -> AntigravityQuotaSnapshot = {
             try await AntigravityQuotaClient.shared.fetch()
         },
+        fetchCLISubscriptionPlan: @escaping @Sendable () async throws -> SubscriptionPlan? = {
+            try await AntigravityCLI.fetchSubscriptionPlan()
+        },
+        cliPlanRefreshInterval: TimeInterval = 1_800,
         installationDetector: @escaping @Sendable () -> Bool = {
             ProviderInstallationDetector.antigravity(cache: .shared)
         }
@@ -43,6 +52,8 @@ final class AntigravityUsageStore: QuotaProviderStore {
         self.previewMode = previewMode
         self.defaults = defaults
         self.fetchSnapshot = fetchSnapshot
+        self.fetchCLISubscriptionPlan = fetchCLISubscriptionPlan
+        self.cliPlanRefreshInterval = cliPlanRefreshInterval
         self.detectInstallation = installationDetector
         self.isInstalled = previewMode || installationDetector()
         if previewMode {
@@ -61,7 +72,7 @@ final class AntigravityUsageStore: QuotaProviderStore {
     func userRefresh() async {
         reloadInstallation()
         guard isInstalled else { return }
-        await refresh()
+        await refresh(forcePlanRefresh: true)
     }
 
     func reloadInstallation() {
@@ -69,6 +80,7 @@ final class AntigravityUsageStore: QuotaProviderStore {
         let detected = detectInstallation()
         guard detected != isInstalled else { return }
         generation &+= 1
+        resetCLIPlanState()
         isInstalled = detected
         snapshot = nil
         phase = .idle
@@ -118,12 +130,17 @@ final class AntigravityUsageStore: QuotaProviderStore {
         generation &+= 1
         isEnabled = false
         refreshScheduler.stop()
+        resetCLIPlanState()
         snapshot = nil
         phase = .idle
         logger.info("Stopped Antigravity quota refresh loop")
     }
 
     func refresh() async {
+        await refresh(forcePlanRefresh: false)
+    }
+
+    private func refresh(forcePlanRefresh: Bool) async {
         guard !previewMode else { return }
         reloadInstallation()
         guard isEnabled, isInstalled, !isLoading else { return }
@@ -134,7 +151,13 @@ final class AntigravityUsageStore: QuotaProviderStore {
             let refreshedSnapshot = try await fetchSnapshot()
             reloadInstallation()
             guard isEnabled, isInstalled, generation == expectedGeneration else { return }
-            snapshot = refreshedSnapshot
+            if refreshedSnapshot.source == .cli && refreshedSnapshot.subscriptionPlan == nil {
+                snapshot = refreshedSnapshot.withSubscriptionPlan(cliSubscriptionPlan)
+                scheduleCLIPlanRefreshIfNeeded(force: forcePlanRefresh, expectedGeneration: expectedGeneration)
+            } else {
+                resetCLIPlanState()
+                snapshot = refreshedSnapshot
+            }
             refreshedSnapshot.reconcileUnavailableSelections(in: defaults)
             phase = .ready
         } catch {
@@ -148,5 +171,39 @@ final class AntigravityUsageStore: QuotaProviderStore {
                 "Antigravity quota refresh failed: \(String(describing: type(of: error)), privacy: .public)"
             )
         }
+    }
+
+    private func scheduleCLIPlanRefreshIfNeeded(force: Bool, expectedGeneration: UInt64) {
+        guard cliPlanTask == nil, force || Date() >= (nextCLIPlanRefresh ?? .distantPast) else { return }
+        let fetchPlan = fetchCLISubscriptionPlan
+        cliPlanTask = Task { [weak self] in
+            defer {
+                if !Task.isCancelled, let self, self.generation == expectedGeneration {
+                    self.cliPlanTask = nil
+                }
+            }
+            do {
+                let plan = try await fetchPlan()
+                guard !Task.isCancelled, let self, self.isEnabled, self.isInstalled,
+                    self.generation == expectedGeneration
+                else { return }
+                self.cliSubscriptionPlan = plan
+                self.nextCLIPlanRefresh = Date().addingTimeInterval(self.cliPlanRefreshInterval)
+                if let current = self.snapshot, current.source == .cli, current.subscriptionPlan != plan {
+                    self.snapshot = current.withSubscriptionPlan(plan)
+                }
+            } catch {
+                guard !Task.isCancelled, let self, self.generation == expectedGeneration else { return }
+                // Keep the last known plan and retry independently of the fast quota refresh loop.
+                self.nextCLIPlanRefresh = Date().addingTimeInterval(min(300, self.cliPlanRefreshInterval))
+            }
+        }
+    }
+
+    private func resetCLIPlanState() {
+        cliPlanTask?.cancel()
+        cliPlanTask = nil
+        cliSubscriptionPlan = nil
+        nextCLIPlanRefresh = nil
     }
 }

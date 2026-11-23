@@ -78,6 +78,171 @@ struct LocalTokenUsageReaderTests {
         #expect(result.activity?.dailyUsageBuckets == [.init(startDate: "2024-03-10", tokens: 200)])
     }
 
+    @Test("Deleting an Antigravity conversation archives its tokens and adds new conversations accurately")
+    func antigravityPreservesDeletedConversationHistory() async throws {
+        let home = try temporaryHome()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let ledgerURL = home.appendingPathComponent("Support/token-activity-v1.json")
+
+        let brain = home.appendingPathComponent(".gemini/antigravity/brain")
+        let transcript = ".system_generated/logs/transcript.jsonl"
+        let convA = brain.appendingPathComponent("conv-a")
+        let convB = brain.appendingPathComponent("conv-b")
+        let convC = brain.appendingPathComponent("conv-c")
+        let firstConversation = #"{"created_at":"2024-03-09T17:00:00Z","total_tokens":100}"#
+        try write(firstConversation, to: convA.appendingPathComponent(transcript))
+        try write(
+            #"{"created_at":"2024-03-09T18:00:00Z","input_tokens":30,"output_tokens":20}"#,
+            to: convB.appendingPathComponent(transcript))
+
+        let firstReader = LocalTokenUsageReader(home: home, claudeConfigDirectory: nil, ledgerURL: ledgerURL)
+        let first = try await firstReader.read(.antigravity, now: now, calendar: calendar)
+        #expect(first.activity?.dailyUsageBuckets == [.init(startDate: "2024-03-10", tokens: 150)])
+        #expect(!first.hasArchivedHistory)
+
+        // Delete conversation A and create a new conversation C on the same day.
+        try FileManager.default.removeItem(at: convA)
+        try write(
+            #"{"created_at":"2024-03-09T19:00:00Z","input_tokens":50,"output_tokens":30}"#,
+            to: convC.appendingPathComponent(transcript))
+
+        // Simulate app restart with a fresh reader loading from the persisted ledger.
+        let restartedReader = LocalTokenUsageReader(home: home, claudeConfigDirectory: nil, ledgerURL: ledgerURL)
+        let afterDelete = try await restartedReader.read(.antigravity, now: now, calendar: calendar)
+        #expect(afterDelete.activity?.dailyUsageBuckets == [.init(startDate: "2024-03-10", tokens: 230)])
+        #expect(afterDelete.activity?.summary?.lifetimeTokens == 230)
+        #expect(afterDelete.hasArchivedHistory)
+
+        // Verify privacy: 0600 permissions and no raw file paths in the ledger JSON.
+        let attributes = try FileManager.default.attributesOfItem(atPath: ledgerURL.path)
+        let permissions = (attributes[.posixPermissions] as? NSNumber)?.intValue
+        #expect(permissions == 0o600)
+        let rawLedger = try String(contentsOf: ledgerURL, encoding: .utf8)
+        #expect(!rawLedger.contains("conv-a"))
+        #expect(!rawLedger.contains("conv-b"))
+        #expect(!rawLedger.contains("transcript.jsonl"))
+
+        try write(firstConversation, to: convA.appendingPathComponent(transcript))
+        let restored = try await restartedReader.read(.antigravity, now: now, calendar: calendar)
+        #expect(restored.activity?.summary?.lifetimeTokens == 230)
+        #expect(!restored.hasArchivedHistory)
+
+        // Deleting all remaining conversations still preserves total recorded tokens.
+        try FileManager.default.removeItem(at: convA)
+        try FileManager.default.removeItem(at: convB)
+        try FileManager.default.removeItem(at: convC)
+        let allDeleted = try await restartedReader.read(.antigravity, now: now, calendar: calendar)
+        #expect(allDeleted.activity?.dailyUsageBuckets == [.init(startDate: "2024-03-10", tokens: 230)])
+        #expect(allDeleted.hasArchivedHistory)
+
+        // Clearing history resets to current live disk state (empty).
+        try await restartedReader.clearHistory()
+        #expect(await !restartedReader.hasSavedHistory())
+        let afterClear = try await restartedReader.read(.antigravity, now: now, calendar: calendar)
+        #expect(afterClear.activity == nil && !afterClear.hasArchivedHistory)
+    }
+
+    @Test("Claude deletion archival avoids double-counting duplicate subagent messages")
+    func claudeDeletionArchivalDeduplicatesMessages() async throws {
+        let home = try temporaryHome()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let ledgerURL = home.appendingPathComponent("Support/token-activity-v1.json")
+        let custom = home.appendingPathComponent("custom-claude")
+        let chat = custom.appendingPathComponent("projects/project/chat.jsonl")
+        let subagentCopy = custom.appendingPathComponent("projects/project/subagents/copy.jsonl")
+        let message =
+            #"{"timestamp":"2024-03-09T17:12:00.000Z","message":{"id":"msg_1","usage":{"input_tokens":10,"output_tokens":20,"cache_read_input_tokens":50,"cache_creation_input_tokens":8}}}"#
+        try write(message, to: chat)
+        try write(message, to: subagentCopy)
+
+        let reader = LocalTokenUsageReader(home: home, claudeConfigDirectory: custom.path, ledgerURL: ledgerURL)
+        let initial = try await reader.read(.claudeCode, now: now, calendar: calendar)
+        #expect(initial.activity?.summary?.lifetimeTokens == 88)
+
+        try FileManager.default.removeItem(at: chat)
+        let restarted = LocalTokenUsageReader(home: home, claudeConfigDirectory: custom.path, ledgerURL: ledgerURL)
+        let afterChatRemoved = try await restarted.read(.claudeCode, now: now, calendar: calendar)
+        #expect(afterChatRemoved.activity?.summary?.lifetimeTokens == 88)
+        #expect(!afterChatRemoved.hasArchivedHistory)
+
+        try FileManager.default.removeItem(at: subagentCopy)
+        let bothRemoved = try await restarted.read(.claudeCode, now: now, calendar: calendar)
+        #expect(bothRemoved.activity?.summary?.lifetimeTokens == 88)
+        #expect(bothRemoved.hasArchivedHistory)
+        let rawLedger = try String(contentsOf: ledgerURL, encoding: .utf8)
+        #expect(!rawLedger.contains("msg_1"))
+    }
+
+    @Test("A symlink-redirected root does not falsely archive tracked files")
+    func unhealthyRootDoesNotFalselyArchive() async throws {
+        let home = try temporaryHome()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let ledgerURL = home.appendingPathComponent("Support/token-activity-v1.json")
+        let root = home.appendingPathComponent(".gemini/antigravity")
+        let movedRoot = home.appendingPathComponent("moved-antigravity")
+        let conv = root.appendingPathComponent("brain/chat/.system_generated/logs/transcript.jsonl")
+        try write(#"{"created_at":"2024-03-09T17:00:00Z","input_tokens":80,"output_tokens":40}"#, to: conv)
+
+        let reader = LocalTokenUsageReader(home: home, claudeConfigDirectory: nil, ledgerURL: ledgerURL)
+        let initial = try await reader.read(.antigravity, now: now, calendar: calendar)
+        #expect(initial.activity?.summary?.lifetimeTokens == 120)
+
+        // Replace root with a symlink temporarily; reader must mark partial and NOT archive.
+        try FileManager.default.moveItem(at: root, to: movedRoot)
+        try FileManager.default.createSymbolicLink(at: root, withDestinationURL: movedRoot)
+        let redirected = try await reader.read(.antigravity, now: now, calendar: calendar)
+        #expect(redirected.isPartial)
+        #expect(!redirected.hasArchivedHistory)
+        #expect(redirected.activity?.summary?.lifetimeTokens == 120)
+
+        // Restore real directory; total must remain 120 (not 240).
+        try FileManager.default.removeItem(at: root)
+        try FileManager.default.moveItem(at: movedRoot, to: root)
+        let restored = try await reader.read(.antigravity, now: now, calendar: calendar)
+        #expect(!restored.isPartial && !restored.hasArchivedHistory)
+        #expect(restored.activity?.summary?.lifetimeTokens == 120)
+    }
+
+    @Test("A failed token ledger write is retried even if the logs are unchanged")
+    func tokenLedgerRetriesWrite() async throws {
+        let home = try temporaryHome()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let support = home.appendingPathComponent("Support")
+        let ledgerURL = support.appendingPathComponent("token-activity-v1.json")
+        let transcript = home.appendingPathComponent(".gemini/antigravity/sessions/chat.jsonl")
+        try write("blocks the directory", to: support)
+        try write(#"{"created_at":"2024-03-09T17:00:00Z","input_tokens":60,"output_tokens":40}"#, to: transcript)
+
+        let reader = LocalTokenUsageReader(home: home, claudeConfigDirectory: nil, ledgerURL: ledgerURL)
+        let first = try await reader.read(.antigravity, now: now, calendar: calendar)
+        #expect(first.isPartial && first.activity?.summary?.lifetimeTokens == 100)
+        try FileManager.default.removeItem(at: support)
+
+        let retried = try await reader.read(.antigravity, now: now, calendar: calendar)
+        #expect(!retried.isPartial && retried.activity == first.activity)
+        #expect(FileManager.default.fileExists(atPath: ledgerURL.path))
+
+        try FileManager.default.removeItem(at: transcript)
+        let restarted = LocalTokenUsageReader(home: home, claudeConfigDirectory: nil, ledgerURL: ledgerURL)
+        let archived = try await restarted.read(.antigravity, now: now, calendar: calendar)
+        #expect(archived.hasArchivedHistory && archived.activity == retried.activity)
+    }
+
+    @Test("An unreadable token ledger is preserved while live totals remain available")
+    func tokenLedgerPreservesUnreadableFile() async throws {
+        let home = try temporaryHome()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let ledgerURL = home.appendingPathComponent("Support/token-activity-v1.json")
+        let transcript = home.appendingPathComponent(".gemini/antigravity/sessions/chat.jsonl")
+        try write("unrecognized ledger", to: ledgerURL)
+        try write(#"{"created_at":"2024-03-09T17:00:00Z","input_tokens":100}"#, to: transcript)
+
+        let reader = LocalTokenUsageReader(home: home, claudeConfigDirectory: nil, ledgerURL: ledgerURL)
+        let result = try await reader.read(.antigravity, now: now, calendar: calendar)
+        #expect(result.isPartial && result.activity?.summary?.lifetimeTokens == 100)
+        #expect(try String(contentsOf: ledgerURL, encoding: .utf8) == "unrecognized ledger")
+    }
+
     private func temporaryHome() throws -> URL {
         let url = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
             .appendingPathComponent(UUID().uuidString, isDirectory: true)

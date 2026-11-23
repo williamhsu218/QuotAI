@@ -19,12 +19,12 @@ enum PrivateJSONFile {
         return try decoder.decode(type, from: data)
     }
 
-    static func write<Value: Encodable>(_ value: Value, to url: URL) throws {
+    static func write<Value: Encodable>(_ value: Value, to url: URL, maximumBytes: Int = 4_194_304) throws {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.sortedKeys]
         let data = try encoder.encode(value)
-        guard data.count <= 4_194_304 else { throw CocoaError(.fileWriteOutOfSpace) }
+        guard data.count <= maximumBytes else { throw CocoaError(.fileWriteOutOfSpace) }
         let manager = FileManager.default
         try manager.createDirectory(
             at: url.deletingLastPathComponent(), withIntermediateDirectories: true,

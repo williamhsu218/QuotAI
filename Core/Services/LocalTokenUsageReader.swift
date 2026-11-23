@@ -1,17 +1,26 @@
 import CoreFoundation
+import CryptoKit
 import Foundation
 
 struct LocalTokenUsageResult: Equatable, Sendable {
     let activity: TokenActivity?
     let isPartial: Bool
+    let hasArchivedHistory: Bool
+
+    init(activity: TokenActivity?, isPartial: Bool, hasArchivedHistory: Bool = false) {
+        self.activity = activity
+        self.isPartial = isPartial
+        self.hasArchivedHistory = hasArchivedHistory
+    }
 }
 
-/// Reads only the local session records for the selected provider. Cache entries
-/// contain dates and counts, so unchanged transcripts are not parsed on each refresh.
+/// Reads local session records for the selected provider and, when configured with
+/// a private ledger URL, archives daily token totals for deleted session files so
+/// removing a conversation never erases recorded token activity.
 actor LocalTokenUsageReader {
-    private struct FileStamp: Equatable {
+    private struct FileStamp: Codable, Equatable {
         let size: Int
-        let modified: Date
+        let modifiedMillis: Int64
     }
 
     private struct Sample {
@@ -26,66 +35,174 @@ actor LocalTokenUsageReader {
         var isPartial = false
     }
 
+    private struct DiscoveredFile {
+        let url: URL
+        let rootID: String
+        let key: String
+    }
+
+    private struct DiscoveryResult {
+        let files: [DiscoveredFile]
+        let healthyRoots: Set<String>
+    }
+
+    private struct DailyMessageUsage: Codable, Equatable {
+        let day: String
+        let tokens: Int64
+    }
+
+    private struct TrackedFile: Codable, Equatable {
+        let rootID: String
+        let stamp: FileStamp?
+        let timeZoneIdentifier: String
+        let days: [String: Int64]
+        let messages: [String: DailyMessageUsage]?
+        var isArchived = false
+    }
+
+    private struct LedgerArchive: Codable {
+        static let currentVersion = 1
+        var version: Int = currentVersion
+        var providers: [String: [String: TrackedFile]] = [:]
+    }
+
     private static let recordLimit = 16 * 1024 * 1024
+    private static let ledgerLimit = 32 * 1024 * 1024
     private static let metadataKeys: Set<URLResourceKey> = [
         .isRegularFileKey, .isSymbolicLinkKey, .contentModificationDateKey, .fileSizeKey
     ]
 
     private let home: URL
     private let claudeDirectory: URL?
+    private let ledgerURL: URL?
     private var cache: [QuotaProvider: [URL: FileUsage]] = [:]
+    private var ledger: LedgerArchive?
+    private var ledgerNeedsSave = false
     private var timeZone: TimeZone?
 
     init(
         home: URL = FileManager.default.homeDirectoryForCurrentUser,
-        claudeConfigDirectory: String? = ProcessInfo.processInfo.environment["CLAUDE_CONFIG_DIR"]
+        claudeConfigDirectory: String? = ProcessInfo.processInfo.environment["CLAUDE_CONFIG_DIR"],
+        ledgerURL: URL? = nil
     ) {
         self.home = home
         claudeDirectory = claudeConfigDirectory.flatMap {
             $0.isEmpty ? nil : URL(fileURLWithPath: NSString(string: $0).expandingTildeInPath, isDirectory: true)
         }
+        self.ledgerURL = ledgerURL
+    }
+
+    func hasSavedHistory() -> Bool {
+        if let ledger, !ledger.providers.isEmpty { return true }
+        return ledgerURL.map { FileManager.default.fileExists(atPath: $0.path) } ?? false
+    }
+
+    func clearHistory() throws {
+        if let ledgerURL {
+            do {
+                let values = try ledgerURL.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+                guard values.isRegularFile == true, values.isSymbolicLink != true else {
+                    throw CocoaError(.fileWriteNoPermission)
+                }
+                try FileManager.default.removeItem(at: ledgerURL)
+            } catch let error as CocoaError where error.code == .fileNoSuchFile || error.code == .fileReadNoSuchFile {
+                // A ledger that was never written is already clear.
+            }
+        }
+        cache.removeAll()
+        ledger = LedgerArchive()
+        ledgerNeedsSave = false
     }
 
     func read(
         _ provider: QuotaProvider, now: Date = Date(), calendar: Calendar = .current
     ) throws -> LocalTokenUsageResult {
+        guard provider == .antigravity || provider == .claudeCode else {
+            return LocalTokenUsageResult(activity: nil, isPartial: false)
+        }
         if timeZone != calendar.timeZone {
             timeZone = calendar.timeZone
             cache.removeAll()
         }
         let dates = UsageDates(timeZone: calendar.timeZone)
         var partial = false
-        let files = try discoverFiles(provider, partial: &partial)
+
+        if let ledgerURL, ledger == nil {
+            do {
+                let loaded =
+                    try PrivateJSONFile.read(LedgerArchive.self, from: ledgerURL, maximumBytes: Self.ledgerLimit)
+                    ?? LedgerArchive()
+                guard loaded.version == LedgerArchive.currentVersion else {
+                    throw CocoaError(.fileReadCorruptFile)
+                }
+                ledger = loaded
+            } catch {
+                // Keep the on-disk ledger intact if it cannot be read. Try again on the next scan.
+                partial = true
+            }
+        }
+
+        let discovery = try discoverFiles(provider, partial: &partial)
+        let previous = ledger?.providers[provider.rawValue] ?? [:]
+        var trackedFiles = previous
         var scanned: [URL: FileUsage] = [:]
-        var days: [String: Int64] = [:]
-        var messages: [String: Sample] = [:]
-        for file in files {
+        var foundFiles: Set<String> = []
+        var filesWithFreshMessages: Set<String> = []
+        var liveMessages: [String: Sample] = [:]
+
+        for discovered in discovery.files {
             try Task.checkCancellation()
+            let file = discovered.url
+            foundFiles.insert(discovered.key)
             do {
                 let metadata = try file.resourceValues(forKeys: Self.metadataKeys)
                 guard metadata.isRegularFile == true, metadata.isSymbolicLink == false,
                     let size = metadata.fileSize, let modified = metadata.contentModificationDate
                 else {
+                    partial = true
                     continue
                 }
-                let stamp = FileStamp(size: size, modified: modified)
-                let previous = cache[provider]?[file]
+                let stamp = FileStamp(size: size, modifiedMillis: Self.millis(modified))
+                let cached = cache[provider]?[file]
+                let saved = previous[discovered.key]
                 let usage: FileUsage
-                if let previous, previous.stamp == stamp {
-                    usage = previous
+                if let cached, cached.stamp == stamp, !cached.isPartial {
+                    usage = cached
+                } else if provider == .antigravity, let saved, saved.stamp == stamp,
+                    saved.timeZoneIdentifier == calendar.timeZone.identifier
+                {
+                    usage = FileUsage(stamp: stamp, days: saved.days)
                 } else {
                     usage = try readFile(file, provider: provider, stamp: stamp, dates: dates)
-                    cache[provider, default: [:]][file] = usage
                 }
                 scanned[file] = usage
-                partial = partial || usage.isPartial
-                for (day, tokens) in usage.days { days[day] = Self.sum(days[day, default: 0], tokens) }
+                if usage.isPartial {
+                    partial = true
+                    if saved != nil { continue }
+                }
+                guard !usage.days.isEmpty || !usage.messages.isEmpty else {
+                    trackedFiles.removeValue(forKey: discovered.key)
+                    continue
+                }
+                filesWithFreshMessages.insert(discovered.key)
                 for (id, sample) in usage.messages {
-                    if let existing = messages[id] {
-                        if existing.date > sample.date { continue }
-                        if existing.date == sample.date && existing.tokens >= sample.tokens { continue }
+                    if let old = liveMessages[id], (old.date, old.tokens) >= (sample.date, sample.tokens) { continue }
+                    liveMessages[id] = sample
+                }
+                if var saved, saved.stamp == stamp, saved.timeZoneIdentifier == calendar.timeZone.identifier {
+                    saved.isArchived = false
+                    trackedFiles[discovered.key] = saved
+                } else {
+                    let savedMessages = usage.messages.mapValues {
+                        DailyMessageUsage(day: dates.day.string(from: $0.date), tokens: $0.tokens)
                     }
-                    messages[id] = sample
+                    trackedFiles[discovered.key] = TrackedFile(
+                        rootID: discovered.rootID,
+                        stamp: usage.isPartial ? nil : stamp,
+                        timeZoneIdentifier: calendar.timeZone.identifier,
+                        days: usage.days,
+                        messages: savedMessages.isEmpty ? nil : savedMessages
+                    )
                 }
             } catch is CancellationError {
                 throw CancellationError()
@@ -95,39 +212,104 @@ actor LocalTokenUsageReader {
         }
         try Task.checkCancellation()
         cache[provider] = scanned
-        for sample in messages.values {
-            let day = dates.day.string(from: sample.date)
-            days[day] = Self.sum(days[day, default: 0], sample.tokens)
+
+        for (key, var tracked) in previous where !tracked.isArchived && !foundFiles.contains(key) {
+            if discovery.healthyRoots.contains(tracked.rootID) {
+                tracked.isArchived = true
+                trackedFiles[key] = tracked
+            } else {
+                partial = true
+            }
         }
+
+        if var archive = ledger, trackedFiles != previous {
+            archive.providers[provider.rawValue] = trackedFiles.isEmpty ? nil : trackedFiles
+            ledger = archive
+            ledgerNeedsSave = true
+        }
+        if ledgerNeedsSave, let ledger, let ledgerURL {
+            do {
+                try PrivateJSONFile.write(ledger, to: ledgerURL, maximumBytes: Self.ledgerLimit)
+                ledgerNeedsSave = false
+            } catch {
+                partial = true
+            }
+        }
+
+        let (days, hasArchivedHistory) = Self.aggregate(
+            files: trackedFiles, filesWithFreshMessages: filesWithFreshMessages,
+            liveMessages: liveMessages, dates: dates
+        )
         let today = dates.day.string(from: now)
         let buckets = days.keys.filter { $0 <= today }.sorted().map {
             DailyUsageBucket(startDate: $0, tokens: days[$0, default: 0])
         }
-        guard !buckets.isEmpty else { return LocalTokenUsageResult(activity: nil, isPartial: partial) }
+        guard !buckets.isEmpty else {
+            return LocalTokenUsageResult(
+                activity: nil, isPartial: partial, hasArchivedHistory: hasArchivedHistory)
+        }
         let summary = AccountTokenUsageSummary(
             lifetimeTokens: buckets.reduce(0) { Self.sum($0, $1.tokens) },
             currentStreakDays: currentStreak(days, now: now, dates: dates),
             peakDailyTokens: buckets.map(\.tokens).max())
         return LocalTokenUsageResult(
-            activity: TokenActivity(dailyUsageBuckets: buckets, summary: summary), isPartial: partial)
+            activity: TokenActivity(dailyUsageBuckets: buckets, summary: summary),
+            isPartial: partial,
+            hasArchivedHistory: hasArchivedHistory)
     }
 
-    private func discoverFiles(_ provider: QuotaProvider, partial: inout Bool) throws -> [URL] {
-        let roots: [URL]
+    private static func aggregate(
+        files: [String: TrackedFile], filesWithFreshMessages: Set<String>, liveMessages: [String: Sample],
+        dates: UsageDates
+    ) -> (days: [String: Int64], hasArchivedHistory: Bool) {
+        var days: [String: Int64] = [:]
+        var hasArchivedHistory = false
+        var messages = liveMessages.mapValues {
+            (usage: DailyMessageUsage(day: dates.day.string(from: $0.date), tokens: $0.tokens), archived: false)
+        }
+        for (key, file) in files {
+            for (day, tokens) in file.days where tokens > 0 {
+                days[day] = sum(days[day, default: 0], tokens)
+                hasArchivedHistory = hasArchivedHistory || file.isArchived
+            }
+            // A deleted transcript can share Claude message IDs with a live copy.
+            guard !filesWithFreshMessages.contains(key), let savedMessages = file.messages else { continue }
+            for (id, usage) in savedMessages where usage.tokens > 0 {
+                if let old = messages[id] {
+                    let existing = (old.usage.day, old.usage.tokens)
+                    let candidate = (usage.day, usage.tokens)
+                    if existing > candidate || (existing == candidate && !old.archived) { continue }
+                }
+                messages[id] = (usage, file.isArchived)
+            }
+        }
+        for (usage, archived) in messages.values {
+            days[usage.day] = sum(days[usage.day, default: 0], usage.tokens)
+            hasArchivedHistory = hasArchivedHistory || archived
+        }
+        return (days, hasArchivedHistory)
+    }
+
+    private func discoverFiles(_ provider: QuotaProvider, partial: inout Bool) throws -> DiscoveryResult {
+        let roots: [(id: String, url: URL)]
         switch provider {
         case .claudeCode:
-            roots = [(claudeDirectory ?? home.appendingPathComponent(".claude")).appendingPathComponent("projects")]
+            let root = (claudeDirectory ?? home.appendingPathComponent(".claude")).appendingPathComponent("projects")
+            roots = [("claude:" + Self.digest(root.standardizedFileURL.path), root)]
         case .antigravity:
-            roots = [".gemini/antigravity", ".gemini/antigravity-cli", ".antigravity-ide"].map {
-                home.appendingPathComponent($0)
-            }
+            roots = [
+                ("antigravity", home.appendingPathComponent(".gemini/antigravity")),
+                ("antigravity-cli", home.appendingPathComponent(".gemini/antigravity-cli")),
+                ("antigravity-ide", home.appendingPathComponent(".antigravity-ide"))
+            ]
         default:
-            return []
+            return DiscoveryResult(files: [], healthyRoots: [])
         }
 
         let manager = FileManager.default
-        var files: [URL] = []
-        for root in roots {
+        var files: [DiscoveredFile] = []
+        var healthyRoots: Set<String> = []
+        for (rootID, root) in roots {
             guard manager.fileExists(atPath: root.path) else { continue }
             // Do not follow redirected session trees into unrelated directories.
             guard root.standardizedFileURL.path == root.resolvingSymlinksInPath().path else {
@@ -150,6 +332,7 @@ actor LocalTokenUsageReader {
                 partial = true
                 continue
             }
+            let rootComponentsCount = root.standardizedFileURL.pathComponents.count
             for case let file as URL in enumerator {
                 try Task.checkCancellation()
                 guard let metadata = try? file.resourceValues(forKeys: Self.metadataKeys) else {
@@ -163,18 +346,37 @@ actor LocalTokenUsageReader {
                 }
                 guard metadata.isRegularFile == true else { continue }
                 let ext = file.pathExtension.lowercased()
+                let include: Bool
                 if provider == .claudeCode {
-                    if ext == "jsonl" { files.append(file) }
+                    include = ext == "jsonl"
                 } else if ext == "jsonl" || ext == "json" {
                     let folders = file.deletingLastPathComponent().pathComponents.dropFirst(root.pathComponents.count)
-                    if folders.contains(where: { ["logs", "sessions", "chats"].contains($0) }) {
-                        files.append(file)
-                    }
+                    include = folders.contains(where: { ["logs", "sessions", "chats"].contains($0) })
+                } else {
+                    include = false
                 }
+                if include {
+                    let relativePath = file.standardizedFileURL.pathComponents
+                        .dropFirst(rootComponentsCount)
+                        .joined(separator: "/")
+                    let key = Self.digest("\(provider.rawValue)|\(rootID)|\(relativePath)")
+                    files.append(DiscoveredFile(url: file, rootID: rootID, key: key))
+                }
+            }
+            if !traversalFailed {
+                healthyRoots.insert(rootID)
             }
             partial = partial || traversalFailed
         }
-        return files
+        return DiscoveryResult(files: files, healthyRoots: healthyRoots)
+    }
+
+    private static func millis(_ date: Date) -> Int64 {
+        Int64((date.timeIntervalSince1970 * 1_000).rounded())
+    }
+
+    private static func digest(_ text: String) -> String {
+        Data(SHA256.hash(data: Data(text.utf8))).base64EncodedString()
     }
 
     private func readFile(
@@ -228,11 +430,14 @@ actor LocalTokenUsageReader {
             }
         }
         if !droppingLine && !pending.isEmpty { consume(pending) }
+        if remainder > 0 { usage.isPartial = true }
         return usage
     }
 
     private static let usageMarkers = [
-        "usage", "tokens", "usageMetadata", "input_tokens", "output_tokens", "inputTokens", "outputTokens"
+        "usage", "tokens", "usageMetadata",
+        "total_tokens", "totalTokens", "totalTokenCount", "prompt_tokens", "promptTokenCount",
+        "input_tokens", "output_tokens", "inputTokens", "outputTokens"
     ].map { Data(("\"" + $0 + "\"").utf8) }
 
     private func collect(
@@ -268,7 +473,7 @@ actor LocalTokenUsageReader {
         }
         if provider == .claudeCode, let id = payload["id"] as? String, !id.isEmpty {
             // Claude writes cumulative usage for successive updates to one message.
-            usage.messages[id] = Sample(date: date, tokens: tokens)
+            usage.messages[Self.digest(id)] = Sample(date: date, tokens: tokens)
         } else {
             let day = dates.day.string(from: date)
             usage.days[day] = Self.sum(usage.days[day, default: 0], tokens)

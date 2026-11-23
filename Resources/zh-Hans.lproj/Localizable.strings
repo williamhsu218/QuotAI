@@ -358,3 +358,10 @@
 "history.column_reset" = "重置时间";
 "history.table" = "额度历史明细，按时间从新到旧排列";
 "history.remaining_accessibility_format" = "剩余额度 %d%%";
+
+"usage.local_source_with_history" = "来源：本机日志与历史台账";
+"usage.history_title" = "本机 Token 历史台账";
+"usage.history_detail" = "仅在此 Mac 本地保留 Antigravity 和 Claude Code 的按日 Token 合计，删除对话后不会清空已记录的 Token 活跃度。不保存对话内容、路径或账号标识。";
+"usage.history_clear" = "清空 Token 历史";
+"usage.history_clear_confirm" = "清空本机归档的全部 Token 历史记录？";
+"usage.history_clear_failed" = "无法清空本机 Token 历史记录。";
