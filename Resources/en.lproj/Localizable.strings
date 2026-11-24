@@ -163,6 +163,7 @@
 "error.antigravity.quota_unavailable" = "Antigravity quota is temporarily unavailable.";
 "error.antigravity.protocol_changed" = "This Antigravity version uses an unsupported quota format.";
 "error.antigravity.cli_unavailable" = "Install or update Antigravity CLI to 1.5.13 or later, then sign in to read quota.";
+"error.antigravity.cli_timed_out" = "Antigravity CLI did not return quota in time. Try again shortly.";
 "error.antigravity.cli_query_failed" = "Antigravity CLI couldn't read quota. Check that you're signed in and try again.";
 "status.antigravity.cli" = "CLI · %@";
 

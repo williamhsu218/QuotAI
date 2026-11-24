@@ -163,6 +163,7 @@
 "error.antigravity.quota_unavailable" = "Antigravity 额度暂时无法获取。";
 "error.antigravity.protocol_changed" = "当前 Antigravity 版本使用了尚未支持的额度格式。";
 "error.antigravity.cli_unavailable" = "请安装或更新 Antigravity CLI 至 1.5.13 或更新版本，登录后重试。";
+"error.antigravity.cli_timed_out" = "Antigravity CLI 读取额度超时，请稍后重试。";
 "error.antigravity.cli_query_failed" = "Antigravity CLI 暂时无法读取额度。请确认 CLI 已登录后重试。";
 "status.antigravity.cli" = "CLI · %@";
 

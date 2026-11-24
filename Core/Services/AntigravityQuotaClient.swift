@@ -8,6 +8,7 @@ enum AntigravityQuotaClientError: LocalizedError {
     case quotaUnavailable
     case protocolChanged
     case cliUnavailable
+    case cliTimedOut
     case cliQueryFailed
 
     var errorDescription: String? {
@@ -36,6 +37,11 @@ enum AntigravityQuotaClientError: LocalizedError {
             L10n.text(
                 "error.antigravity.cli_unavailable",
                 fallback: "Install or update Antigravity CLI to 1.5.13 or later, then sign in to read quota."
+            )
+        case .cliTimedOut:
+            L10n.text(
+                "error.antigravity.cli_timed_out",
+                fallback: "Antigravity CLI did not return quota in time. Try again shortly."
             )
         case .cliQueryFailed:
             L10n.text(
@@ -325,7 +331,8 @@ enum AntigravityCLI {
     private static let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "com.willhsu.QuotAI", category: "AntigravityCLI")
 
-    static func fetch(executable: URL? = nil) async throws -> AntigravityQuotaSnapshot {
+    static func fetch(executable: URL? = nil, usageTimeout: TimeInterval = 32) async throws -> AntigravityQuotaSnapshot
+    {
         guard let executable = executable ?? locate() else { throw AntigravityQuotaClientError.cliUnavailable }
         do {
             let version = try await ProcessIO.capture(
@@ -335,12 +342,18 @@ enum AntigravityCLI {
             // The two read-only commands use separate working directories and can run together.
             async let modelList = try? ProcessIO.capture(
                 executable: executable, arguments: ["models"], timeout: 12, outputLimit: 128 * 1024, on: queue)
-            let quota = try await ProcessIO.capture(
-                executable: executable,
-                arguments: [
-                    "--settings", #"{"disableSlashCommands":false}"#, "--print-timeout", "15s",
-                    "--log-file", "agy.log", "--output-format", "json", "-p", "/usage"
-                ], timeout: 18, outputLimit: 1_048_576, on: queue)
+            let quota: Data
+            do {
+                quota = try await ProcessIO.capture(
+                    executable: executable,
+                    arguments: [
+                        "--settings", #"{"disableSlashCommands":false}"#, "--print-timeout", "28s",
+                        "--log-file", "agy.log", "--output-format", "json", "-p", "/usage"
+                    ], timeout: usageTimeout, outputLimit: 1_048_576, on: queue)
+            } catch ProcessIO.CaptureError.timedOut {
+                try Task.checkCancellation()
+                throw AntigravityQuotaClientError.cliTimedOut
+            }
             let models = await modelList
             try Task.checkCancellation()
             return try AntigravityQuotaParser.parseCLIReport(quota, modelList: models)
