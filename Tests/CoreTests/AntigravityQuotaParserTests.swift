@@ -80,7 +80,9 @@ func antigravityCLIOverlapsQuotaAndModelQueries() async throws {
         fixture_dir=${0%/*}
         case "$1" in
           --version) printf '1.5.13\n'; exit 0 ;;
-          --settings) query=quota; peer=models ;;
+          --settings)
+            [ "$3" = "--print-timeout" ] && [ "$4" = "28s" ] || exit 2
+            query=quota; peer=models ;;
           models) query=models; peer=quota ;;
           *) exit 2 ;;
         esac
@@ -99,6 +101,30 @@ func antigravityCLIOverlapsQuotaAndModelQueries() async throws {
     let snapshot = try await AntigravityCLI.fetch(executable: executable)
     #expect(snapshot.panelGroups.map(\.id) == ["gemini", "gemini-argon-wtu", "3p"])
     #expect(snapshot.argonAvailability == .available && snapshot.thirdPartyAvailability == .available)
+}
+
+@Test("Antigravity CLI reports a distinct error when the quota read times out")
+func antigravityCLIReportsQuotaTimeout() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "quotai-timeout-cli-" + UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let executable = directory.appendingPathComponent("agy")
+    let script = """
+        #!/bin/sh
+        case "$1" in
+          --version) printf '1.5.13\\n' ;;
+          models) exit 0 ;;
+          --settings) exec /bin/sleep 5 ;;
+          *) exit 2 ;;
+        esac
+        """
+    try script.write(to: executable, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: executable.path)
+
+    await #expect(throws: AntigravityQuotaClientError.cliTimedOut) {
+        try await AntigravityCLI.fetch(executable: executable, usageTimeout: 0.2)
+    }
 }
 
 @Test("Parses Antigravity CLI plan fields without requiring them for the quota report")
