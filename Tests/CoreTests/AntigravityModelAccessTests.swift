@@ -170,7 +170,7 @@ func argonSafePresentationAndFallback() throws {
         provider: .antigravity, antigravityEnabled: true, antigravityAvailable: true,
         selectedGroupID: argon.id, mode: .both, codexSnapshot: .preview, antigravitySnapshot: unknown,
         isStayAwakeActive: false)
-    #expect(menu.groupID == argon.id && menu.icon == .gemini && menu.lines == ["--"])
+    #expect(menu.groupID == argon.id && menu.icon == .antigravity && menu.lines == ["--"])
     #expect(menu.detail.contains(try #require(unknown.modelStatusMessage(for: argon.id))))
     #expect(!menu.detail.contains("37%"))
     #expect([panelKey, menuKey].allSatisfy { defaults.string(forKey: $0) == argon.id })

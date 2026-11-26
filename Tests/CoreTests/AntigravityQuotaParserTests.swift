@@ -42,6 +42,34 @@ func parsesAntigravityCLIQuota() throws {
     #expect(snapshot.panelGroup(id: "3p")?.sevenDay == nil)
 }
 
+@Test("Antigravity CLI full quota with an epoch reset stays current")
+func antigravityCLIEpochReset() throws {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    let report = Data(
+        #"""
+        {
+          "status":"SUCCESS", "num_turns":0,
+          "usage":{"input_tokens":0,"output_tokens":0,"thinking_tokens":0,"cache_read_tokens":0,"total_tokens":0},
+          "command":{"name":"usage","data":{"groups":[
+            {"name":"Gemini Models","buckets":[
+              {"id":"gemini-5h","window":"5h","remaining_fraction":1,"reset_time":"2026-11-26T06:30:00Z"}
+            ]},
+            {"name":"Claude and GPT models","buckets":[
+              {"id":"3p-5h","window":"5h","remaining_fraction":1,"reset_time":"1970-01-01T00:00:00Z"},
+              {"id":"3p-weekly","window":"weekly","remaining_fraction":1,"reset_time":"1970-01-01T00:00:00.000Z"}
+            ]}
+          ]}}
+        }
+        """#.utf8)
+    let models = Data("gemini-4-neon-high\tGemini 4 Neon\nclaude-opus-5-5-high\tClaude Opus 5.5\n".utf8)
+    let snapshot = try AntigravityQuotaParser.parseCLIReport(report, modelList: models, fetchedAt: now)
+    let claude = try #require(snapshot.panelGroup(id: "3p"))
+    #expect(claude.orderedQuotas.map(\.remainingPercent) == [100, 100])
+    #expect(claude.orderedQuotas.allSatisfy { $0.resetsAt == nil })
+    #expect(claude.menuBarLines(for: .both, now: now) == ["5h 100%", "7d 100%"])
+    #expect(snapshot.panelGroup(id: "gemini")?.fiveHour?.isExpired(at: now) == true)
+}
+
 @Test("CLI quota buckets alone do not prove access to Argon or third-party models")
 func antigravityCLIRequiresIndependentModelAccess() throws {
     let models = Data("gemini-4-hydrogen-high\tGemini 4 Hydrogen\n".utf8)
@@ -274,7 +302,7 @@ func antigravityQuotaTabPreferences() throws {
     defaults.set("3p", forKey: DefaultsKey.panelAntigravityGroup)
     #expect(defaults.string(forKey: DefaultsKey.menuBarAntigravityGroup) == "gemini")
     #expect(defaults.string(forKey: DefaultsKey.panelAntigravityGroup) == "3p")
-    #expect(AntigravityQuotaTab.allCases.map(\.title) == ["Gemini", "Argon", "Claude / GPT"])
+    #expect(AntigravityQuotaTab.allCases.map(\.title) == ["Gemini", "Argon", "Claude"])
     #expect(AntigravityQuotaTab.allCases.map(\.rawValue) == ["gemini", "gemini-argon-wtu", "3p"])
 }
 
@@ -422,7 +450,7 @@ func parsesDedicatedArgonWeeklyPool() throws {
             provider: .antigravity, antigravityEnabled: true, antigravityAvailable: true,
             selectedGroupID: argonID, mode: mode, codexSnapshot: .preview, antigravitySnapshot: snapshot,
             isStayAwakeActive: false)
-        #expect(menu.groupID == argonID && menu.icon == .gemini)
+        #expect(menu.groupID == argonID && menu.icon == .antigravity)
         #expect(menu.lines == (mode == .fiveHour ? ["5h --"] : ["7d 37%"]))
         #expect(menu.detail.contains("Gemini 4 Argon"))
     }

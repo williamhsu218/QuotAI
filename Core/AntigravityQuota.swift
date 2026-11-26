@@ -123,7 +123,7 @@ public enum AntigravityQuotaTab: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .gemini: "Gemini"
         case .argon: "Argon"
-        case .thirdParty: "Claude / GPT"
+        case .thirdParty: "Claude"
         }
     }
 }
@@ -161,7 +161,7 @@ public struct AntigravityQuotaGroup: Codable, Equatable, Identifiable, Sendable 
         case "3p":
             L10n.text(
                 "antigravity.group.third_party",
-                fallback: "Claude and GPT Models"
+                fallback: "Claude Models"
             )
         default:
             displayName
@@ -309,7 +309,7 @@ public struct AntigravityQuotaSnapshot: Codable, Equatable, Sendable {
     }
 
     private static var thirdPartyPlaceholder: AntigravityQuotaGroup {
-        .init(id: "3p", displayName: "Claude and GPT Models", fiveHour: nil, sevenDay: nil)
+        .init(id: "3p", displayName: "Claude Models", fiveHour: nil, sevenDay: nil)
     }
 }
 
@@ -423,12 +423,15 @@ public enum AntigravityQuotaParser {
                     return nil
                 }
                 let percentage = Int((min(1, max(0, remainingFraction)) * 100).rounded())
+                let resetTime = parseDate(bucket.resetTime)
+                // Antigravity can report the Unix epoch as an unset reset time for full quota.
+                let resetIsUnset = remainingFraction == 1 && resetTime?.timeIntervalSince1970 == 0
                 return (
                     kind,
                     QuotaWindow(
                         kind: kind,
                         remainingPercent: percentage,
-                        resetsAt: parseDate(bucket.resetTime)
+                        resetsAt: resetIsUnset ? nil : resetTime
                     )
                 )
             }

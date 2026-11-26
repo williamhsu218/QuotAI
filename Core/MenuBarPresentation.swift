@@ -27,10 +27,10 @@ public enum ClaudeCodeReportDisplayTimeline {
 }
 
 /// Value-only presentation shared by the status item and its previews.
-/// Resolves a provider/group once so its icon, numbers and description cannot diverge.
+/// Resolves the provider icon and the selected group's numbers and description.
 public struct MenuBarPresentation: Equatable, Sendable {
     public enum Icon: Equatable, Sendable {
-        case codex, gemini, thirdParty, antigravity, claudeCode
+        case codex, antigravity, claudeCode
         case symbol(String)
     }
 
@@ -85,11 +85,7 @@ public struct MenuBarPresentation: Equatable, Sendable {
         case .antigravity:
             let group = antigravitySnapshot?.group(id: selectedGroupID)
             groupID = group?.id
-            switch group?.id.lowercased() {
-            case "gemini", AntigravityQuotaTab.argon.rawValue: icon = .gemini
-            case "3p": icon = .thirdParty
-            default: icon = .antigravity
-            }
+            icon = .antigravity
             lines = group?.menuBarLines(for: mode, now: now) ?? ["--"]
             detail = [
                 effectiveProvider.displayName, group?.localizedDisplayName,
@@ -194,12 +190,7 @@ public struct MenuBarPresentation: Equatable, Sendable {
         switch provider {
         case .codex: icon = .codex
         case .claudeCode: icon = .claudeCode
-        case .antigravity:
-            switch group?.id {
-            case "gemini", AntigravityQuotaTab.argon.rawValue: icon = .gemini
-            case "3p": icon = .thirdParty
-            default: icon = .antigravity
-            }
+        case .antigravity: icon = .antigravity
         default: icon = .symbol(symbol)
         }
         let rawLines = MenuBarQuotaLines.lines(for: group?.quotas ?? [], mode: mode, now: now)

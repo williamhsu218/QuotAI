@@ -139,6 +139,7 @@ build_preview() {
   cp "$ROOT_DIR/Design/AppMark-master.png" "$preview_resources/"
   cp "$ROOT_DIR/Design/CodexMark-master.png" "$preview_resources/"
   cp "$ROOT_DIR/Design/ClaudeMark-master.png" "$preview_resources/"
+  cp "$ROOT_DIR/Assets.xcassets/AntigravityMark.imageset/AntigravityMark.png" "$preview_resources/"
   cp "$ROOT_DIR"/Widgets/ProviderAssets/*.png "$preview_resources/"
 
   local preview_entrypoints=("$ROOT_DIR"/Preview/*.swift)
@@ -301,6 +302,7 @@ render_preview() {
   cp "$ROOT_DIR/Design/AppMark-master.png" "$renderer_resources/"
   cp "$ROOT_DIR/Design/CodexMark-master.png" "$renderer_resources/"
   cp "$ROOT_DIR/Design/ClaudeMark-master.png" "$renderer_resources/"
+  cp "$ROOT_DIR/Assets.xcassets/AntigravityMark.imageset/AntigravityMark.png" "$renderer_resources/"
   cp "$ROOT_DIR"/Widgets/ProviderAssets/*.png "$renderer_resources/"
   xcrun swiftc \
     -parse-as-library \

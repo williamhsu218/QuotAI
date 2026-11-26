@@ -48,7 +48,6 @@ func claudeProviderNoReport() {
     let value = claudeProviderPresentation(snapshot: nil)
     #expect(value.provider == .claudeCode)
     #expect(value.icon == .claudeCode)
-    #expect(value.icon != .thirdParty)
     #expect(value.lines == ["--"])
     #expect(!value.detail.contains("%"))
     #expect(value.groupID == nil)
