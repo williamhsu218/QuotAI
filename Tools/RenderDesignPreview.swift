@@ -228,7 +228,7 @@ struct RenderDesignPreview {
             ("Codex · two windows", value(.codex)),
             ("Codex · weekly only", value(.codex, codex: sparseCodexSnapshot)),
             ("Gemini · awake off", value(.antigravity, awake: false)),
-            ("Claude / GPT", value(.antigravity, group: "3p")),
+            (AntigravityQuotaTab.thirdParty.title, value(.antigravity, group: "3p")),
             ("Removed Claude → Gemini", value(.antigravity, group: "3p", snapshot: onlyGemini)),
             ("Unknown pool · 100% / 0%", value(.antigravity, snapshot: unknown)),
             ("Codex · no data", value(.codex, codex: nil)),

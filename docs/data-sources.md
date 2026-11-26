@@ -60,7 +60,7 @@ ChatGPT 或 Codex CLI。
 ## 当前显示范围
 
 - **Codex**：订阅额度、套餐、重置卡与账户 Token 图表。Token 图表来自账户接口，不扫描本地对话。
-- **Antigravity**：实时额度按 Gemini、Argon（接口返回独立池时）和 Claude / GPT 分组，面板选择与菜单栏选择独立。
+- **Antigravity**：实时额度按 Gemini、Argon（接口返回独立池时）和 Claude 分组，面板选择与菜单栏选择独立。
   面板另显示 Antigravity IDE 和 CLI 本机会话合计的 Token 活跃度。
 - **Claude Code**：点击刷新执行官方本机 `claude -p /usage --output-format json`，查询 Pro/Max 的 5h、7d，换算为剩余百分比与按系统时区显示的重置时间。无需等待会话回调或固定会话。
   查询时间是本机完成时间，官方输出未提供源采样时间和账号标识，不表示持续实时监控。

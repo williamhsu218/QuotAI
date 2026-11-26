@@ -80,7 +80,9 @@ struct AntigravityQuotaView: View {
                         QuotaRowView(
                             quota: quota,
                             compact: true,
-                            isExpired: store.expiryReferenceDate.map(quota.isExpired(at:)) ?? false
+                            isExpired: store.expiryReferenceDate.map(quota.isExpired(at:)) ?? false,
+                            resetTextWhenMissing: quota.remainingPercent == 100
+                                ? L10n.text("antigravity.quota.no_reset_time", fallback: "No reset time reported") : nil
                         )
                     }
                 }

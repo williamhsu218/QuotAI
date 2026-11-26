@@ -24,7 +24,7 @@ QuotAI 使用 macOS 原生菜单栏与弹窗，保持紧凑、清晰的额度信
   Codex 重置卡只出现在 Codex 页；不可用或缺失数据不显示为 0，也不借用其他来源。
 - Antigravity 标签仅在检测到真实安装且已启用时显示；只有 Codex 时隐藏切换栏。
   已选来源暂不可用时回退 Codex，但保留用户原来的来源偏好。
-- Antigravity 只显示居中的 Gemini、Claude / GPT 两个额度标签，一次显示一组。
+- Antigravity 按可用额度池显示居中的 Gemini、Argon、Claude 标签，一次显示一组。
   面板组选择独立于菜单栏组选择；切换只更新显示，不读取会话或 Token 历史。
 - Claude Code 使用独立页面、菜单栏数据源和设置接入区，显示 `/usage` 查询完成时间，历史查询灰显，
   到窗口重置时间后隐藏旧数字与进度，辅助功能也不读取旧百分比。套餐徽章读取官方 `auth status`，

@@ -9,7 +9,7 @@
 "quota.accessibility_format" = "%@，剩余 %d%%，%@";
 "quota.waiting_codex" = "等待 Codex 更新";
 "antigravity.group.gemini" = "Gemini 模型";
-"antigravity.group.third_party" = "Claude 与 GPT 模型";
+"antigravity.group.third_party" = "Claude 模型";
 "antigravity.quota_group" = "额度组";
 
 "reset.title" = "额度重置";
@@ -267,6 +267,7 @@
 "antigravity.models.unknown" = "暂时无法读取第三方模型权限，请刷新重试。";
 "antigravity.models.read_failed" = "暂时无法获取模型权限";
 "antigravity.quota.missing" = "未能获取此组额度，请刷新重试。";
+"antigravity.quota.no_reset_time" = "未提供重置时间";
 "antigravity.quota.exhausted" = "额度已耗尽 · 等待重置";
 "antigravity.argon.separate_weekly" = "独立周额度";
 "antigravity.argon.unavailable" = "当前账号暂无 Gemini 4 Argon 使用权限。";

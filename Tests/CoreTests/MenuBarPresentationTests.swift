@@ -23,10 +23,10 @@ private func presentation(
 @Test("Menu bar resolves each selected group without crossing provider data")
 func menuBarSelectedGroup() {
     let gemini = presentation()
-    #expect(gemini.icon == .gemini)
+    #expect(gemini.icon == .antigravity)
     #expect(gemini.lines == ["5h 76%", "7d 61%"])
     let thirdParty = presentation(groupID: "3p")
-    #expect(thirdParty.icon == .thirdParty)
+    #expect(thirdParty.icon == .antigravity)
     #expect(thirdParty.groupID == "3p")
     #expect(thirdParty.lines == ["5h 44%", "7d 28%"])
     #expect(thirdParty.detail.contains("44%"))
@@ -47,14 +47,14 @@ func menuBarMissingSelection() {
         for savedID: String? in [nil, "", "removed", group.id == "gemini" ? "3p" : "gemini"] {
             let value = presentation(groupID: savedID, antigravity: onlyGroup)
             #expect(value.groupID == group.id)
-            #expect(value.icon == (group.id == "gemini" ? .gemini : .thirdParty))
+            #expect(value.icon == .antigravity)
             #expect(value.lines == group.menuBarLines(for: .both))
             #expect(value.detail.contains(group.localizedDisplayName))
         }
     }
 }
 
-@Test("Unknown pools never borrow a Gemini or Claude icon")
+@Test("Unknown Antigravity pools use the Antigravity icon")
 func menuBarUnknownPool() {
     let group = AntigravityQuotaGroup(
         id: "future", displayName: "Future pool",
@@ -156,7 +156,7 @@ func menuBarAvailableQuotaSources() {
     #expect(QuotaProvider.visibleProviders(antigravityVisible: true) == [.codex, .antigravity])
     let liveQuota = presentation(provider: .antigravity, groupID: "3p")
     #expect(liveQuota.provider == .antigravity)
-    #expect(liveQuota.icon == .thirdParty)
+    #expect(liveQuota.icon == .antigravity)
     #expect(liveQuota.lines == ["5h 44%", "7d 28%"])
 }
 

@@ -7,11 +7,14 @@ struct QuotaRowView: View {
     /// The window's reset time has passed: the stored percentage belongs to
     /// the previous window, so it is shown muted with a pending label.
     var isExpired = false
+    var resetTextWhenMissing: String? = nil
 
     private var resetText: String {
-        isExpired
-            ? L10n.text("date.reset_passed", fallback: "Reset passed · waiting for new data")
-            : DisplayDateFormatter.resetText(for: quota.resetsAt)
+        if isExpired {
+            return L10n.text("date.reset_passed", fallback: "Reset passed · waiting for new data")
+        }
+        if quota.resetsAt == nil, let resetTextWhenMissing { return resetTextWhenMissing }
+        return DisplayDateFormatter.resetText(for: quota.resetsAt)
     }
 
     private var quotaPalette: QuotaPalette {

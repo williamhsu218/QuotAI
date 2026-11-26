@@ -9,7 +9,7 @@
 "quota.accessibility_format" = "%@, %d%% left, %@";
 "quota.waiting_codex" = "Waiting for Codex";
 "antigravity.group.gemini" = "Gemini Models";
-"antigravity.group.third_party" = "Claude and GPT Models";
+"antigravity.group.third_party" = "Claude Models";
 "antigravity.quota_group" = "Quota group";
 
 "reset.title" = "Usage Resets";
@@ -267,6 +267,7 @@
 "antigravity.models.unknown" = "Third-party model access could not be read. Try refreshing.";
 "antigravity.models.read_failed" = "Model access unavailable";
 "antigravity.quota.missing" = "No quota was returned for this group. Try refreshing.";
+"antigravity.quota.no_reset_time" = "No reset time reported";
 "antigravity.quota.exhausted" = "Quota exhausted · waiting for reset";
 "antigravity.argon.separate_weekly" = "Independent weekly quota";
 "antigravity.argon.unavailable" = "Gemini 4 Argon is not available for this account.";

@@ -10,18 +10,20 @@ enum MenuBarProviderIcon {
     static func image(for icon: MenuBarPresentation.Icon, size: CGFloat = 13) -> NSImage {
         switch icon {
         case .codex: return openAISpiralImage(size: size)
-        case .gemini: return geminiSymbolImage(size: size)
-        case .thirdParty, .claudeCode: return claudeSymbolImage(size: size)
+        case .claudeCode: return claudeSymbolImage(size: size)
         case .symbol(let name):
             let image = NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()
             image.isTemplate = true
             return image
         case .antigravity:
+            // Official monochrome mark from https://antigravity.google/press.
             let image =
-                NSImage(
-                    systemSymbolName: "circle.dashed",
-                    accessibilityDescription: "Antigravity") ?? NSImage()
+                NSImage(named: "AntigravityMark")
+                ?? Bundle.main.url(forResource: "AntigravityMark", withExtension: "png")
+                .flatMap { NSImage(contentsOf: $0) }
+                ?? NSImage()
             image.isTemplate = true
+            image.accessibilityDescription = "Antigravity"
             return image
         }
     }
@@ -44,35 +46,6 @@ enum MenuBarProviderIcon {
             return image
         }
         return NSImage()
-    }
-
-    static func geminiSymbolImage(size: CGFloat = 13) -> NSImage {
-        let image = NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
-            let cx = rect.midX
-            let cy = rect.midY
-            let r: CGFloat = 5.8
-            let inner: CGFloat = 1.3
-            let p = NSBezierPath()
-            p.move(to: NSPoint(x: cx, y: cy + r))
-            p.curve(
-                to: NSPoint(x: cx + r, y: cy), controlPoint1: NSPoint(x: cx + inner, y: cy + inner),
-                controlPoint2: NSPoint(x: cx + inner, y: cy + inner))
-            p.curve(
-                to: NSPoint(x: cx, y: cy - r), controlPoint1: NSPoint(x: cx + inner, y: cy - inner),
-                controlPoint2: NSPoint(x: cx + inner, y: cy - inner))
-            p.curve(
-                to: NSPoint(x: cx - r, y: cy), controlPoint1: NSPoint(x: cx - inner, y: cy - inner),
-                controlPoint2: NSPoint(x: cx - inner, y: cy - inner))
-            p.curve(
-                to: NSPoint(x: cx, y: cy + r), controlPoint1: NSPoint(x: cx - inner, y: cy + inner),
-                controlPoint2: NSPoint(x: cx - inner, y: cy + inner))
-            p.close()
-            NSColor.black.setFill()
-            p.fill()
-            return true
-        }
-        image.isTemplate = true
-        return image
     }
 
     static func claudeSymbolImage(size: CGFloat = 13) -> NSImage {
