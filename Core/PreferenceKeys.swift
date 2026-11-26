@@ -5,6 +5,7 @@ import Foundation
 public enum DefaultsKey {
     // Refresh
     public static let refreshInterval = "refreshIntervalSeconds"
+    public static let antigravityRefreshInterval = "antigravityRefreshIntervalSeconds"
     public static let codexBinaryPath = "codexBinaryPath"
 
     // Menu bar and panel
@@ -45,15 +46,24 @@ public enum DefaultsKey {
     public static let legacyPreferencesMigrated = "didMigrateLegacyQuotAIPreferencesV2"
 }
 
-/// The automatic refresh interval shared by the Codex and Antigravity
-/// schedulers, the settings picker and the menu bar's staleness budget.
+/// Automatic refresh intervals for Codex and Antigravity.
 public enum RefreshInterval {
     public static let defaultSeconds: TimeInterval = 300
+    public static let antigravityDefaultSeconds: TimeInterval = 900
 
     /// The configured interval; unset, zero, negative or non-finite values
     /// use the default.
     public static func seconds(in defaults: UserDefaults = .standard) -> TimeInterval {
         normalized(defaults.double(forKey: DefaultsKey.refreshInterval))
+    }
+
+    public static func antigravitySeconds(in defaults: UserDefaults = .standard) -> TimeInterval {
+        normalizedAntigravity(defaults.double(forKey: DefaultsKey.antigravityRefreshInterval))
+    }
+
+    public static func normalizedAntigravity(_ seconds: TimeInterval) -> TimeInterval {
+        guard seconds.isFinite else { return antigravityDefaultSeconds }
+        return max(antigravityDefaultSeconds, seconds)
     }
 
     public static func normalized(_ seconds: TimeInterval) -> TimeInterval {

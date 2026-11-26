@@ -8,6 +8,7 @@ func persistedPreferenceKeys() {
     // Renaming any value would silently drop the user's saved setting.
     let keys: [(String, String)] = [
         (DefaultsKey.refreshInterval, "refreshIntervalSeconds"),
+        (DefaultsKey.antigravityRefreshInterval, "antigravityRefreshIntervalSeconds"),
         (DefaultsKey.codexBinaryPath, "codexBinaryPath"),
         (DefaultsKey.menuBarProvider, "menuBarQuotaProvider"),
         (DefaultsKey.menuBarDisplayMode, "menuBarQuotaDisplayMode"),
@@ -39,6 +40,24 @@ func persistedPreferenceKeys() {
         #expect(key == stored)
     }
     #expect(Set(keys.map(\.0)).count == keys.count)
+}
+
+@Test("Antigravity refresh uses its own preference and a minimum fifteen-minute interval")
+func antigravityRefreshIntervalNormalization() throws {
+    let defaults = try IsolatedDefaults()
+    defer { defaults.remove() }
+    let preferences = defaults.defaults
+    preferences.set(60.0, forKey: DefaultsKey.refreshInterval)
+
+    #expect(RefreshInterval.antigravityDefaultSeconds == 900)
+    #expect(RefreshInterval.antigravitySeconds(in: preferences) == 900)
+    for interval in [0, -60, 60, 300, 600, 900, .infinity, -.infinity, .nan] as [TimeInterval] {
+        preferences.set(interval, forKey: DefaultsKey.antigravityRefreshInterval)
+        #expect(RefreshInterval.antigravitySeconds(in: preferences) == 900)
+    }
+    preferences.set(1_800.0, forKey: DefaultsKey.antigravityRefreshInterval)
+    #expect(RefreshInterval.antigravitySeconds(in: preferences) == 1_800)
+    #expect(RefreshInterval.seconds(in: preferences) == 60)
 }
 
 @Test("Refresh interval falls back to five minutes for unset or invalid values")

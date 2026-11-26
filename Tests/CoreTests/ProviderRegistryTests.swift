@@ -98,6 +98,32 @@ struct ProviderRegistryTests {
         #expect(added.stops == 1 && registry.resolve(id) == .codex)
     }
 
+    @Test("Antigravity snapshots age according to its own refresh interval")
+    func antigravitySnapshotAge() async throws {
+        let settings = try IsolatedDefaults()
+        defer { settings.remove() }
+        let defaults = settings.defaults
+        defaults.set(60.0, forKey: DefaultsKey.refreshInterval)
+        let snapshot = AntigravityQuotaSnapshot.preview
+        let store = AntigravityUsageStore(
+            defaults: defaults, fetchSnapshot: { snapshot }, installationDetector: { true })
+        let registry = QuotaProviderRegistry.builtIn(
+            codex: UsageStore(previewMode: true), antigravity: store,
+            claudeCode: ClaudeCodeUsageStore(previewMode: true), defaults: defaults)
+        let provider = try #require(registry.plugin(for: .antigravity))
+
+        store.start()
+        defer { store.stop() }
+        try await waitUntil("the Antigravity quota snapshot is ready") { store.phase == .ready }
+
+        #expect(provider.snapshot(at: snapshot.fetchedAt.addingTimeInterval(1_800))?.isHistorical == false)
+        #expect(provider.snapshot(at: snapshot.fetchedAt.addingTimeInterval(1_801))?.isHistorical == true)
+
+        defaults.set(1_800.0, forKey: DefaultsKey.antigravityRefreshInterval)
+        #expect(provider.snapshot(at: snapshot.fetchedAt.addingTimeInterval(3_600))?.isHistorical == false)
+        #expect(provider.snapshot(at: snapshot.fetchedAt.addingTimeInterval(3_601))?.isHistorical == true)
+    }
+
     @Test("Duplicate identifiers and removal of the fallback are rejected")
     func invalidRegistration() throws {
         let registry = try QuotaProviderRegistry(plugins: [RegistryFixturePlugin(.codex)])

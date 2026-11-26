@@ -122,7 +122,8 @@
 "settings.github_repo" = "开源项目主页";
 "settings.acknowledgements" = "基于 macOS 原生技术栈精心打造。";
 
-"settings.auto_refresh" = "自动刷新";
+"settings.auto_refresh_format" = "%@ 自动刷新";
+"settings.custom_interval" = "自定义间隔";
 "settings.menu_bar_quota" = "菜单栏额度";
 "settings.menu_bar_source" = "菜单栏来源";
 "settings.menu_bar_source_help" = "为菜单栏选择一个额度来源。";
@@ -137,6 +138,8 @@
 "settings.every_5_minutes" = "每 5 分钟";
 "settings.every_10_minutes" = "每 10 分钟";
 "settings.every_15_minutes" = "每 15 分钟";
+"settings.every_30_minutes" = "每 30 分钟";
+"settings.every_hour" = "每小时";
 "settings.codex_path" = "Codex 路径";
 "settings.codex_path_help" = "留空时自动查找 Codex。";
 "settings.updates" = "更新";
@@ -276,13 +279,7 @@
 "settings.codex_status_checking" = "正在验证可执行文件…";
 
 // QuotAI 3.0
-"claude.auto.15" = "每 15 分钟";
-"claude.auto.30" = "每 30 分钟";
-"claude.auto.60" = "每小时";
-"claude.auto.detail" = "默认关闭。可选的定时查询使用同一个本机 /usage 命令，不生成模型回复。";
-"claude.auto.interval" = "查询间隔";
 "claude.auto.off" = "仅手动查询";
-"claude.auto.title" = "Claude 自动查询";
 "history.all" = "全部来源";
 "history.chart" = "已记录的剩余额度，范围为百分之零到百分之一百";
 "history.clear" = "清空历史记录";

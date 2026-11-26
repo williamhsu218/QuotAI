@@ -77,7 +77,10 @@ struct SettingsView: View {
         _selectedTab = State(initialValue: initialTab)
     }
 
-    @AppStorage(DefaultsKey.refreshInterval) private var refreshInterval = RefreshInterval.defaultSeconds
+    @AppStorage(DefaultsKey.refreshInterval) private var codexRefreshInterval = RefreshInterval.defaultSeconds
+    @AppStorage(DefaultsKey.antigravityRefreshInterval)
+    private var antigravityRefreshInterval = RefreshInterval.antigravityDefaultSeconds
+    @AppStorage(DefaultsKey.claudeAutoRefresh) private var claudeRefreshInterval = 0
     @AppStorage(DefaultsKey.codexBinaryPath) private var codexBinaryPath = ""
     @AppStorage(DefaultsKey.menuBarProvider)
     private var menuBarQuotaProvider = QuotaProvider.codex
@@ -121,6 +124,17 @@ struct SettingsView: View {
         registry.visibleProviders.contains { registry.store(for: $0).phase == .loading }
     }
 
+    private var effectiveAntigravityRefreshInterval: TimeInterval {
+        RefreshInterval.normalizedAntigravity(antigravityRefreshInterval)
+    }
+
+    private var antigravityRefreshSelection: Binding<TimeInterval> {
+        Binding(
+            get: { effectiveAntigravityRefreshInterval },
+            set: { antigravityRefreshInterval = $0 }
+        )
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             tabSelector
@@ -155,9 +169,14 @@ struct SettingsView: View {
             normalizeAntigravityGroupSelection()
             refreshLaunchAtLogin()
         }
-        .onChange(of: refreshInterval) {
+        .onChange(of: codexRefreshInterval) {
             store.rescheduleRefresh()
+        }
+        .onChange(of: effectiveAntigravityRefreshInterval) {
             antigravityStore.rescheduleRefresh()
+        }
+        .onChange(of: claudeRefreshInterval) {
+            model.preferencesDidChange()
         }
         .onChange(of: antigravityGroupIDs) {
             normalizeAntigravityGroupSelection()
@@ -218,24 +237,31 @@ struct SettingsView: View {
                             "settings.launch_at_login_help", fallback: "Automatically start QuotAI when you log in."))
                 }
 
-                SettingsSection(title: L10n.text("settings.section.token_activity", fallback: "Token Activity Colors"))
-                {
-                    TokenActivityThemePicker()
-                }
-
                 SettingsSection(title: L10n.text("settings.section.refresh", fallback: "Refresh & Sync")) {
-                    HStack {
-                        Text(L10n.text("settings.auto_refresh", fallback: "Auto-refresh"))
-                        Spacer()
-                        Picker("", selection: $refreshInterval) {
-                            Text(L10n.text("settings.every_1_minute", fallback: "Every 1 minute")).tag(60.0)
-                            Text(L10n.text("settings.every_5_minutes", fallback: "Every 5 minutes")).tag(300.0)
-                            Text(L10n.text("settings.every_10_minutes", fallback: "Every 10 minutes")).tag(600.0)
-                            Text(L10n.text("settings.every_15_minutes", fallback: "Every 15 minutes")).tag(900.0)
-                        }
-                        .labelsHidden()
-                        .frame(width: 150)
+                    refreshIntervalPicker(for: .codex, selection: $codexRefreshInterval) {
+                        Text(L10n.text("settings.every_1_minute", fallback: "Every 1 minute")).tag(60.0)
+                        Text(L10n.text("settings.every_5_minutes", fallback: "Every 5 minutes")).tag(300.0)
+                        Text(L10n.text("settings.every_10_minutes", fallback: "Every 10 minutes")).tag(600.0)
+                        Text(L10n.text("settings.every_15_minutes", fallback: "Every 15 minutes")).tag(900.0)
                     }
+
+                    refreshIntervalPicker(for: .antigravity, selection: antigravityRefreshSelection) {
+                        Text(L10n.text("settings.every_15_minutes", fallback: "Every 15 minutes")).tag(900.0)
+                        Text(L10n.text("settings.every_30_minutes", fallback: "Every 30 minutes")).tag(1_800.0)
+                        Text(L10n.text("settings.every_hour", fallback: "Every hour")).tag(3_600.0)
+                        if ![900, 1_800, 3_600].contains(effectiveAntigravityRefreshInterval) {
+                            Text(L10n.text("settings.custom_interval", fallback: "Custom interval"))
+                                .tag(effectiveAntigravityRefreshInterval)
+                        }
+                    }
+
+                    refreshIntervalPicker(for: .claudeCode, selection: $claudeRefreshInterval) {
+                        Text(L10n.text("claude.auto.off", fallback: "Manual only")).tag(0)
+                        Text(L10n.text("settings.every_15_minutes", fallback: "Every 15 minutes")).tag(900)
+                        Text(L10n.text("settings.every_30_minutes", fallback: "Every 30 minutes")).tag(1_800)
+                        Text(L10n.text("settings.every_hour", fallback: "Every hour")).tag(3_600)
+                    }
+                    .disabled(!claudeCodeStore.isConnected)
 
                     Divider().overlay(AppTheme.separator.opacity(0.5))
 
@@ -254,10 +280,30 @@ struct SettingsView: View {
                         .disabled(isAnyProviderLoading)
                     }
                 }
+
+                SettingsSection(title: L10n.text("settings.section.token_activity", fallback: "Token Activity Colors"))
+                {
+                    TokenActivityThemePicker()
+                }
             }
             .padding(AppTheme.Spacing.large)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private func refreshIntervalPicker<Selection: Hashable, Options: View>(
+        for provider: QuotaProvider, selection: Binding<Selection>, @ViewBuilder options: () -> Options
+    ) -> some View {
+        let title = L10n.format("settings.auto_refresh_format", fallback: "%@ auto-refresh", provider.displayName)
+        return HStack {
+            Text(title).accessibilityHidden(true)
+            Spacer()
+            Picker(title, selection: selection, content: options)
+                .labelsHidden()
+                .accessibilityLabel(title)
+                .accessibilityIdentifier("settings.refresh.\(provider.rawValue)")
+                .frame(width: 150)
+        }
     }
 
     private var menuBarPane: some View {

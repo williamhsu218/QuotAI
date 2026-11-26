@@ -122,7 +122,8 @@
 "settings.github_repo" = "GitHub Repository";
 "settings.acknowledgements" = "Created with pair programming on macOS.";
 
-"settings.auto_refresh" = "Auto-refresh";
+"settings.auto_refresh_format" = "%@ auto-refresh";
+"settings.custom_interval" = "Custom interval";
 "settings.menu_bar_quota" = "Menu bar quota";
 "settings.menu_bar_source" = "Menu bar source";
 "settings.menu_bar_source_help" = "Choose one quota provider for the menu bar.";
@@ -137,6 +138,8 @@
 "settings.every_5_minutes" = "Every 5 minutes";
 "settings.every_10_minutes" = "Every 10 minutes";
 "settings.every_15_minutes" = "Every 15 minutes";
+"settings.every_30_minutes" = "Every 30 minutes";
+"settings.every_hour" = "Every hour";
 "settings.codex_path" = "Codex path";
 "settings.codex_path_help" = "Leave blank to find Codex automatically.";
 "settings.updates" = "Updates";
@@ -276,13 +279,7 @@
 "settings.codex_status_checking" = "Checking executable…";
 
 // QuotAI 3.0
-"claude.auto.15" = "Every 15 minutes";
-"claude.auto.30" = "Every 30 minutes";
-"claude.auto.60" = "Every hour";
-"claude.auto.detail" = "Off by default. Optional queries use the same local /usage command and never generate a model response.";
-"claude.auto.interval" = "Query interval";
 "claude.auto.off" = "Manual only";
-"claude.auto.title" = "Claude Automatic Queries";
 "history.all" = "All providers";
 "history.chart" = "Recorded quota remaining, from zero to one hundred percent";
 "history.clear" = "Clear History";

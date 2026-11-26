@@ -19,7 +19,7 @@ final class AntigravityUsageStore: QuotaProviderStore {
     @ObservationIgnored private let cliPlanRefreshInterval: TimeInterval
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private lazy var refreshScheduler = QuotaRefreshScheduler(
-        interval: { [defaults] in RefreshInterval.seconds(in: defaults) },
+        interval: { [defaults] in RefreshInterval.antigravitySeconds(in: defaults) },
         tick: { [weak self] in Task { await self?.refresh() } }
     )
     @ObservationIgnored private var generation: UInt64 = 0
