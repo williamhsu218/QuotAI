@@ -9,7 +9,6 @@ struct FeatureSettingsView: View {
     @AppStorage(DefaultsKey.quotaHistory) private var history = false
     @AppStorage(DefaultsKey.quotaWidgets) private var widgets = false
     @AppStorage(DefaultsKey.globalShortcut) private var shortcut = false
-    @AppStorage(DefaultsKey.claudeAutoRefresh) private var claudeInterval = 0
     @State private var clearTokenHistoryConfirmation = false
 
     var body: some View {
@@ -157,22 +156,6 @@ struct FeatureSettingsView: View {
                         .font(.caption).foregroundStyle(.secondary)
                     }
                 }
-                SettingsSection(title: L10n.text("claude.auto.title", fallback: "Claude Automatic Queries")) {
-                    Picker(L10n.text("claude.auto.interval", fallback: "Query interval"), selection: $claudeInterval) {
-                        Text(L10n.text("claude.auto.off", fallback: "Manual only")).tag(0)
-                        Text(L10n.text("claude.auto.15", fallback: "Every 15 minutes")).tag(900)
-                        Text(L10n.text("claude.auto.30", fallback: "Every 30 minutes")).tag(1_800)
-                        Text(L10n.text("claude.auto.60", fallback: "Every hour")).tag(3_600)
-                    }.disabled(!model.claudeCode.isConnected)
-                    Text(
-                        L10n.text(
-                            "claude.auto.detail",
-                            fallback:
-                                "Off by default. Optional queries use the same local /usage command and never generate a model response."
-                        )
-                    )
-                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                }
             }.padding(AppTheme.Spacing.large)
         }
         .onChange(of: threshold) { model.resetNotificationBaseline() }
@@ -181,7 +164,6 @@ struct FeatureSettingsView: View {
         .onChange(of: history) { model.preferencesDidChange() }
         .onChange(of: widgets) { model.preferencesDidChange() }
         .onChange(of: shortcut) { model.preferencesDidChange() }
-        .onChange(of: claudeInterval) { model.preferencesDidChange() }
         .task {
             await model.notifications.refreshAuthorization()
             await model.refreshLocalTokenHistoryAvailability()

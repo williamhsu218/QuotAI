@@ -187,7 +187,7 @@ extension QuotaProviderRegistry {
                         planName: snapshot.subscriptionPlan?.displayName,
                         isHistorical: antigravity.expiryReferenceDate != nil
                             && now.timeIntervalSince(snapshot.fetchedAt)
-                                > max(600, RefreshInterval.seconds(in: defaults) * 2)
+                                > RefreshInterval.antigravitySeconds(in: defaults) * 2
                     )
                 }
             }, start: { antigravity.start() }, stop: { antigravity.stop() })
