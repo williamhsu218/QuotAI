@@ -198,7 +198,7 @@ func antigravityCLISubscriptionProbeReadsPlanTier() async throws {
           fi
           shift
         done
-        cmd=$(/usr/bin/python3 -c 'import json,sys; print(json.loads(sys.argv[1])["statusLine"]["command"])' "$settings")
+        cmd=$(printf '%s' "$settings" | /usr/bin/plutil -extract statusLine.command raw -expect string -o - -- -)
         printf '{"agent_state":"error"}\n' | /bin/sh -c "$cmd" >/dev/null
         printf '{"agent_state":"idle"}\n' | /bin/sh -c "$cmd" >/dev/null
         /bin/sleep 2
@@ -207,7 +207,7 @@ func antigravityCLISubscriptionProbeReadsPlanTier() async throws {
     try script.write(to: executable, atomically: true, encoding: .utf8)
     try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: executable.path)
 
-    let plan = try await AntigravityCLI.fetchSubscriptionPlan(executable: executable, timeout: 6)
+    let plan = try await AntigravityCLI.fetchSubscriptionPlan(executable: executable)
     #expect(plan?.displayName == "Pro")
 }
 
